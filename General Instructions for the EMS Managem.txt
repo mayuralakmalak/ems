@@ -1,0 +1,163 @@
+General Instructions for the EMS Management system
+
+- Use the latest version of the Laravel framework and Bootstrap 5 for the frontend and admin panel.
+- Use the latest version of the MySQL database for the database.
+- Use the latest version of PHP for the backend.
+- Use the latest version of HTML for the frontend.
+- Use the latest version of the CSS for the frontend.
+- Use the latest version of JavaScript for the frontend.
+- Use the latest version of jQuery for the frontend.
+- Use the latest version of Ajax for the frontend.
+- Use the latest version of JSON for the frontend.
+
+
+Admin Side Exhibition management system 
+1) Module 1 - User Management
+Admin Side must include the Role and permission wise user management module 
+There will be 5 types of users 
+- Admin 
+- Exhibitor ( this user has to register from front end ) 
+- Staff - Admin created
+- Sub Admin - admin created
+- Visitor ( without login can see static cms based pages and before exhibition registration pages and all information abt price, availability and related. etc ) 
+
+2) Module 2 - Exhibition Management 
+
+Step by Step Exhibition configuration form 
+Step 1 - Exhibition General details - Exhibition name, Venue, City, Country, state, date, timing, etc 
+Step 2 - Floor plan management - can create visual layout for the hall and booth placing by sqft/sq mt wise and can add multiple booth and can add size of the booth 
+
+Floorplan Management:
+Upload Floorplan Image (upload area)
+
+Booth Configuration:
+Select Booth (dropdown) | Size (input) | Category (input) | Side open pricing: % adjustment (input)
+
+Booth Type Pricing must be there in each booth creation
+Raw: Price/sq ft (input)
+Orphand: Price/sq ft (input)
+
+
+Side Open Variations (% adjustment) must be there in the booth:
+1 Side Open: % (input)
+2 Sides Open: % (input)
+3 Sides Open: % (input)
+4 Sides Open: % (input)
+
+Booth wise Category and Pricing should be there:
+Premium: Price (input)
+Standard: Price (input)
+Economy: Price (input)
+
+Checkbox: Free Booth (and user selection)
+
+Stall Scheme Configuration must be there in the admin side exhibition creation
+
+For 9 sq m stalls:
+Item Name: 1 table, 2 chairs, 2 lights (input) | Quantity (input) | + Add | Delete (button)
+
+For 18 sq m stalls:
+Item Name (input) | Quantity (input) | + Add | Delete (button)
+
+sq m stalls wise can add more items and needs to upload the image of the services and sq m booth each item wise 
+
+Cut-off Dates should be there for the 
+Add-on services cut-off date: mm/dd/yyyy (date)
+Document upload deadlines: mm/dd/yyyy (date)
+
+
+
+Button: Save and Continue to Step 3
+
+
+ Step 3 - Payment Schedule Setup
+
+Number of payment parts (fixed, cannot change after creation): [input]
+
+Part 1: Percentage (input) | mm/dd/yyyy (date)
+Part 2: Percentage (input) | mm/dd/yyyy (date)
+Part 3: Percentage (input) | mm/dd/yyyy (date)
+
+Step 4 - Badge Management:
+Primary Badge: quantity (input) | Free/Paid (radio) | Price (input)
+Secondary Badge: quantity (input) | Free/Paid (radio) | Price (input)
+Additional Badge: quantity (input) | Free/Paid (radio) | Price (input)
+Need Admin approval: Yes/No (radio)
+Items to be included in Additional Badge: Lunch | Entry Only | Snacks (checkboxes)
+
+Step 4 - Exhibition Manual
+
+PDF Upload Section: Choose files or drag and drop (upload area)
+Preview (button)
+
+Stall Variation Management:
+Upload visual designs for all stall types
+Stall Type A - 1 Side Open:
+Front View: Choose files or drag and drop (upload)
+Side View (Left): Upload area
+Side View (Right): Upload area
+Preview in Viewer (button)
+
+Buttons: Cancel | Save
+
+3) Module 3 - Financial management
+- Revenue summary cards
+- Payment method breakdown (pie chart)
+- Outstanding payments table
+- Payment trends graph
+
+
+4) Module 4 - Reports & Analytics
+- Report type dropdown:
+ - Booking Report
+ - Financial Report
+ - Demographics Report
+ - Service Usage Report
+ - Space Utilization Report
+
+
+
+
+Front Side
+
+1) Exhibitor can login with Email And Login with SMS OTP (Both in one page with tab and different form)
+2) Exhibitor registration with the given information and must be included all the fields
+
+
+Exhibitor booking at frontside on the  website
+ - Exhibitor can select booth from the visual floor plan and can choose one or more booth while booking
+ - Exhibitor can merge two booth together and its name like if D1 and D2 booth merging than name of the merged booth will be D1D2
+ - Exhibitor can buy additional services by selecting quantity and it will be extra payable also before the cutoff date set by the admin 
+ - Exhibitor can replace the booth with new booth
+ - Exhibitor can cancel the booth
+ - The price will be calculated based on the square feet price set by the admin and the space area X sq feet price, and also variation on price whether its 2 side open, 1 side open or 3 side open or all 4 sides open ( the price either increases or decreases by its side open as set from the admin ) 
+ - Free booth only book by the user which permitted by the admin 
+ - Additional services user can select the quantity and based on that price will be calculated and included in the total 
+ - Multiple payment methods (cards, UPI, Net Banking, wallets).
+ - Exhibitor make payment securely online (2.5% extra fee) / offline payment.
+ - Once confirmed, exhibitor upload required documents for verification.
+ - After approval, exhibitor can download their exhibitor badges.
+ - On event day, badges are scanned for easy check-in and access control.
+ - In Primary if admin has added two then two batches will be provided to exhibitor
+ - In Secondary if admin has added 1 then only 1 badge will be provided to exhibitor
+ - In additional if admin had added additional badge will only have access to enter the hall
+ - must include wallet management 
+
+ Once Exhibitor login there will be one link to enter inside the exhibitor panel 
+ - where exhibitor can see the booked exhibition and active and completed exhibition
+ - Exhibitor can manage their booking and upload required required document and can manage
+ - Exhibitor add two top level and two staff badges and additional badges are paid they must have to take the approval of the admin to download the additional badges  
+ 
+In the document upload 
+- Should provide upload size and how many can user upload
+
+Exhibitor can add 5 emails and 5 contact numbers in exhibition booking after confirmation
+
+
+
+
+
+
+
+
+

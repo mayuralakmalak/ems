@@ -1,0 +1,202 @@
+This document explains how the Exhibitor Booking Flow of the Exhibition Management System will work — in simple terms. It focuses on what features will be delivered, what each part does, and how the process will work for exhibitors and organizers. 
+System Overview
+The platform serves as an all-in-one tool for exhibitors to register, book spaces, manage participation, access services, and communicate with organizers, supporting both local and international exhibitions.
+Additional Requirement 
+Core System Architecture
+Frontend Components
+    • Public Landing Page: Displays active and upcoming exhibitions with event highlights, schedules, and registration links.
+    • Exhibitor Registration & Login Portal: Allows exhibitors to create accounts, log in securely, and access personalized dashboards.
+Additional Requirements: Login with OTP and Login with email and password
+    • Booking Management Dashboard: Central place for users to book, modify, or cancel spaces, and view booking statuses.
+    • Payment Processing Interface: Facilitates secure, multi-method payments with receipt and invoice management.
+    • Document Management System: Upload, download, verify, and track important documents in various formats, including certificates and booth designs.
+    • Communication Center: Includes messaging, notifications, and  internal inbox for  support for streamlined communication between exhibitors and organizers.
+Backend Components
+    • User Authentication & Authorization: Ensures secure login and data protection, supporting multiple access levels (Admin, Exhibitor, Staff).
+    • Booking Management Engine: Manages bookings, space allocation, pricing, and booking statuses.
+    • Payment Gateway Integration: Links with major payment platforms for processing and tracking transactions.
+    • Email Notification System: Sends automated emails regarding confirmations, reminders, and updates.
+    • Document Storage & Management: Organizes documents across events, ensuring secure storage and version control.
+    • Reporting & Analytics Dashboard: Provides insights into booking trends, financial metrics, and user activity.
+
+Detailed Functionality Breakdown
+
+How it works:
+    1. Exhibitor visits the public website and explores upcoming exhibitions.
+    2. They select the event they want to participate in.
+    3. They view the floorplan and choose a booth location.
+    4. They complete a booking form with company details and add-on services.
+    5. They make payment securely online.
+    6. Once confirmed, they upload required documents for verification.
+    7. After approval, they can download their exhibitor badges.
+    8. On event day, badges are scanned for easy check-in and access control.
+
+User Management Module
+User Flow: Registration & Login
+    • Exhibitor registers via a detailed form capturing company and contact details.
+    • Email verification is sent; upon verification, login credentials are set.
+    • Multi-level access is assigned based on user role (Admin, Exhibitor, Staff).
+    • Password recovery is available through email/SMS for seamless access recovery.
+    • Option given to exhibitor can cancel / additional book / replace current stall with new stall
+    • After the booking Exhibitor can upload/replace brochure max limit is 5.
+    • Exhibitor can purchase extra things like chair, list will be provided from client which will have additional cost as defined by the admin and the client can make payment accordingly. They can select this before the a certain date before the event ( cut off date which is set by the admin ) 
+Additional Requirement : table chair everything will be displayed along with its images
+
+Exhibition Booking Module
+Exhibition Details & Floorplan
+Each exhibition page includes a visual floorplan of the event venue. Exhibitors can explore booth locations, sizes, and categories (Premium, Standard, etc.).
+Purpose: Allow exhibitors to pick their desired space easily.
+Main Features:
+    1. Interactive map showing available and booked booths.
+    2. Click a booth to view its size, price, and facilities.
+The price will be calculated based on the square feet price set by the admin and the space area X sq feet price, and also variation on price whether its 2 side open, 1 side open or 3 side open or all 4 sides open ( the price either increases or decreases by its side open as set from the admin ) 
+    3. Select preferred booth(s) and proceed to booking.
+As soon as user pays, user will get login credentials via email. (10% pay – this % amount can be set by admin and changed time to time. After the change the new user will see that updated amount and not for someone who has previously booked.
+    • Additional Requirements: Booth type Raw (means nothing will be provided only space is allocated) or Orphand (means everything is provided .i.e whole setup done)
+Price for this booths will be different
+-Special discount on booths
+
+    4. Accepts terms and submits booking.
+    5. Receives instant booking confirmation and invoice.
+    • Bookings can be modified, cancelled, or tracked with payment integration ensuring their status is always up-to-date.
+    • After the stall is booked they need to upload their logo so that on the floor plan visual display their logos show up as booked by.
+    • One user can also book another stall (* or can even cancel the booked stall. 
+    • ON cancellation, the request goes to the admin and the admin can decide any one action item 1) refund the total amount or partial amount 2) credit full or partial amount to their wallet back, so that they can use this amount to book another stall ( note this wallet amount can be ONLY used to book another stall and nothing else ) – Here the admin after receiving the request will enter the amount that will be credited or refunded, and an automatic email is sent to the customer.
+Additional Requirements: In full refund take account details where you will refund the amount
+    • Admin has a prevailed to have them first register on the system, and then mark a % discount on the listed price for a selected user to book, So when this selected user logs in back to the system, see a discounted price of the stalls ( it will be a % discount and not a fixed one ) 
+
+
+Space & Venue Management
+    • Interactive floor plans let exhibitors select preferred booth locations.
+The visual appearance of the stall the client will provide all the different variation on how the stall will look for all sides, for Every different possible stall type, ( which will be uploaded from the backend will be visible on the front end for the user to view, at the time of booking ) 
+    • Admin can Edit Floor Plans (They are able to combining two stalls to 1, or splitting bigger into small) 
+    • Real-time tracking of available/occupied spaces with categorized pricing (Premium/Standard/Economy).
+    • Booth customization options available during booking.
+Stall / Booth Management Module
+    • Stall scheme 9 sq m wil have a set of things included which can be add/ modify / deleted by the admin as a one time setup. , eg. -> provide 1 table, 2 chair and 2 lights; 18 sq m -> 2 table, 4 chair and 4 lights
+    • After the initial payment, the user has to make the remaining payment before a certain due day ( this due date is set by the admin as the 2nd part payment due date ), then 3rd part, etc. ( it will be a fixed date set from the admin based on the parts. 
+    • This parts is fixed set decided  while creating the stall, on how many different parts of payment is due and when ( once set can’t he changed – ( The parts ) but any future date can be changed ) 
+Additional Requirements:Provide an option to upload images along with stall eg: stall with 9 sq m can get 2 chairs and 2 tables then upload images of chairs and tables
+Additional Requirements: Here when two stalls are merged it name should be D1D2 and when splitted something like D1 D12
+Outcome: The booth is temporarily reserved, and the system moves to payment.
+Payment Processing System
+User Flow: Making Payments
+    1. After booking submission, exhibitor is directed to secure payment portal.
+    2. Multiple payment methods (cards, UPI, Net Banking, wallets).
+    3. On successful payment, receipt and invoice generated automatically.
+    4. Option for instalment payments and refund in case of cancellations, managed via dashboard.
+
+Outcome: The booking is confirmed, and the booth is officially assigned to the exhibitor.
+Document Management
+    • Exhibitor uploads required documents (certificates, proofs, catalogs).
+    • Documents undergo verification workflow, version control, and expiry tracking.
+    • All documents downloadable anytime, supporting regulatory audits and organizer reviews.
+
+Outcome: Once verified, exhibitors are cleared for participation.
+Additional requirement: Should provide upload size and how many can user upload
+Exhibitor Dashboard
+Exhibitors have a personal dashboard where they can manage everything in one place — bookings, payments, documents, and services.
+Purpose: Centralize all exhibitor activities and provide transparency.
+Main Features:
+    • View all bookings and their statuses.
+    • Download invoices and receipts.
+    • Track payments and refunds.
+    • Manage additional services and upload documents.
+If someone wants to do a sponsorship they can view the options available along with the deliverables for each type of sponsorship. The user can also make booking and payment of this sponsorship.
+Additional Information: Exhibitor can add 5 emails and 5 contact numbers
+Communication System
+    • Email and SMS notifications for confirmations, updates, and reminders.
+    • In-app messaging enables direct, documented communication with organizers.
+Additional requirement: Webmail Exhibitor Admin -> sort of chatbox
+In notification count should get displayed until user has not replied.
+When someone closes the loop of chat then it should go in Archive
+It won;t ever get deleted so remove delete option
+Left panel should contain
+Inbox
+Pending
+Completed
+Archive
+Exhibitor Services Module
+    • Exhibitors can order booth utilities (electricity, internet, furniture), catering, promotional packages, and badge services through dedicated booking interfaces.
+Badge & Access Management
+Once all documents are verified, exhibitors can generate badges for themselves and their staff. Each badge includes a QR code for quick scanning at event entry points.
+
+Upload badge — Top management limit 2 , Normal staff limit 3, If they want more they can add but that will be additional cost as set by admin they will have to make a payment ( online or offline ) if online then 2.5% extra.
+This badge needs to be managed either same for all days, or if the business owner wants to set different people for different days, the system can allow that.
+The admin can override and add additional badge from admin for a selected party.
+For Business owner ( employer ) for badge their photo upload is compulsory to be uploaded post booking.
+Exhibition manual to be shared to all who have registered. This will be a PDF uploaded by admin
+Additional REquirement: Create functionality in badge like it gets added from Admin in the form of Primary, Secondary and Additional
+In Primary if admin has added two then two batches will be provided to exhibitor
+In Secondary if admin has added 1 then only 1 badge will be provided to exhibitor
+In additional if admin had added additional badge will only have access to enter the hall
+Purpose: Simplify on-site access and enhance security.
+Main Features:
+    • Generate and download exhibitor badges.
+    • Assign badges to staff members.
+    • Track check-in and check-out during the exhibition.
+Outcome: Exhibitors and their teams can access the event smoothly using their badges.
+QR Code & Mobile App Integration 
+    • QR code scanner for food stall, download app link and enter management and staff details from mobile ( TBD ) 
+    • App integrated common details: input mobile no,  OTP is sent to the mobile number against which it is verified to login.
+
+Administrative Panel
+Exhibition Management
+    • Admins create, edit, and configure exhibitions, timelines, pricing, and manage floor plans directly from the backend.
+Admin can give stall at special rates to exhibitor (discounted % rate after the user has registered first and can apply this only after that.  and these discounted rate will only be seen to particular selected exhibitor )
+    • Additional Requirement: Admin can select booth type and assign price for that particular booth eg: raw same way for Orphand.
+Admin can upload upload images for Services
+Booth Category will be standard , Premium, Economy
+Can provide booth at discounted rate and should also get  an option for free booth.
+Admin should be able to manage role wise exhibition
+i.e admin can access all modules
+accountant can handle only payment module
+Exhibitor listing missing
+User Management
+    • Robust controls for account creation, role assignment, activity monitoring, and approval workflows to ensure only validated users access the system.
+    • OTP registration -> DLT registration for sending messages ( to be done by client with the phone service provider )
+
+Financial Management
+    • Central dashboard for tracking all payments, refunds, outstanding balances, and generating revenue analytics.
+    • Admin deliverables: payment from backend, possession letter when full payment then admin should ask whether to give possession letter ( manual approval will appear on task list of admin to approve ) 
+    • Apply price according to the selected sq ft of the stall
+    • Credit / debit / UPI payment (10% payment pay immediately to book the stall) – and 2.5 % extra to be paid iv paid via payment gateway or they can pay using RTGS / NEFT for which they get 48 hours to make the payment and upload receipt. If the transaction selection is RTGS/NEFT  and its not marked as completed, it automatically gets cancelled and admin gets an email and shows in action item, whether to release the stall and if marked as released that stall shows as available to the next user. 
+Additional requirement when clicked challan should be generated and mailed to the admin
+
+
+
+Reporting & Analytics
+    • Comprehensive reporting tools provide booking, financial, and demographics data to guide strategy and operations.
+    • Admin will generate Exception report : Any overrides that admin has made will show up here for each selected client. 
+TBD all the set of exceptions the admin can made ( max 10 nos ) so that we can include there in the list here 
+1) Price overside
+2)Number of badge overside
+3) due date overside
+4)..
+5)
+6)
+7)
+8)
+9)
+10)
+    • Checklist for Admin: A set action that the exhibitor needs to be taken, shows on both user side and admin side, etc. exhibitor gift, photo, certificate upload, foodstall coupon, momento, water coupon. ( this will be add / modify / delete section from the admin ) 
+
+
+Post-Event Reporting
+After the event, the system can generate detailed reports for organizers, including:
+    • Total bookings and revenue.
+    • Space utilization and service usage.
+    • Exhibitor demographics and performance insights.
+    • 
+         Booking and Cancellation Management Module
+    • If replacement apply cancellation charges
+    • If refund, apply cancellation charges then refund
+    • Request for cancellation (cancellation charges will be different) and show message "Request for cancellation has been seen. Plz contact contact no."
+
+Integration Requirements
+    • Payment gateways, cloud storage, email/SMS, and analytics are seamlessly integrated via RESTful APIs, complete with authentication and rate limiting.
+    • API to transfer some data from app to web ( TBD ) details awaited. 
+
+
+Mobile Responsiveness
+    • Fully responsive web interface; optional dedicated mobile application 
