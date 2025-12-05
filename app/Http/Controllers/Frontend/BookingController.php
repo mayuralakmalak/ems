@@ -14,6 +14,12 @@ use Illuminate\Support\Facades\DB;
 
 class BookingController extends Controller
 {
+    public function create($exhibitionId)
+    {
+        $exhibition = Exhibition::with(['booths', 'services'])->findOrFail($exhibitionId);
+        return view('frontend.bookings.create', compact('exhibition'));
+    }
+
     public function store(Request $request)
     {
         // Handle both old format (booth_id) and new format (booth_ids[])
@@ -85,26 +91,31 @@ class BookingController extends Controller
 
             $totalAmount += $servicesTotal;
 
-            // Create booking
+            // Create booking with approval status
             $booking = Booking::create([
                 'exhibition_id' => $exhibition->id,
                 'user_id' => $user->id,
                 'booth_id' => $boothId,
                 'booking_number' => 'BK' . now()->format('YmdHis') . rand(100, 999),
                 'status' => 'pending',
+                'approval_status' => 'pending', // Requires admin approval
                 'total_amount' => $totalAmount,
                 'paid_amount' => 0,
                 'contact_emails' => $request->contact_emails ?? [],
                 'contact_numbers' => $request->contact_numbers ?? [],
             ]);
+            
+            // Create booth request for booking approval
+            \App\Models\BoothRequest::create([
+                'exhibition_id' => $exhibition->id,
+                'user_id' => $user->id,
+                'request_type' => 'booking',
+                'booth_ids' => [$boothId],
+                'status' => 'pending',
+            ]);
 
-            // Mark booths as booked
-            foreach ($booths as $booth) {
-                $booth->update([
-                    'is_available' => false,
-                    'is_booked' => true,
-                ]);
-            }
+            // DO NOT mark booths as booked yet - wait for admin approval
+            // Booths will be marked as booked when admin approves the request
 
             // Add additional services
             if ($request->services) {
