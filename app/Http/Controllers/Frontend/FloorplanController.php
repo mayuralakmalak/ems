@@ -17,7 +17,22 @@ class FloorplanController extends Controller
         
         // If user is authenticated, use exhibitor layout, otherwise use public layout
         if (auth()->check()) {
-            return view('frontend.floorplan.show', compact('exhibition'));
+            // Get user's bookings for this exhibition
+            $bookings = \App\Models\Booking::with(['booth', 'payments'])
+                ->where('user_id', auth()->id())
+                ->where('exhibition_id', $id)
+                ->latest()
+                ->get();
+            
+            // Get payments for this exhibition
+            $payments = \App\Models\Payment::whereHas('booking', function($query) use ($id) {
+                $query->where('exhibition_id', $id)->where('user_id', auth()->id());
+            })
+            ->with('booking')
+            ->latest()
+            ->get();
+            
+            return view('frontend.floorplan.show', compact('exhibition', 'bookings', 'payments'));
         } else {
             return view('frontend.floorplan.public', compact('exhibition'));
         }

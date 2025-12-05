@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Login - {{ config('app.name', 'EMS') }}</title>
+    <title>Sign in - {{ config('app.name', 'EMS') }}</title>
     
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -14,13 +14,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
     <style>
-        :root {
-            --primary-color: #6366f1;
-            --secondary-color: #8b5cf6;
-            --gradient-start: #6366f1;
-            --gradient-end: #8b5cf6;
-        }
-        
         * {
             margin: 0;
             padding: 0;
@@ -29,389 +22,331 @@
         
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #f8fafc;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: 40px 20px;
         }
         
-        .login-container {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 24px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
-            max-width: 1000px;
+        .login-wrapper {
+            display: flex;
+            gap: 30px;
+            max-width: 1200px;
             width: 100%;
-            display: flex;
-            min-height: 600px;
-        }
-        
-        .login-left {
-            flex: 1;
-            background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
-            padding: 60px 50px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .login-left::before {
-            content: '';
-            position: absolute;
-            width: 300px;
-            height: 300px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-            top: -150px;
-            right: -150px;
-        }
-        
-        .login-left::after {
-            content: '';
-            position: absolute;
-            width: 200px;
-            height: 200px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-            bottom: -100px;
-            left: -100px;
-        }
-        
-        .login-left h1 {
-            font-size: 2.5rem;
-            font-weight: 800;
-            margin-bottom: 15px;
-            position: relative;
-            z-index: 1;
-        }
-        
-        .login-left p {
-            font-size: 1.1rem;
-            opacity: 0.95;
-            line-height: 1.6;
-            position: relative;
-            z-index: 1;
-        }
-        
-        .login-left .icon-container {
-            font-size: 5rem;
-            margin-bottom: 30px;
-            opacity: 0.9;
-            position: relative;
-            z-index: 1;
-        }
-        
-        .login-right {
-            flex: 1;
-            padding: 60px 50px;
-            display: flex;
-            flex-direction: column;
             justify-content: center;
         }
         
-        .login-header {
-            text-align: center;
-            margin-bottom: 40px;
+        .login-form-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 450px;
         }
         
-        .login-header h2 {
-            font-size: 2rem;
+        .login-title {
+            font-size: 1.5rem;
             font-weight: 700;
             color: #1e293b;
-            margin-bottom: 10px;
+            margin-bottom: 25px;
+            text-align: center;
         }
         
-        .login-header p {
+        .login-toggle {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            background: #f1f5f9;
+            padding: 4px;
+            border-radius: 8px;
+        }
+        
+        .toggle-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            font-weight: 500;
             color: #64748b;
-            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .toggle-btn.active {
+            background: #6366f1;
+            color: white;
         }
         
         .form-group {
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
         
         .form-label {
-            font-weight: 600;
+            font-weight: 500;
             color: #334155;
             margin-bottom: 8px;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
+            display: block;
         }
         
         .form-control {
-            padding: 14px 18px;
-            border: 2px solid #e2e8f0;
-            border-radius: 12px;
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
             font-size: 1rem;
             transition: all 0.3s ease;
-            background: #fff;
         }
         
         .form-control:focus {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
             outline: none;
         }
         
-        .input-group {
-            position: relative;
-        }
-        
-        .input-group .input-icon {
-            position: absolute;
-            left: 18px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #94a3b8;
-            z-index: 10;
-        }
-        
-        .input-group .form-control {
-            padding-left: 50px;
-        }
-        
-        .btn-login {
+        .btn-submit {
             width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
-            border: none;
-            border-radius: 12px;
+            padding: 12px;
+            background: #1e293b;
             color: white;
-            font-weight: 600;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
-        }
-        
-        .btn-login:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
-        }
-        
-        .btn-login:active {
-            transform: translateY(0);
-        }
-        
-        .remember-forgot {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-        }
-        
-        .form-check-input:checked {
-            background-color: var(--primary-color);
-            border-color: var(--primary-color);
-        }
-        
-        .form-check-label {
-            color: #64748b;
-            font-size: 0.9rem;
-        }
-        
-        .forgot-link {
-            color: var(--primary-color);
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
-        }
-        
-        .forgot-link:hover {
-            color: var(--secondary-color);
-            text-decoration: underline;
-        }
-        
-        .alert {
-            border-radius: 12px;
             border: none;
-            padding: 14px 18px;
-            margin-bottom: 25px;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+        
+        .btn-submit:hover {
+            background: #334155;
+        }
+        
+        .btn-verify {
+            width: 100%;
+            padding: 12px;
+            background: #1e293b;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+        
+        .btn-verify:hover {
+            background: #334155;
+        }
+        
+        .login-form {
+            display: none;
+        }
+        
+        .login-form.active {
+            display: block;
         }
         
         .text-danger {
             font-size: 0.85rem;
-            margin-top: 6px;
+            margin-top: 5px;
+            color: #ef4444;
         }
         
-        .divider {
-            text-align: center;
-            margin: 30px 0;
-            position: relative;
+        .is-invalid {
+            border-color: #ef4444;
         }
         
-        .divider::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 50%;
-            width: 100%;
-            height: 1px;
-            background: #e2e8f0;
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
         }
         
-        .divider span {
-            background: white;
-            padding: 0 15px;
-            color: #64748b;
-            font-size: 0.85rem;
-            position: relative;
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #6ee7b7;
         }
         
-        .otp-link {
-            text-align: center;
-            margin-top: 20px;
-        }
-        
-        .otp-link a {
-            color: var(--primary-color);
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 0.95rem;
-        }
-        
-        .otp-link a:hover {
-            text-decoration: underline;
+        .alert-danger {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
         }
         
         @media (max-width: 768px) {
-            .login-container {
+            .login-wrapper {
                 flex-direction: column;
-                min-height: auto;
             }
             
-            .login-left {
-                padding: 40px 30px;
-                min-height: 250px;
-            }
-            
-            .login-left h1 {
-                font-size: 1.8rem;
-            }
-            
-            .login-left .icon-container {
-                font-size: 3rem;
-                margin-bottom: 20px;
-            }
-            
-            .login-right {
-                padding: 40px 30px;
+            .login-form-container {
+                max-width: 100%;
             }
         }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <div class="login-left">
-            <div class="icon-container">
-                <i class="bi bi-shield-lock-fill"></i>
+    <div class="login-wrapper">
+        <!-- OTP Login Form -->
+        <div class="login-form-container">
+            <h2 class="login-title">Sign in</h2>
+            
+            <div class="login-toggle">
+                <button type="button" class="toggle-btn active" onclick="showOtpForm()">Login with OTP</button>
+                <button type="button" class="toggle-btn" onclick="showEmailForm()">Login with Email</button>
             </div>
-            <h1>Welcome Back!</h1>
-            <p>Sign in to access your Exhibition Management System dashboard and manage your events efficiently.</p>
+            
+            <div id="otpForm" class="login-form active">
+                @if(session('otp_sent'))
+                    <div class="alert alert-success">
+                        OTP sent! Check your phone. OTP: <strong>{{ session('otp') }}</strong> (Development only)
+                    </div>
+                @endif
+                
+                @if(session('error'))
+                    <div class="alert alert-danger">{{ session('error') }}</div>
+                @endif
+                
+                <form method="POST" action="{{ route('otp.send') }}">
+                    @csrf
+                    
+                    <div class="form-group">
+                        <label for="phone_otp" class="form-label">Phone</label>
+                        <input 
+                            type="tel" 
+                            class="form-control @error('phone') is-invalid @enderror" 
+                            id="phone_otp" 
+                            name="phone" 
+                            value="{{ old('phone', session('phone')) }}" 
+                            required
+                            placeholder="+91 97234567890">
+                        @error('phone')
+                            <div class="text-danger">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    
+                    <button type="submit" class="btn-submit">Submit</button>
+                </form>
+                
+                @if(session('otp_sent'))
+                <form method="POST" action="{{ route('otp.verify') }}" class="mt-4">
+                    @csrf
+                    <input type="hidden" name="phone" value="{{ session('phone') }}">
+                    
+                    <div class="form-group">
+                        <label for="otp" class="form-label">OTP</label>
+                        <input 
+                            type="text" 
+                            class="form-control @error('otp') is-invalid @enderror" 
+                            id="otp" 
+                            name="otp" 
+                            required
+                            maxlength="6"
+                            placeholder="Enter OTP">
+                        @error('otp')
+                            <div class="text-danger">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    
+                    <button type="submit" class="btn-verify">Verify</button>
+                </form>
+                @endif
+            </div>
         </div>
         
-        <div class="login-right">
-            <div class="login-header">
-                <h2>Sign In</h2>
-                <p>Enter your credentials to continue</p>
+        <!-- Email/Password Login Form -->
+        <div class="login-form-container">
+            <h2 class="login-title">Sign in</h2>
+            
+            <div class="login-toggle">
+                <button type="button" class="toggle-btn" onclick="showOtpForm()">Login with OTP</button>
+                <button type="button" class="toggle-btn active" onclick="showEmailForm()">Login with Email</button>
             </div>
             
-            @if (session('status'))
-                <div class="alert alert-success">
-                    <i class="bi bi-check-circle-fill me-2"></i>{{ session('status') }}
-                </div>
-            @endif
-            
-            @if ($errors->any())
-                <div class="alert alert-danger">
-                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                    @foreach ($errors->all() as $error)
-                        <div>{{ $error }}</div>
-                    @endforeach
-                </div>
-            @endif
-            
-            <form method="POST" action="{{ route('login') }}">
-                @csrf
+            <div id="emailForm" class="login-form active">
+                @if ($errors->any())
+                    <div class="alert alert-danger">
+                        @foreach ($errors->all() as $error)
+                            <div>{{ $error }}</div>
+                        @endforeach
+                    </div>
+                @endif
                 
-                <div class="form-group">
-                    <label for="email" class="form-label">
-                        <i class="bi bi-envelope me-1"></i>Email Address
-                    </label>
-                    <div class="input-group">
-                        <i class="bi bi-envelope input-icon"></i>
+                <form method="POST" action="{{ route('login') }}">
+                    @csrf
+                    
+                    <div class="form-group">
+                        <label for="email" class="form-label">Email</label>
                         <input 
                             type="email" 
                             class="form-control @error('email') is-invalid @enderror" 
                             id="email" 
                             name="email" 
                             value="{{ old('email') }}" 
-                            required 
-                            autofocus 
-                            autocomplete="username"
-                            placeholder="Enter your email">
+                            required
+                            autofocus
+                            placeholder="abc@gmail.com">
+                        @error('email')
+                            <div class="text-danger">{{ $message }}</div>
+                        @enderror
                     </div>
-                    @error('email')
-                        <div class="text-danger">{{ $message }}</div>
-                    @enderror
-                </div>
-                
-                <div class="form-group">
-                    <label for="password" class="form-label">
-                        <i class="bi bi-lock me-1"></i>Password
-                    </label>
-                    <div class="input-group">
-                        <i class="bi bi-lock-fill input-icon"></i>
+                    
+                    <div class="form-group">
+                        <label for="password" class="form-label">Password</label>
                         <input 
                             type="password" 
                             class="form-control @error('password') is-invalid @enderror" 
                             id="password" 
                             name="password" 
-                            required 
-                            autocomplete="current-password"
-                            placeholder="Enter your password">
+                            required
+                            placeholder="********">
+                        @error('password')
+                            <div class="text-danger">{{ $message }}</div>
+                        @enderror
                     </div>
-                    @error('password')
-                        <div class="text-danger">{{ $message }}</div>
-                    @enderror
-                </div>
-                
-                <div class="remember-forgot">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="remember" name="remember">
-                        <label class="form-check-label" for="remember">
-                            Remember me
-                        </label>
-                    </div>
-                    @if (Route::has('password.request'))
-                        <a href="{{ route('password.request') }}" class="forgot-link">
-                            Forgot password?
-                        </a>
-                    @endif
-                </div>
-                
-                <button type="submit" class="btn btn-login">
-                    <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
-                </button>
-                
-                <div class="divider">
-                    <span>OR</span>
-                </div>
-                
-                <div class="otp-link">
-                    <a href="{{ route('login.otp') }}">
-                        <i class="bi bi-phone me-1"></i>Login with OTP
-                    </a>
-                </div>
-            </form>
+                    
+                    <button type="submit" class="btn-submit">Submit</button>
+                </form>
+            </div>
         </div>
     </div>
+    
+    <script>
+        function showOtpForm() {
+            // Hide email form, show OTP form
+            document.getElementById('emailForm').classList.remove('active');
+            document.getElementById('otpForm').classList.add('active');
+            
+            // Update toggle buttons
+            const containers = document.querySelectorAll('.login-form-container');
+            containers.forEach(container => {
+                const toggles = container.querySelectorAll('.toggle-btn');
+                toggles[0].classList.add('active');
+                toggles[1].classList.remove('active');
+            });
+        }
+        
+        function showEmailForm() {
+            // Hide OTP form, show email form
+            document.getElementById('otpForm').classList.remove('active');
+            document.getElementById('emailForm').classList.add('active');
+            
+            // Update toggle buttons
+            const containers = document.querySelectorAll('.login-form-container');
+            containers.forEach(container => {
+                const toggles = container.querySelectorAll('.toggle-btn');
+                toggles[0].classList.remove('active');
+                toggles[1].classList.add('active');
+            });
+        }
+    </script>
     
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

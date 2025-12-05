@@ -1,86 +1,306 @@
 @extends('layouts.admin')
 
-@section('title', 'Create Exhibition - Step 4')
-@section('page-title', 'Create Exhibition - Step 4: Badge Management & Manual')
+@section('title', 'Admin Exhibition booking step 4')
+@section('page-title', 'Admin Exhibition booking step 4')
 
 @section('content')
-<div class="card">
-    <div class="card-header">
-        <h5 class="mb-0">Step 4: Badge Management & Exhibition Manual</h5>
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>Admin Exhibition booking step 4</h4>
+            <span class="text-muted">25 / 36</span>
+        </div>
+        <div class="text-center mb-4">
+            <h5>Step 4</h5>
+        </div>
     </div>
-    <div class="card-body">
-        <form action="{{ route('admin.exhibitions.step4.store', $exhibition->id) }}" method="POST" enctype="multipart/form-data">
-            @csrf
+</div>
+
+<form action="{{ route('admin.exhibitions.step4.store', $exhibition->id) }}" method="POST" enctype="multipart/form-data">
+    @csrf
+    
+    <!-- Badge Management -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h6 class="mb-0">Badge Management</h6>
+        </div>
+        <div class="card-body">
+            @php
+                $badgeConfigs = $exhibition->badgeConfigurations->keyBy('badge_type');
+            @endphp
             
-            <h6 class="mb-3">Badge Configuration</h6>
-            <div class="row mb-4">
-                @foreach(['Primary', 'Secondary', 'Additional'] as $badgeType)
-                <div class="col-md-4 mb-3">
-                    <div class="card">
-                        <div class="card-body">
-                            <h6>{{ $badgeType }} Badge</h6>
-                            <input type="hidden" name="badge_configurations[{{ strtolower($badgeType) }}][badge_type]" value="{{ $badgeType }}">
-                            
-                            <div class="mb-2">
-                                <label class="form-label">Quantity</label>
-                                <input type="number" name="badge_configurations[{{ strtolower($badgeType) }}][quantity]" class="form-control" min="0" value="0">
-                            </div>
-                            
-                            <div class="mb-2">
-                                <label class="form-label">Pricing Type</label>
-                                <select name="badge_configurations[{{ strtolower($badgeType) }}][pricing_type]" class="form-select">
-                                    <option value="Free">Free</option>
-                                    <option value="Paid">Paid</option>
-                                </select>
-                            </div>
-                            
-                            <div class="mb-2">
-                                <label class="form-label">Price (if Paid)</label>
-                                <input type="number" name="badge_configurations[{{ strtolower($badgeType) }}][price]" class="form-control" step="0.01" min="0" value="0">
-                            </div>
-                            
-                            @if($badgeType === 'Additional')
-                            <div class="mb-2">
-                                <label class="form-label">Needs Admin Approval</label>
-                                <select name="badge_configurations[{{ strtolower($badgeType) }}][needs_admin_approval]" class="form-select">
-                                    <option value="0">No</option>
-                                    <option value="1">Yes</option>
-                                </select>
-                            </div>
-                            <div class="mb-2">
-                                <label class="form-label">Access Permissions</label>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="badge_configurations[{{ strtolower($badgeType) }}][access_permissions][]" value="Entry Only" id="entry_{{ strtolower($badgeType) }}">
-                                    <label class="form-check-label" for="entry_{{ strtolower($badgeType) }}">Entry Only</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="badge_configurations[{{ strtolower($badgeType) }}][access_permissions][]" value="Lunch" id="lunch_{{ strtolower($badgeType) }}">
-                                    <label class="form-check-label" for="lunch_{{ strtolower($badgeType) }}">Lunch</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="badge_configurations[{{ strtolower($badgeType) }}][access_permissions][]" value="Snacks" id="snacks_{{ strtolower($badgeType) }}">
-                                    <label class="form-check-label" for="snacks_{{ strtolower($badgeType) }}">Snacks</label>
-                                </div>
-                            </div>
+            <!-- Primary Badge -->
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <label class="form-label">Primary Badge</label>
+                </div>
+                <div class="col-md-2">
+                    <input type="number" name="badge_configurations[Primary][quantity]" class="form-control" 
+                           placeholder="quantity" min="0" 
+                           value="{{ $badgeConfigs->get('Primary')->quantity ?? 0 }}">
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="badge_configurations[Primary][pricing_type]" 
+                               id="primary_free" value="Free" 
+                               {{ ($badgeConfigs->get('Primary')->pricing_type ?? 'Free') === 'Free' ? 'checked' : '' }}>
+                        <label class="form-check-label" for="primary_free">Free</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="badge_configurations[Primary][pricing_type]" 
+                               id="primary_paid" value="Paid"
+                               {{ ($badgeConfigs->get('Primary')->pricing_type ?? 'Free') === 'Paid' ? 'checked' : '' }}>
+                        <label class="form-check-label" for="primary_paid">Paid</label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <input type="number" name="badge_configurations[Primary][price]" class="form-control" 
+                           placeholder="Price" step="0.01" min="0"
+                           value="{{ $badgeConfigs->get('Primary')->price ?? 0 }}">
+                    <input type="hidden" name="badge_configurations[Primary][badge_type]" value="Primary">
+                </div>
+            </div>
+
+            <!-- Secondary Badge -->
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <label class="form-label">Secondary Badge</label>
+                </div>
+                <div class="col-md-2">
+                    <input type="number" name="badge_configurations[Secondary][quantity]" class="form-control" 
+                           placeholder="quantity" min="0"
+                           value="{{ $badgeConfigs->get('Secondary')->quantity ?? 0 }}">
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="badge_configurations[Secondary][pricing_type]" 
+                               id="secondary_free" value="Free"
+                               {{ ($badgeConfigs->get('Secondary')->pricing_type ?? 'Free') === 'Free' ? 'checked' : '' }}>
+                        <label class="form-check-label" for="secondary_free">Free</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="badge_configurations[Secondary][pricing_type]" 
+                               id="secondary_paid" value="Paid"
+                               {{ ($badgeConfigs->get('Secondary')->pricing_type ?? 'Free') === 'Paid' ? 'checked' : '' }}>
+                        <label class="form-check-label" for="secondary_paid">Paid</label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <input type="number" name="badge_configurations[Secondary][price]" class="form-control" 
+                           placeholder="Price" step="0.01" min="0"
+                           value="{{ $badgeConfigs->get('Secondary')->price ?? 0 }}">
+                    <input type="hidden" name="badge_configurations[Secondary][badge_type]" value="Secondary">
+                </div>
+            </div>
+
+            <!-- Additional Badge -->
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <label class="form-label">Additional Badge</label>
+                </div>
+                <div class="col-md-2">
+                    <input type="number" name="badge_configurations[Additional][quantity]" class="form-control" 
+                           placeholder="quantity" min="0"
+                           value="{{ $badgeConfigs->get('Additional')->quantity ?? 0 }}">
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="badge_configurations[Additional][pricing_type]" 
+                               id="additional_free" value="Free"
+                               {{ ($badgeConfigs->get('Additional')->pricing_type ?? 'Paid') === 'Free' ? 'checked' : '' }}>
+                        <label class="form-check-label" for="additional_free">Free</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="badge_configurations[Additional][pricing_type]" 
+                               id="additional_paid" value="Paid"
+                               {{ ($badgeConfigs->get('Additional')->pricing_type ?? 'Paid') === 'Paid' ? 'checked' : '' }}>
+                        <label class="form-check-label" for="additional_paid">Paid</label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <input type="number" name="badge_configurations[Additional][price]" class="form-control" 
+                           placeholder="Price" step="0.01" min="0"
+                           value="{{ $badgeConfigs->get('Additional')->price ?? 0 }}">
+                    <input type="hidden" name="badge_configurations[Additional][badge_type]" value="Additional">
+                </div>
+            </div>
+
+            <!-- Admin Approval -->
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <label class="form-label">Need Admin approval</label>
+                </div>
+                <div class="col-md-9">
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="badge_configurations[Additional][needs_admin_approval]" 
+                               id="approval_yes" value="1"
+                               {{ ($badgeConfigs->get('Additional')->needs_admin_approval ?? false) ? 'checked' : '' }}>
+                        <label class="form-check-label" for="approval_yes">Yes</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="badge_configurations[Additional][needs_admin_approval]" 
+                               id="approval_no" value="0"
+                               {{ !($badgeConfigs->get('Additional')->needs_admin_approval ?? false) ? 'checked' : '' }}>
+                        <label class="form-check-label" for="approval_no">No</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Items for Additional Badge -->
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label class="form-label">Items to be included in Additional Badge</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="badge_configurations[Additional][access_permissions][]" 
+                               value="Lunch" id="badge_lunch"
+                               {{ in_array('Lunch', $badgeConfigs->get('Additional')->access_permissions ?? []) ? 'checked' : '' }}>
+                        <label class="form-check-label" for="badge_lunch">Lunch</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="badge_configurations[Additional][access_permissions][]" 
+                               value="Entry Only" id="badge_entry"
+                               {{ in_array('Entry Only', $badgeConfigs->get('Additional')->access_permissions ?? []) ? 'checked' : '' }}>
+                        <label class="form-check-label" for="badge_entry">Entry Only</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="badge_configurations[Additional][access_permissions][]" 
+                               value="Snacks" id="badge_snacks"
+                               {{ in_array('Snacks', $badgeConfigs->get('Additional')->access_permissions ?? []) ? 'checked' : '' }}>
+                        <label class="form-check-label" for="badge_snacks">Snacks</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Exhibition Manual -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h6 class="mb-0">Exhibition Manual</h6>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label">PDF Upload Section</label>
+                <div class="border border-2 border-dashed rounded p-4 text-center" style="background-color: #f8f9fa;">
+                    <input type="file" name="exhibition_manual_pdf" id="manual_pdf" class="d-none" accept=".pdf" onchange="updateFileName(this)">
+                    <button type="button" class="btn btn-primary mb-2" onclick="document.getElementById('manual_pdf').click()">
+                        Choose files to Upload
+                    </button>
+                    <p class="mb-0 text-muted">
+                        <i class="bi bi-cloud-upload"></i> or drag and drop them here
+                    </p>
+                    <small id="file_name" class="text-muted"></small>
+                    @if($exhibition->exhibition_manual_pdf)
+                        <p class="mt-2 mb-0">
+                            <small>Current: <a href="{{ asset('storage/' . $exhibition->exhibition_manual_pdf) }}" target="_blank">{{ basename($exhibition->exhibition_manual_pdf) }}</a></small>
+                        </p>
+                    @endif
+                </div>
+            </div>
+            <button type="button" class="btn btn-secondary" onclick="previewPDF()">Preview</button>
+        </div>
+    </div>
+
+    <!-- Stall Variation Management -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h6 class="mb-0">Stall Variation Management</h6>
+        </div>
+        <div class="card-body">
+            <p class="text-muted mb-3">Upload visual designs for all stall types</p>
+            
+            <div class="mb-3">
+                <label class="form-label">Upload Stall Variations</label>
+                <div class="border border-2 border-dashed rounded p-4 text-center" style="background-color: #f8f9fa;">
+                    <input type="file" name="stall_variations[]" id="stall_variations" class="d-none" accept="image/*" multiple onchange="updateVariationFiles(this)">
+                    <button type="button" class="btn btn-primary mb-2" onclick="document.getElementById('stall_variations').click()">
+                        Choose files to Upload
+                    </button>
+                    <p class="mb-0 text-muted">
+                        <i class="bi bi-cloud-upload"></i> or drag and drop them here
+                    </p>
+                    <small id="variation_files" class="text-muted"></small>
+                </div>
+            </div>
+
+            <!-- Stall Type Display -->
+            <div class="mb-3">
+                <label class="form-label">Stall Type A - 1 Side Open</label>
+                <div class="row">
+                    <div class="col-md-4 mb-2">
+                        <div class="border rounded p-2 text-center" style="min-height: 150px; background-color: #f8f9fa;">
+                            <small class="text-muted">Front View</small>
+                            @php
+                                $variation = $exhibition->stallVariations->where('stall_type', 'A - 1 Side Open')->first();
+                            @endphp
+                            @if($variation && $variation->front_view)
+                                <img src="{{ asset('storage/' . $variation->front_view) }}" class="img-fluid mt-2" alt="Front View">
+                            @endif
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <div class="border rounded p-2 text-center" style="min-height: 150px; background-color: #f8f9fa;">
+                            <small class="text-muted">Side View (Left)</small>
+                            @php
+                                $leftView = $exhibition->stallVariations->where('stall_type', 'A')->where('view_type', 'Left')->first();
+                            @endphp
+                            @if($leftView)
+                                <img src="{{ asset('storage/' . $leftView->image_path) }}" class="img-fluid mt-2" alt="Left View">
+                            @endif
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <div class="border rounded p-2 text-center" style="min-height: 150px; background-color: #f8f9fa;">
+                            <small class="text-muted">Side View (Right)</small>
+                            @if($variation && $variation->side_view_right)
+                                <img src="{{ asset('storage/' . $variation->side_view_right) }}" class="img-fluid mt-2" alt="Right View">
                             @endif
                         </div>
                     </div>
                 </div>
-                @endforeach
             </div>
-
-            <h6 class="mb-3">Exhibition Manual</h6>
-            <div class="mb-4">
-                <label class="form-label">Upload Exhibition Manual (PDF)</label>
-                <input type="file" name="exhibition_manual_pdf" class="form-control" accept=".pdf">
-            </div>
-
-            <div class="d-flex justify-content-between">
-                <a href="{{ route('admin.exhibitions.step3', $exhibition->id) }}" class="btn btn-secondary">Back</a>
-                <button type="submit" class="btn btn-success">Complete & Save Exhibition</button>
-            </div>
-        </form>
+            <button type="button" class="btn btn-secondary" onclick="previewVariations()">Preview in Viewer</button>
+        </div>
     </div>
-</div>
-@endsection
 
+    <div class="d-flex justify-content-end">
+        <button type="button" class="btn btn-secondary me-2" onclick="window.location.href='{{ route('admin.exhibitions.index') }}'">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </div>
+</form>
+
+@push('scripts')
+<script>
+function updateFileName(input) {
+    const fileName = input.files[0]?.name || '';
+    document.getElementById('file_name').textContent = fileName;
+}
+
+function updateVariationFiles(input) {
+    const fileCount = input.files.length;
+    document.getElementById('variation_files').textContent = fileCount > 0 ? `${fileCount} file(s) selected` : '';
+}
+
+function previewPDF() {
+    const fileInput = document.getElementById('manual_pdf');
+    if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        const url = URL.createObjectURL(file);
+        window.open(url, '_blank');
+    } else {
+        alert('Please select a PDF file first');
+    }
+}
+
+function previewVariations() {
+    const fileInput = document.getElementById('stall_variations');
+    if (fileInput.files.length > 0) {
+        // Open preview modal or new window
+        alert('Preview functionality will open in a viewer');
+    } else {
+        alert('Please select variation images first');
+    }
+}
+</script>
+@endpush
+@endsection

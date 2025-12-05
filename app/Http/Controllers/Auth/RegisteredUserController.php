@@ -30,17 +30,40 @@ class RegisteredUserController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
+            // Company Details
+            'company_name' => ['required', 'string', 'max:255'],
+            'company_website' => ['nullable', 'url', 'max:255'],
+            
+            // Contact Person
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
-            'phone' => ['nullable', 'string', 'max:20'],
+            'mobile_number' => ['required', 'string', 'max:20'],
+            'phone_number' => ['nullable', 'string', 'max:20'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            
+            // Address
+            'company_address' => ['required', 'string', 'max:500'],
+            'city' => ['required', 'string', 'max:100'],
+            'country' => ['required', 'string', 'max:100'],
+            'zip_code' => ['required', 'string', 'max:20'],
+            'state' => ['required', 'string', 'max:100'],
+            
+            // Terms
+            'terms' => ['required', 'accepted'],
         ]);
 
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
-            'phone' => $request->phone,
+            'phone' => $request->mobile_number,
             'password' => Hash::make($request->password),
+            'company_name' => $request->company_name,
+            'website' => $request->company_website,
+            'address' => $request->company_address,
+            'city' => $request->city,
+            'state' => $request->state,
+            'country' => $request->country,
+            'pincode' => $request->zip_code,
         ]);
 
         // Assign Exhibitor role by default

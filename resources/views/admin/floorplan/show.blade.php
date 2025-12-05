@@ -1,245 +1,417 @@
 @extends('layouts.admin')
 
-@section('title', 'Interactive Floorplan')
-@section('page-title', 'Interactive Floorplan - ' . $exhibition->name)
+@section('title', 'Admin Panel: Floor Plan')
+@section('page-title', 'Admin Panel: Floor Plan')
+
+@push('styles')
+<style>
+    .floorplan-container {
+        display: flex;
+        gap: 20px;
+        height: calc(100vh - 150px);
+    }
+    
+    .left-sidebar {
+        width: 250px;
+        overflow-y: auto;
+    }
+    
+    .center-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .right-sidebar {
+        width: 350px;
+        overflow-y: auto;
+    }
+    
+    .section-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 8px;
+    }
+    
+    .section-description {
+        color: #64748b;
+        font-size: 0.9rem;
+        margin-bottom: 15px;
+    }
+    
+    .stall-button {
+        padding: 15px 20px;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-bottom: 10px;
+        text-align: center;
+    }
+    
+    .stall-button:hover {
+        border-color: #6366f1;
+        transform: translateY(-2px);
+    }
+    
+    .stall-button.selected {
+        border-color: #6366f1;
+        background: #f0f9ff;
+    }
+    
+    .floorplan-canvas {
+        flex: 1;
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 20px;
+        overflow: auto;
+        border: 1px solid #e2e8f0;
+        position: relative;
+    }
+    
+    .floorplan-grid {
+        position: relative;
+        min-height: 100%;
+        background: white;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .stall-item {
+        position: absolute;
+        border: 2px solid #cbd5e1;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: #1e293b;
+    }
+    
+    .stall-item:hover {
+        border-color: #6366f1;
+        transform: scale(1.05);
+        z-index: 10;
+    }
+    
+    .stall-item.selected {
+        border-color: #6366f1;
+        background: #f0f9ff;
+        box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
+    }
+    
+    .stall-available {
+        background: #d1fae5;
+        border-color: #10b981;
+    }
+    
+    .stall-booked {
+        background: #fee2e2;
+        border-color: #ef4444;
+    }
+    
+    .stall-reserved {
+        background: #fef3c7;
+        border-color: #f59e0b;
+    }
+    
+    .btn-action {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        background: white;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+    
+    .btn-action:hover {
+        border-color: #6366f1;
+        background: #f8fafc;
+    }
+    
+    .btn-action.primary {
+        background: #6366f1;
+        color: white;
+        border-color: #6366f1;
+    }
+    
+    .btn-action.primary:hover {
+        background: #4f46e5;
+    }
+    
+    .stall-details-form {
+        margin-top: 15px;
+    }
+    
+    .form-group {
+        margin-bottom: 15px;
+    }
+    
+    .form-label {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #64748b;
+        margin-bottom: 5px;
+    }
+    
+    .form-control {
+        padding: 8px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        width: 100%;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #64748b;
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 15px;
+        opacity: 0.3;
+    }
+</style>
+@endpush
 
 @section('content')
-<div class="mb-4">
-    <a href="{{ route('admin.exhibitions.show', $exhibition->id) }}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left me-2"></i>Back to Exhibition
-    </a>
-</div>
-
-<div class="row g-3">
-    <!-- Left Sidebar - Filters & Controls -->
-    <div class="col-lg-3">
-        <div class="card mb-3">
-            <div class="card-header bg-primary text-white">
-                <h6 class="mb-0"><i class="bi bi-funnel me-2"></i>Filters</h6>
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <label class="form-label small">Booth Size</label>
-                    <select class="form-select form-select-sm" id="filterSize">
-                        <option value="">All Sizes</option>
-                        <option value="small">Small (< 15 sq ft)</option>
-                        <option value="medium">Medium (15-25 sq ft)</option>
-                        <option value="large">Large (> 25 sq ft)</option>
-                    </select>
-                </div>
-                
-                <div class="mb-3">
-                    <label class="form-label small">Price Range</label>
-                    <input type="range" class="form-range" id="priceRange" min="0" max="100000" value="100000">
-                    <small class="text-muted">Up to ₹<span id="priceRangeValue">100,000</span></small>
-                </div>
-                
-                <div class="mb-3">
-                    <label class="form-label small">Status</label>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="filterAvailable" checked>
-                        <label class="form-check-label" for="filterAvailable">Available</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="filterReserved">
-                        <label class="form-check-label" for="filterReserved">Reserved</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="filterBooked">
-                        <label class="form-check-label" for="filterBooked">Booked</label>
-                    </div>
-                </div>
-                
-                <div class="mb-3">
-                    <label class="form-label small">Open Sides</label>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="filterSide1">
-                        <label class="form-check-label" for="filterSide1">1 Side</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="filterSide2">
-                        <label class="form-check-label" for="filterSide2">2 Sides</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="filterSide3">
-                        <label class="form-check-label" for="filterSide3">3 Sides</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="filterSide4">
-                        <label class="form-check-label" for="filterSide4">4 Sides</label>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="card">
-            <div class="card-header bg-success text-white">
-                <h6 class="mb-0"><i class="bi bi-tools me-2"></i>Actions</h6>
-            </div>
-            <div class="card-body">
-                <button class="btn btn-sm btn-primary w-100 mb-2" id="mergeBtn" disabled>
-                    <i class="bi bi-arrow-left-right me-1"></i>Merge Selected
-                </button>
-                <button class="btn btn-sm btn-warning w-100 mb-2" id="splitBtn" disabled>
-                    <i class="bi bi-scissors me-1"></i>Split Booth
-                </button>
-                <button class="btn btn-sm btn-secondary w-100" id="resetBtn">
-                    <i class="bi bi-arrow-counterclockwise me-1"></i>Reset View
-                </button>
+<div class="floorplan-container">
+    <!-- Left Sidebar -->
+    <div class="left-sidebar">
+        <div class="section-card">
+            <h5 class="section-title">Navigation</h5>
+            <div class="d-flex flex-column gap-2">
+                <a href="{{ route('admin.dashboard') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-grid me-2"></i>Dashboard
+                </a>
+                <a href="{{ route('admin.bookings.index') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-file-text me-2"></i>My Bookings
+                </a>
+                <a href="{{ route('admin.exhibitions.index') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-calendar me-2"></i>Book New Booth
+                </a>
             </div>
         </div>
     </div>
     
-    <!-- Center - Floorplan Canvas -->
-    <div class="col-lg-6">
-        <div class="card">
-            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
-                <h6 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Exhibition Hall Floorplan</h6>
-                <div>
-                    <button class="btn btn-sm btn-light" id="zoomInBtn">
-                        <i class="bi bi-zoom-in"></i>
-                    </button>
-                    <button class="btn btn-sm btn-light" id="zoomOutBtn">
-                        <i class="bi bi-zoom-out"></i>
-                    </button>
-                </div>
+    <!-- Center Content -->
+    <div class="center-content">
+        <div class="section-card">
+            <h4 class="mb-3">Interactive Floor Plan</h4>
+            <p class="text-muted mb-3">Click on a stall to view/edit details</p>
+            
+            <!-- Stall Quick Access Buttons -->
+            <div class="d-flex flex-wrap gap-2 mb-4">
+                @foreach($exhibition->booths->take(8) as $booth)
+                <button class="stall-button {{ $loop->first ? 'selected' : '' }}" 
+                        data-booth-id="{{ $booth->id }}"
+                        style="background-color: {{ $booth->is_booked ? '#fee2e2' : ($booth->is_available ? '#d1fae5' : '#fef3c7') }};">
+                    {{ $booth->name }}
+                </button>
+                @endforeach
             </div>
-            <div class="card-body p-0" style="position: relative; overflow: auto; height: 600px; background: #f8f9fa;">
-                @if($exhibition->floorplan_image)
-                <img src="{{ asset('storage/' . $exhibition->floorplan_image) }}" id="floorplanImage" style="position: absolute; top: 0; left: 0; max-width: 100%; height: auto; z-index: 1;">
-                @endif
-                <div id="floorplanCanvas" style="position: relative; min-height: 100%; z-index: 2;">
-                    @foreach($exhibition->booths as $booth)
-                    <div class="booth-item" 
-                         data-booth-id="{{ $booth->id }}"
-                         data-booth-name="{{ $booth->name }}"
-                         data-booth-size="{{ $booth->size_sqft }}"
-                         data-booth-price="{{ $booth->price }}"
-                         data-booth-status="{{ $booth->is_booked ? 'booked' : ($booth->is_available ? 'available' : 'reserved') }}"
-                         data-booth-sides="{{ $booth->sides_open }}"
-                         style="position: absolute; 
-                                left: {{ $booth->position_x ?? ($loop->index % 5) * 120 }}px; 
-                                top: {{ $booth->position_y ?? floor($loop->index / 5) * 100 }}px; 
-                                width: {{ $booth->width ?? 100 }}px; 
-                                height: {{ $booth->height ?? 80 }}px;
-                                background-color: {{ $booth->is_booked ? '#dc3545' : ($booth->is_available ? '#28a745' : '#ffc107') }};
-                                border: 2px solid {{ $booth->is_booked ? '#b02a37' : ($booth->is_available ? '#1e7e34' : '#d39e00') }};
-                                cursor: move;
-                                display: flex;
-                                align-items: center;
-                                justify-content: center;
-                                color: white;
-                                font-weight: bold;
-                                font-size: 12px;
-                                user-select: none;
-                                z-index: 10;
-                                box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-                        <div class="text-center">
-                            <div>{{ $booth->name }}</div>
-                            <div style="font-size: 10px;">{{ $booth->size_sqft }} sq ft</div>
+            
+            <!-- Floor Plan Canvas -->
+            <div class="floorplan-canvas">
+                <div class="floorplan-grid" id="floorplanGrid" style="position: relative; min-height: 600px; width: 100%;">
+                    @if($exhibition->floorplan_image)
+                    <img src="{{ asset('storage/' . $exhibition->floorplan_image) }}" 
+                         style="position: absolute; top: 0; left: 0; max-width: 100%; height: auto; z-index: 1; opacity: 0.3;">
+                    @endif
+                    
+                    @if($exhibition->booths->isEmpty())
+                    <div class="empty-state">
+                        <i class="bi bi-grid-3x3-gap"></i>
+                        <p>Interactive Floor Plan Coming Soon</p>
+                    </div>
+                    @else
+                        @foreach($exhibition->booths as $booth)
+                        <div class="stall-item {{ $booth->is_booked ? 'stall-booked' : ($booth->is_available ? 'stall-available' : 'stall-reserved') }}"
+                             data-booth-id="{{ $booth->id }}"
+                             data-booth-name="{{ $booth->name }}"
+                             style="left: {{ $booth->position_x ?? ($loop->index % 5) * 120 }}px; 
+                                    top: {{ $booth->position_y ?? floor($loop->index / 5) * 100 }}px; 
+                                    width: {{ $booth->width ?? 100 }}px; 
+                                    height: {{ $booth->height ?? 80 }}px;"
+                             onclick="selectStall({{ $booth->id }})">
+                            {{ $booth->name }}
                         </div>
-                    </div>
-                    @endforeach
+                        @endforeach
+                    @endif
                 </div>
             </div>
         </div>
     </div>
     
-    <!-- Right Sidebar - Selected Booths -->
-    <div class="col-lg-3">
-        <div class="card">
-            <div class="card-header bg-warning text-dark">
-                <h6 class="mb-0"><i class="bi bi-check2-square me-2"></i>Selected Booths</h6>
-            </div>
-            <div class="card-body">
-                <div id="selectedBooths">
-                    <p class="text-muted text-center mb-0">No booths selected</p>
+    <!-- Right Sidebar -->
+    <div class="right-sidebar">
+        <!-- Stall Details & Actions -->
+        <div class="section-card">
+            <h5 class="section-title">Stall Details & Actions</h5>
+            <p class="section-description">Manage selected stall properties</p>
+            <p class="text-muted small">Select a stall on the floor plan to edit its details.</p>
+            
+            <div id="stallDetailsForm" class="stall-details-form" style="display: none;">
+                <div class="form-group">
+                    <label class="form-label">Stall Name</label>
+                    <input type="text" class="form-control" id="stallName" readonly>
                 </div>
-                <div class="mt-3">
-                    <button class="btn btn-primary w-100" id="proceedToBookBtn" disabled>
-                        <i class="bi bi-cart-check me-2"></i>Proceed to Book
-                    </button>
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <input type="text" class="form-control" id="stallCategory" readonly>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Size (sq ft)</label>
+                    <input type="text" class="form-control" id="stallSize" readonly>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Price</label>
+                    <input type="text" class="form-control" id="stallPrice" readonly>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <input type="text" class="form-control" id="stallStatus" readonly>
                 </div>
             </div>
         </div>
         
-        <div class="card mt-3">
-            <div class="card-header bg-secondary text-white">
-                <h6 class="mb-0"><i class="bi bi-info-circle me-2"></i>Legend</h6>
-            </div>
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-2">
-                    <div style="width: 20px; height: 20px; background-color: #28a745; border: 1px solid #1e7e34; margin-right: 10px;"></div>
-                    <small>Available</small>
-                </div>
-                <div class="d-flex align-items-center mb-2">
-                    <div style="width: 20px; height: 20px; background-color: #ffc107; border: 1px solid #d39e00; margin-right: 10px;"></div>
-                    <small>Reserved</small>
-                </div>
-                <div class="d-flex align-items-center mb-2">
-                    <div style="width: 20px; height: 20px; background-color: #dc3545; border: 1px solid #b02a37; margin-right: 10px;"></div>
-                    <small>Booked</small>
-                </div>
-                <div class="d-flex align-items-center">
-                    <div style="width: 20px; height: 20px; background-color: #007bff; border: 1px solid #0056b3; margin-right: 10px;"></div>
-                    <small>Selected</small>
-                </div>
-            </div>
+        <!-- Floor Plan Management -->
+        <div class="section-card">
+            <h5 class="section-title">Floor Plan Management</h5>
+            <p class="section-description">Combine, split, or add new stalls.</p>
+            
+            <button class="btn-action" id="combineStallsBtn" onclick="showCombineModal()">
+                <i class="bi bi-arrow-left-right"></i>Combine Stalls
+            </button>
+            <button class="btn-action" id="splitStallsBtn" onclick="showSplitModal()">
+                <i class="bi bi-scissors"></i>Split Stalls
+            </button>
+            <button class="btn-action primary" id="addNewStallBtn" onclick="showAddStallModal()">
+                <i class="bi bi-plus-circle"></i>Add New Stall Area
+            </button>
+        </div>
+        
+        <!-- Upload Stall Visual Variations -->
+        <div class="section-card">
+            <h5 class="section-title">Upload Stall Visual Variations</h5>
+            <p class="section-description">Provide multiple visual options for each stall type, enhancing exhibitor choice.</p>
+            
+            <button class="btn-action" onclick="showUploadVariationsModal()">
+                <i class="bi bi-upload"></i>Upload Variations
+            </button>
         </div>
     </div>
 </div>
 
-<!-- Merge Modal -->
-<div class="modal fade" id="mergeModal" tabindex="-1">
+<!-- Combine Stalls Modal -->
+<div class="modal fade" id="combineModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Merge Booths</h5>
+                <h5 class="modal-title">Combine Stalls</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form id="mergeForm">
+            <form id="combineForm">
                 <div class="modal-body">
+                    <p class="text-muted">Select multiple stalls to combine them into one.</p>
                     <div class="mb-3">
-                        <label class="form-label">New Booth Name *</label>
+                        <label class="form-label">New Stall Name</label>
                         <input type="text" class="form-control" name="new_name" required>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Selected Booths</label>
-                        <div id="mergeBoothsList"></div>
-                    </div>
+                    <div id="selectedStallsList"></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Merge Booths</button>
+                    <button type="submit" class="btn btn-primary">Combine Stalls</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-<!-- Split Modal -->
+<!-- Split Stall Modal -->
 <div class="modal fade" id="splitModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Split Booth</h5>
+                <h5 class="modal-title">Split Stall</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="splitForm">
                 <div class="modal-body">
+                    <p class="text-muted">Split the selected stall into multiple smaller stalls.</p>
                     <div class="mb-3">
-                        <label class="form-label">Split Into *</label>
-                        <select class="form-select" name="split_count" id="splitCount" required>
-                            <option value="2">2 Booths</option>
-                            <option value="3">3 Booths</option>
-                            <option value="4">4 Booths</option>
+                        <label class="form-label">Split Into</label>
+                        <select class="form-select" name="split_count" required>
+                            <option value="2">2 Stalls</option>
+                            <option value="3">3 Stalls</option>
+                            <option value="4">4 Stalls</option>
                         </select>
                     </div>
                     <div id="splitNamesContainer"></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Split Booth</button>
+                    <button type="submit" class="btn btn-primary">Split Stall</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add New Stall Modal -->
+<div class="modal fade" id="addStallModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Stall Area</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ route('admin.booths.store', $exhibition->id) }}" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Stall Name</label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Category</label>
+                        <input type="text" class="form-control" name="category" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Size (sq ft)</label>
+                        <input type="number" class="form-control" name="size_sqft" step="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Sides Open</label>
+                        <input type="number" class="form-control" name="sides_open" min="1" max="4" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Stall</button>
                 </div>
             </form>
         </div>
@@ -247,158 +419,99 @@
 </div>
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
 <script>
-let selectedBooths = [];
-let zoomLevel = 1;
-let isDragging = false;
+let selectedStallId = null;
+let selectedStalls = [];
 
-// Initialize interact.js for drag and drop
-interact('.booth-item').draggable({
-    onstart: function(event) {
-        event.target.style.opacity = '0.6';
-    },
-    onmove: function(event) {
-        const target = event.target;
-        const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
-        const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
-        
-        target.style.transform = `translate(${x}px, ${y}px)`;
-        target.setAttribute('data-x', x);
-        target.setAttribute('data-y', y);
-    },
-    onend: function(event) {
-        event.target.style.opacity = '1';
-        const target = event.target;
-        const boothId = target.getAttribute('data-booth-id');
-        const currentX = parseFloat(target.style.left) || 0;
-        const currentY = parseFloat(target.style.top) || 0;
-        const x = currentX + (parseFloat(target.getAttribute('data-x')) || 0);
-        const y = currentY + (parseFloat(target.getAttribute('data-y')) || 0);
-        
-        // Save position to server
-        fetch(`/admin/exhibitions/{{ $exhibition->id }}/booths/${boothId}/position`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            },
-            body: JSON.stringify({
-                position_x: x,
-                position_y: y,
-                width: parseFloat(target.style.width) || 100,
-                height: parseFloat(target.style.height) || 80
-            })
-        });
-        
-        // Reset transform
-        target.style.left = x + 'px';
-        target.style.top = y + 'px';
-        target.style.transform = 'translate(0px, 0px)';
-        target.removeAttribute('data-x');
-        target.removeAttribute('data-y');
-    }
-});
+function selectStall(boothId) {
+    selectedStallId = boothId;
+    selectedStalls = [boothId];
+    
+    // Update UI
+    document.querySelectorAll('.stall-item').forEach(item => {
+        item.classList.remove('selected');
+    });
+    document.querySelectorAll('.stall-button').forEach(btn => {
+        btn.classList.remove('selected');
+    });
+    
+    document.querySelector(`[data-booth-id="${boothId}"]`).classList.add('selected');
+    document.querySelector(`.stall-button[data-booth-id="${boothId}"]`)?.classList.add('selected');
+    
+    // Load stall details
+    loadStallDetails(boothId);
+}
 
-// Booth selection
-document.querySelectorAll('.booth-item').forEach(booth => {
-    booth.addEventListener('click', function(e) {
-        if (e.ctrlKey || e.metaKey) {
-            toggleBoothSelection(this);
-        } else {
-            clearSelection();
-            toggleBoothSelection(this);
+function loadStallDetails(boothId) {
+    // Fetch booth details via AJAX
+    fetch(`/ems-laravel/public/admin/exhibitions/{{ $exhibition->id }}/booths/${boothId}`, {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
         }
-    });
-});
-
-function toggleBoothSelection(booth) {
-    const boothId = booth.getAttribute('data-booth-id');
-    const index = selectedBooths.indexOf(boothId);
-    
-    if (index > -1) {
-        selectedBooths.splice(index, 1);
-        booth.style.border = booth.getAttribute('data-booth-status') === 'booked' ? '2px solid #b02a37' : 
-                            (booth.getAttribute('data-booth-status') === 'available' ? '2px solid #1e7e34' : '2px solid #d39e00');
-    } else {
-        selectedBooths.push(boothId);
-        booth.style.border = '3px solid #007bff';
-    }
-    
-    updateSelectedBoothsDisplay();
-    updateActionButtons();
-}
-
-function clearSelection() {
-    selectedBooths = [];
-    document.querySelectorAll('.booth-item').forEach(booth => {
-        const status = booth.getAttribute('data-booth-status');
-        booth.style.border = status === 'booked' ? '2px solid #b02a37' : 
-                            (status === 'available' ? '2px solid #1e7e34' : '2px solid #d39e00');
-    });
-    updateSelectedBoothsDisplay();
-    updateActionButtons();
-}
-
-function updateSelectedBoothsDisplay() {
-    const container = document.getElementById('selectedBooths');
-    if (selectedBooths.length === 0) {
-        container.innerHTML = '<p class="text-muted text-center mb-0">No booths selected</p>';
-    } else {
-        let html = '<ul class="list-unstyled mb-0">';
-        selectedBooths.forEach(boothId => {
-            const booth = document.querySelector(`[data-booth-id="${boothId}"]`);
-            if (booth) {
-                html += `<li class="mb-2">
-                    <strong>${booth.getAttribute('data-booth-name')}</strong><br>
-                    <small class="text-muted">${booth.getAttribute('data-booth-size')} sq ft - ₹${parseFloat(booth.getAttribute('data-booth-price')).toLocaleString()}</small>
-                </li>`;
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            document.getElementById('stallName').value = data.name || '';
+            document.getElementById('stallCategory').value = data.category || '';
+            document.getElementById('stallSize').value = data.size_sqft || '';
+            document.getElementById('stallPrice').value = '₹' + (parseFloat(data.price || 0)).toLocaleString();
+            document.getElementById('stallStatus').value = data.is_booked ? 'Booked' : (data.is_available ? 'Available' : 'Reserved');
+            document.getElementById('stallDetailsForm').style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Error loading stall details:', error);
+            // Fallback: try to get data from DOM
+            const boothElement = document.querySelector(`[data-booth-id="${boothId}"]`);
+            if (boothElement) {
+                document.getElementById('stallName').value = boothElement.getAttribute('data-booth-name') || '';
+                document.getElementById('stallDetailsForm').style.display = 'block';
             }
         });
-        html += '</ul>';
-        container.innerHTML = html;
+}
+
+function showCombineModal() {
+    if (selectedStalls.length < 2) {
+        alert('Please select at least 2 stalls to combine');
+        return;
     }
+    new bootstrap.Modal(document.getElementById('combineModal')).show();
 }
 
-function updateActionButtons() {
-    const mergeBtn = document.getElementById('mergeBtn');
-    const splitBtn = document.getElementById('splitBtn');
-    const proceedBtn = document.getElementById('proceedToBookBtn');
-    
-    mergeBtn.disabled = selectedBooths.length < 2;
-    splitBtn.disabled = selectedBooths.length !== 1;
-    proceedBtn.disabled = selectedBooths.length === 0;
+function showSplitModal() {
+    if (!selectedStallId) {
+        alert('Please select a stall to split');
+        return;
+    }
+    new bootstrap.Modal(document.getElementById('splitModal')).show();
 }
 
-// Merge functionality
-document.getElementById('mergeBtn').addEventListener('click', function() {
-    if (selectedBooths.length < 2) return;
-    
-    let html = '<ul class="list-unstyled">';
-    selectedBooths.forEach(boothId => {
-        const booth = document.querySelector(`[data-booth-id="${boothId}"]`);
-        if (booth) {
-            html += `<li>${booth.getAttribute('data-booth-name')}</li>`;
-        }
-    });
-    html += '</ul>';
-    document.getElementById('mergeBoothsList').innerHTML = html;
-    
-    new bootstrap.Modal(document.getElementById('mergeModal')).show();
-});
+function showAddStallModal() {
+    new bootstrap.Modal(document.getElementById('addStallModal')).show();
+}
 
-document.getElementById('mergeForm').addEventListener('submit', function(e) {
+function showUploadVariationsModal() {
+    alert('Upload variations feature coming soon');
+}
+
+// Combine form submission
+document.getElementById('combineForm')?.addEventListener('submit', function(e) {
     e.preventDefault();
     const formData = new FormData(this);
     
-    fetch('{{ route("admin.floorplan.merge", $exhibition->id) }}', {
+    fetch('/ems-laravel/public/admin/exhibitions/{{ $exhibition->id }}/booths/merge', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'X-CSRF-TOKEN': '{{ csrf_token() }}'
         },
         body: JSON.stringify({
-            booth_ids: selectedBooths,
+            booth_ids: selectedStalls,
             new_name: formData.get('new_name')
         })
     })
@@ -407,49 +520,26 @@ document.getElementById('mergeForm').addEventListener('submit', function(e) {
         if (data.success) {
             location.reload();
         } else {
-            alert(data.message || 'Error merging booths');
+            alert(data.message || 'Error combining stalls');
         }
     });
 });
 
-// Split functionality
-document.getElementById('splitBtn').addEventListener('click', function() {
-    if (selectedBooths.length !== 1) return;
-    
-    const splitCount = document.getElementById('splitCount');
-    const container = document.getElementById('splitNamesContainer');
-    
-    function updateSplitNames() {
-        const count = parseInt(splitCount.value);
-        let html = '';
-        for (let i = 0; i < count; i++) {
-            html += `<div class="mb-3">
-                <label class="form-label">Booth ${i + 1} Name *</label>
-                <input type="text" class="form-control" name="new_names[]" required>
-            </div>`;
-        }
-        container.innerHTML = html;
-    }
-    
-    splitCount.addEventListener('change', updateSplitNames);
-    updateSplitNames();
-    
-    new bootstrap.Modal(document.getElementById('splitModal')).show();
-});
-
-document.getElementById('splitForm').addEventListener('submit', function(e) {
+// Split form submission
+document.getElementById('splitForm')?.addEventListener('submit', function(e) {
     e.preventDefault();
     const formData = new FormData(this);
+    const splitCount = parseInt(formData.get('split_count'));
     const newNames = formData.getAll('new_names[]');
     
-    fetch(`/admin/exhibitions/{{ $exhibition->id }}/booths/${selectedBooths[0]}/split`, {
+    fetch(`/ems-laravel/public/admin/exhibitions/{{ $exhibition->id }}/booths/${selectedStallId}/split`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'X-CSRF-TOKEN': '{{ csrf_token() }}'
         },
         body: JSON.stringify({
-            split_count: parseInt(formData.get('split_count')),
+            split_count: splitCount,
             new_names: newNames
         })
     })
@@ -458,37 +548,24 @@ document.getElementById('splitForm').addEventListener('submit', function(e) {
         if (data.success) {
             location.reload();
         } else {
-            alert(data.message || 'Error splitting booth');
+            alert(data.message || 'Error splitting stall');
         }
     });
 });
 
-// Reset view
-document.getElementById('resetBtn').addEventListener('click', function() {
-    clearSelection();
-    zoomLevel = 1;
-    document.getElementById('floorplanCanvas').style.transform = 'scale(1)';
-});
-
-// Price range filter
-document.getElementById('priceRange').addEventListener('input', function(e) {
-    document.getElementById('priceRangeValue').textContent = parseInt(e.target.value).toLocaleString();
-    applyFilters();
-});
-
-// Apply filters
-function applyFilters() {
-    // Filter logic here
-}
-
-// Proceed to book
-document.getElementById('proceedToBookBtn').addEventListener('click', function() {
-    if (selectedBooths.length > 0) {
-        // Admin can view bookings but not create them from floorplan
-        alert('Please use the booking management section to create bookings.');
+// Update split names container
+document.querySelector('#splitForm select[name="split_count"]')?.addEventListener('change', function() {
+    const count = parseInt(this.value);
+    const container = document.getElementById('splitNamesContainer');
+    let html = '';
+    for (let i = 0; i < count; i++) {
+        html += `<div class="mb-3">
+            <label class="form-label">Stall ${i + 1} Name</label>
+            <input type="text" class="form-control" name="new_names[]" required>
+        </div>`;
     }
+    container.innerHTML = html;
 });
 </script>
 @endpush
 @endsection
-

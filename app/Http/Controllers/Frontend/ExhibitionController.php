@@ -10,12 +10,24 @@ class ExhibitionController extends Controller
 {
     public function index()
     {
-        $exhibitions = Exhibition::with('booths')
+        // Active exhibitions (currently ongoing)
+        $activeExhibitions = Exhibition::with('booths')
             ->where('status', 'active')
+            ->where('start_date', '<=', now())
             ->where('end_date', '>=', now())
             ->latest()
+            ->take(3)
             ->get();
-        return view('frontend.exhibitions.index', compact('exhibitions'));
+        
+        // Upcoming exhibitions (future dates)
+        $upcomingExhibitions = Exhibition::with('booths')
+            ->where('status', 'active')
+            ->where('start_date', '>', now())
+            ->latest()
+            ->take(3)
+            ->get();
+        
+        return view('frontend.exhibitions.index', compact('activeExhibitions', 'upcomingExhibitions'));
     }
 
     public function list()

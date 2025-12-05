@@ -1,0 +1,123 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Models\Booking;
+use App\Models\Booth;
+use App\Models\Exhibition;
+use App\Models\Discount;
+use Illuminate\Http\Request;
+use Spatie\Permission\Models\Role;
+
+class ExhibitorManagementController extends Controller
+{
+    public function index(Request $request)
+    {
+        $query = User::role('Exhibitor')->with(['bookings', 'bookings.exhibition', 'bookings.booth']);
+
+        if ($request->has('search') && $request->search) {
+            $query->where(function($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->search . '%')
+                  ->orWhere('email', 'like', '%' . $request->search . '%')
+                  ->orWhere('company_name', 'like', '%' . $request->search . '%');
+            });
+        }
+
+        if ($request->has('industry') && $request->industry) {
+            $query->where('industry', $request->industry);
+        }
+
+        if ($request->has('payment_status') && $request->payment_status) {
+            if ($request->payment_status === 'paid') {
+                $query->whereHas('bookings.payments', function($q) {
+                    $q->where('status', 'completed');
+                });
+            } else {
+                $query->whereDoesntHave('bookings.payments', function($q) {
+                    $q->where('status', 'completed');
+                });
+            }
+        }
+
+        if ($request->has('booth_area') && $request->booth_area) {
+            $query->whereHas('bookings.booth', function($q) use ($request) {
+                $q->where('size_sqft', '>=', $request->booth_area);
+            });
+        }
+
+        $exhibitors = $query->latest()->paginate(20);
+        $industries = User::role('Exhibitor')->distinct()->pluck('industry')->filter();
+        $exhibitions = Exhibition::all();
+
+        return view('admin.exhibitors.index', compact('exhibitors', 'industries', 'exhibitions'));
+    }
+
+    public function show($id)
+    {
+        $exhibitor = User::role('Exhibitor')->with(['bookings.exhibition', 'bookings.booth', 'bookings.payments'])->findOrFail($id);
+        $bookings = $exhibitor->bookings()->with(['exhibition', 'booth', 'payments'])->latest()->get();
+        $exhibitions = Exhibition::all();
+        $booths = Booth::where('is_available', true)->get();
+        $discounts = Discount::where('status', 'active')
+            ->where('start_date', '<=', now())
+            ->where('end_date', '>=', now())
+            ->get();
+
+        return view('admin.exhibitors.show', compact('exhibitor', 'bookings', 'exhibitions', 'booths', 'discounts'));
+    }
+
+    public function updateContact(Request $request, $id)
+    {
+        $exhibitor = User::role('Exhibitor')->findOrFail($id);
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $id,
+            'phone' => 'nullable|string|max:20',
+            'company_name' => 'nullable|string|max:255',
+            'industry' => 'nullable|string|max:255',
+            'address' => 'nullable|string',
+            'city' => 'nullable|string|max:255',
+            'state' => 'nullable|string|max:255',
+            'country' => 'nullable|string|max:255',
+            'pincode' => 'nullable|string|max:10',
+        ]);
+
+        $exhibitor->update($validated);
+        return back()->with('success', 'Exhibitor contact updated successfully.');
+    }
+
+    public function updateBooth(Request $request, $id)
+    {
+        $exhibitor = User::role('Exhibitor')->findOrFail($id);
+        $validated = $request->validate([
+            'booking_id' => 'required|exists:bookings,id',
+            'exhibition_id' => 'required|exists:exhibitions,id',
+            'booth_id' => 'required|exists:booths,id',
+            'price' => 'required|numeric|min:0',
+            'discount_id' => 'nullable|exists:discounts,id',
+        ]);
+
+        $booking = Booking::where('id', $validated['booking_id'])
+            ->where('user_id', $id)
+            ->firstOrFail();
+
+        $discountPercent = 0;
+        if ($validated['discount_id']) {
+            $discount = Discount::find($validated['discount_id']);
+            $discountPercent = $discount->discount_percent ?? 0;
+        }
+
+        $discountedPrice = $validated['price'] * (1 - $discountPercent / 100);
+
+        $booking->update([
+            'exhibition_id' => $validated['exhibition_id'],
+            'booth_id' => $validated['booth_id'],
+            'total_amount' => $discountedPrice,
+            'discount_percent' => $discountPercent,
+        ]);
+
+        return back()->with('success', 'Booth assignment updated successfully.');
+    }
+}

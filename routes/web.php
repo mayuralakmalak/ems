@@ -51,25 +51,95 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     
     // Booking Management
     Route::get('/bookings', [AdminBookingController::class, 'index'])->name('bookings.index');
+    Route::get('/bookings/cancellations', [AdminBookingController::class, 'cancellations'])->name('bookings.cancellations');
     Route::get('/bookings/{id}', [AdminBookingController::class, 'show'])->name('bookings.show');
+    Route::get('/bookings/{id}/manage-cancellation', [AdminBookingController::class, 'manageCancellation'])->name('bookings.manage-cancellation');
     Route::post('/bookings/{id}/process-cancellation', [AdminBookingController::class, 'processCancellation'])->name('bookings.process-cancellation');
+    Route::post('/bookings/{id}/approve-cancellation', [AdminBookingController::class, 'approveCancellation'])->name('bookings.approve-cancellation');
+    Route::post('/bookings/{id}/reject-cancellation', [AdminBookingController::class, 'rejectCancellation'])->name('bookings.reject-cancellation');
     
     // Financial Management
     Route::get('/financial', [FinancialController::class, 'index'])->name('financial.index');
     
+    // Payment Management
+    Route::get('/payments', [\App\Http\Controllers\Admin\PaymentController::class, 'index'])->name('payments.index');
+    Route::get('/payments/create', [\App\Http\Controllers\Admin\PaymentController::class, 'create'])->name('payments.create');
+    Route::post('/payments', [\App\Http\Controllers\Admin\PaymentController::class, 'store'])->name('payments.store');
+    Route::get('/payments/{id}', [\App\Http\Controllers\Admin\PaymentController::class, 'show'])->name('payments.show');
+    
+    // Role Management
+    Route::get('/roles', [\App\Http\Controllers\Admin\RoleController::class, 'index'])->name('roles.index');
+    Route::post('/roles', [\App\Http\Controllers\Admin\RoleController::class, 'store'])->name('roles.store');
+    Route::get('/roles/{id}/edit-permissions', [\App\Http\Controllers\Admin\RoleController::class, 'editPermissions'])->name('roles.edit-permissions');
+    Route::put('/roles/{id}/permissions', [\App\Http\Controllers\Admin\RoleController::class, 'updatePermissions'])->name('roles.update-permissions');
+    
+    // Exhibition Management (Alternative View)
+    Route::get('/exhibitions-management', [ExhibitionController::class, 'management'])->name('exhibitions.management');
+    
     // Reports
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     
+    // Settings
+    Route::get('/settings', [\App\Http\Controllers\Admin\SettingsController::class, 'index'])->name('settings.index');
+    Route::post('/settings/payment-gateway', [\App\Http\Controllers\Admin\SettingsController::class, 'savePaymentGateway'])->name('settings.save-payment-gateway');
+    Route::post('/settings/email-sms', [\App\Http\Controllers\Admin\SettingsController::class, 'saveEmailSms'])->name('settings.save-email-sms');
+    Route::post('/settings/otp-dlt', [\App\Http\Controllers\Admin\SettingsController::class, 'saveOtpDlt'])->name('settings.save-otp-dlt');
+    Route::post('/settings/default-pricing', [\App\Http\Controllers\Admin\SettingsController::class, 'saveDefaultPricing'])->name('settings.save-default-pricing');
+    Route::post('/settings/cancellation-charges', [\App\Http\Controllers\Admin\SettingsController::class, 'saveCancellationCharges'])->name('settings.save-cancellation-charges');
+    
+    // Document Management
+    Route::get('/documents', [\App\Http\Controllers\Admin\DocumentController::class, 'index'])->name('documents.index');
+    Route::get('/documents/{id}', [\App\Http\Controllers\Admin\DocumentController::class, 'show'])->name('documents.show');
+    Route::post('/documents/{id}/approve', [\App\Http\Controllers\Admin\DocumentController::class, 'approve'])->name('documents.approve');
+    Route::post('/documents/{id}/reject', [\App\Http\Controllers\Admin\DocumentController::class, 'reject'])->name('documents.reject');
+    Route::post('/documents/bulk-approve', [\App\Http\Controllers\Admin\DocumentController::class, 'bulkApprove'])->name('documents.bulk-approve');
+    
     // Floorplan Management
-    Route::get('/exhibitions/{id}/floorplan', [\App\Http\Controllers\Admin\FloorplanController::class, 'show'])->name('floorplan.show');
-    Route::post('/exhibitions/{exhibitionId}/booths/{boothId}/position', [\App\Http\Controllers\Admin\FloorplanController::class, 'updateBoothPosition'])->name('floorplan.update-position');
-    Route::post('/exhibitions/{exhibitionId}/booths/merge', [\App\Http\Controllers\Admin\FloorplanController::class, 'mergeBooths'])->name('floorplan.merge');
-    Route::post('/exhibitions/{exhibitionId}/booths/{boothId}/split', [\App\Http\Controllers\Admin\FloorplanController::class, 'splitBooth'])->name('floorplan.split');
+        Route::get('/exhibitions/{id}/floorplan', [\App\Http\Controllers\Admin\FloorplanController::class, 'show'])->name('floorplan.show');
+        Route::post('/exhibitions/{exhibitionId}/booths/{boothId}/position', [\App\Http\Controllers\Admin\FloorplanController::class, 'updateBoothPosition'])->name('floorplan.update-position');
+        Route::post('/exhibitions/{exhibitionId}/booths/merge', [\App\Http\Controllers\Admin\FloorplanController::class, 'mergeBooths'])->name('floorplan.merge');
+        Route::post('/exhibitions/{exhibitionId}/booths/{boothId}/split', [\App\Http\Controllers\Admin\FloorplanController::class, 'splitBooth'])->name('floorplan.split');
+        
+        // Booth management
+        Route::get('/exhibitions/{exhibitionId}/booths/{id}', [\App\Http\Controllers\Admin\BoothController::class, 'show'])->name('booths.show');
+        Route::post('/exhibitions/{exhibitionId}/booths', [\App\Http\Controllers\Admin\BoothController::class, 'store'])->name('booths.store');
     
     // Booth Requests (Approvals)
     Route::get('/booth-requests', [\App\Http\Controllers\Admin\BoothRequestController::class, 'index'])->name('booth-requests.index');
     Route::post('/booth-requests/{id}/approve', [\App\Http\Controllers\Admin\BoothRequestController::class, 'approve'])->name('booth-requests.approve');
     Route::post('/booth-requests/{id}/reject', [\App\Http\Controllers\Admin\BoothRequestController::class, 'reject'])->name('booth-requests.reject');
+    
+    // Discount Management (Wireframe 30)
+    Route::resource('discounts', \App\Http\Controllers\Admin\DiscountController::class);
+    
+    // Checklist Management (Wireframe 31)
+    Route::get('/checklists', [\App\Http\Controllers\Admin\ChecklistController::class, 'index'])->name('checklists.index');
+    Route::post('/checklists', [\App\Http\Controllers\Admin\ChecklistController::class, 'store'])->name('checklists.store');
+    Route::put('/checklists/{id}', [\App\Http\Controllers\Admin\ChecklistController::class, 'update'])->name('checklists.update');
+    Route::delete('/checklists/{id}', [\App\Http\Controllers\Admin\ChecklistController::class, 'destroy'])->name('checklists.destroy');
+    
+    // Service Configuration (Wireframe 32)
+    Route::get('/services/config', [\App\Http\Controllers\Admin\ServiceConfigController::class, 'index'])->name('services.config');
+    Route::post('/services/config', [\App\Http\Controllers\Admin\ServiceConfigController::class, 'store'])->name('services.config.store');
+    Route::put('/services/config/{id}', [\App\Http\Controllers\Admin\ServiceConfigController::class, 'update'])->name('services.config.update');
+    Route::delete('/services/config/{id}', [\App\Http\Controllers\Admin\ServiceConfigController::class, 'destroy'])->name('services.config.destroy');
+    Route::post('/services/config/bulk-action', [\App\Http\Controllers\Admin\ServiceConfigController::class, 'bulkAction'])->name('services.config.bulk-action');
+    
+    // Analytics (Wireframe 33)
+    Route::get('/analytics', [\App\Http\Controllers\Admin\AnalyticsController::class, 'index'])->name('analytics.index');
+    Route::get('/analytics/export', [\App\Http\Controllers\Admin\AnalyticsController::class, 'export'])->name('analytics.export');
+    
+    // Exhibitor Management (Wireframes 34-35)
+    Route::get('/exhibitors', [\App\Http\Controllers\Admin\ExhibitorManagementController::class, 'index'])->name('exhibitors.index');
+    Route::get('/exhibitors/{id}', [\App\Http\Controllers\Admin\ExhibitorManagementController::class, 'show'])->name('exhibitors.show');
+    Route::put('/exhibitors/{id}/contact', [\App\Http\Controllers\Admin\ExhibitorManagementController::class, 'updateContact'])->name('exhibitors.update-contact');
+    Route::put('/exhibitors/{id}/booth', [\App\Http\Controllers\Admin\ExhibitorManagementController::class, 'updateBooth'])->name('exhibitors.update-booth');
+    
+    // Email Management (Wireframe 36)
+    Route::get('/emails', [\App\Http\Controllers\Admin\EmailManagementController::class, 'index'])->name('emails.index');
+    Route::get('/emails/{id}/edit', [\App\Http\Controllers\Admin\EmailManagementController::class, 'edit'])->name('emails.edit');
+    Route::put('/emails/{id}', [\App\Http\Controllers\Admin\EmailManagementController::class, 'update'])->name('emails.update');
+    Route::post('/emails/{id}/toggle', [\App\Http\Controllers\Admin\EmailManagementController::class, 'toggleStatus'])->name('emails.toggle');
 });
 
 // Frontend Exhibitor Routes
@@ -77,16 +147,20 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     
     // Booking
+    Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
     Route::get('/exhibitions/{exhibitionId}/bookings/create', [BookingController::class, 'create'])->name('bookings.create');
     Route::post('/bookings', [BookingController::class, 'store'])->name('bookings.store');
     Route::get('/bookings/{id}', [BookingController::class, 'show'])->name('bookings.show');
     Route::put('/bookings/{id}', [BookingController::class, 'update'])->name('bookings.update');
+    Route::get('/bookings/{id}/cancel', [BookingController::class, 'showCancel'])->name('bookings.cancel.show');
     Route::post('/bookings/{id}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
     Route::post('/bookings/{id}/replace', [BookingController::class, 'replace'])->name('bookings.replace');
     
     // Payment
+    Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
     Route::get('/payments/{bookingId}', [PaymentController::class, 'create'])->name('payments.create');
     Route::post('/payments', [PaymentController::class, 'store'])->name('payments.store');
+    Route::get('/payments/{paymentId}/confirmation', [PaymentController::class, 'confirmation'])->name('payments.confirmation');
     
     // Documents
     Route::resource('documents', DocumentController::class);
@@ -101,6 +175,17 @@ Route::middleware('auth')->group(function () {
     
     // Wallet
     Route::get('/wallet', [WalletController::class, 'index'])->name('wallet.index');
+    
+    // Additional Services
+    Route::get('/services', [\App\Http\Controllers\Frontend\ServiceController::class, 'index'])->name('services.index');
+    Route::post('/services/add-to-cart', [\App\Http\Controllers\Frontend\ServiceController::class, 'addToCart'])->name('services.add-to-cart');
+    Route::post('/services/update-cart', [\App\Http\Controllers\Frontend\ServiceController::class, 'updateCart'])->name('services.update-cart');
+    Route::post('/services/remove-from-cart', [\App\Http\Controllers\Frontend\ServiceController::class, 'removeFromCart'])->name('services.remove-from-cart');
+    Route::post('/services/checkout', [\App\Http\Controllers\Frontend\ServiceController::class, 'checkout'])->name('services.checkout');
+    
+    // Sponsorships
+    Route::get('/sponsorships', [\App\Http\Controllers\Frontend\SponsorshipController::class, 'index'])->name('sponsorships.index');
+    Route::post('/sponsorships/{id}/select', [\App\Http\Controllers\Frontend\SponsorshipController::class, 'select'])->name('sponsorships.select');
     
     // Floorplan (Exhibitor)
     Route::get('/exhibitions/{id}/floorplan', [\App\Http\Controllers\Frontend\FloorplanController::class, 'show'])->name('floorplan.show');

@@ -62,6 +62,12 @@ class BoothController extends Controller
     {
         $exhibition = Exhibition::findOrFail($exhibitionId);
         $booth = Booth::where('exhibition_id', $exhibitionId)->findOrFail($id);
+        
+        // If request wants JSON (for AJAX)
+        if (request()->wantsJson()) {
+            return response()->json($booth);
+        }
+        
         return view('admin.booths.show', compact('exhibition', 'booth'));
     }
 

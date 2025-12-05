@@ -3,307 +3,525 @@
 @section('title', 'Book Booth')
 @section('page-title', 'Book Booth - ' . $exhibition->name)
 
-@section('content')
-<div class="card mb-4">
-    <div class="card-header bg-primary text-white">
-        <h5 class="mb-0"><i class="bi bi-calendar-event me-2"></i>{{ $exhibition->name }}</h5>
-    </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-6">
-                <p><strong>Venue:</strong> {{ $exhibition->venue }}, {{ $exhibition->city }}</p>
-                <p><strong>Dates:</strong> {{ $exhibition->start_date->format('d M Y') }} - {{ $exhibition->end_date->format('d M Y') }}</p>
-            </div>
-            <div class="col-md-6">
-                <p><strong>Base Price:</strong> ₹{{ number_format($exhibition->price_per_sqft ?? 0, 0) }}/sq ft</p>
-                <p><strong>Status:</strong> <span class="badge bg-success">{{ ucfirst($exhibition->status) }}</span></p>
-            </div>
-        </div>
-    </div>
-</div>
+@push('styles')
+<style>
+    .form-section {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        margin-bottom: 25px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .section-title {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    
+    .section-description {
+        color: #64748b;
+        font-size: 0.95rem;
+        margin-bottom: 25px;
+    }
+    
+    .form-label {
+        font-weight: 500;
+        color: #334155;
+        margin-bottom: 8px;
+        font-size: 0.95rem;
+    }
+    
+    .form-control, .form-select {
+        padding: 12px 16px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        outline: none;
+    }
+    
+    .upload-area {
+        border: 2px dashed #cbd5e1;
+        border-radius: 12px;
+        padding: 40px;
+        text-align: center;
+        background: #f8fafc;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .upload-area:hover {
+        border-color: #6366f1;
+        background: #f0f9ff;
+    }
+    
+    .upload-area.dragover {
+        border-color: #6366f1;
+        background: #e0f2fe;
+    }
+    
+    .upload-icon {
+        font-size: 3rem;
+        color: #94a3b8;
+        margin-bottom: 15px;
+    }
+    
+    .upload-text {
+        color: #64748b;
+        font-size: 0.95rem;
+        margin-bottom: 5px;
+    }
+    
+    .upload-hint {
+        color: #94a3b8;
+        font-size: 0.85rem;
+    }
+    
+    .file-preview {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px;
+        background: #f8fafc;
+        border-radius: 8px;
+        margin-top: 10px;
+    }
+    
+    .file-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .file-icon {
+        font-size: 1.5rem;
+        color: #6366f1;
+    }
+    
+    .file-details {
+        flex: 1;
+    }
+    
+    .file-name {
+        font-weight: 500;
+        color: #1e293b;
+        font-size: 0.95rem;
+    }
+    
+    .file-size {
+        font-size: 0.85rem;
+        color: #64748b;
+    }
+    
+    .remove-file {
+        background: #fee2e2;
+        color: #991b1b;
+        border: none;
+        border-radius: 6px;
+        padding: 6px 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .remove-file:hover {
+        background: #fecaca;
+    }
+    
+    .terms-checkbox {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 20px;
+        background: #f8fafc;
+        border-radius: 8px;
+        margin-bottom: 25px;
+    }
+    
+    .terms-checkbox input[type="checkbox"] {
+        margin-top: 3px;
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+    }
+    
+    .terms-checkbox label {
+        flex: 1;
+        color: #334155;
+        font-size: 0.95rem;
+        cursor: pointer;
+    }
+    
+    .terms-checkbox a {
+        color: #6366f1;
+        text-decoration: none;
+    }
+    
+    .terms-checkbox a:hover {
+        text-decoration: underline;
+    }
+    
+    .form-actions {
+        display: flex;
+        justify-content: space-between;
+        padding-top: 25px;
+        border-top: 1px solid #e2e8f0;
+    }
+    
+    .btn-back {
+        padding: 12px 30px;
+        background: white;
+        border: 2px solid #e2e8f0;
+        color: #64748b;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-back:hover {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+    }
+    
+    .btn-continue {
+        padding: 12px 30px;
+        background: #6366f1;
+        border: none;
+        color: white;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-continue:hover {
+        background: #4f46e5;
+    }
+    
+    .btn-continue:disabled {
+        background: #cbd5e1;
+        cursor: not-allowed;
+    }
+</style>
+@endpush
 
-<form action="{{ route('bookings.store') }}" method="POST" id="bookingForm">
+@section('content')
+<form action="{{ route('bookings.store') }}" method="POST" id="bookingForm" enctype="multipart/form-data">
     @csrf
     <input type="hidden" name="exhibition_id" value="{{ $exhibition->id }}">
     
-    <!-- Floor Plan Section -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="mb-0"><i class="bi bi-grid-3x3-gap me-2"></i>Select Booths</h5>
-        </div>
-        <div class="card-body">
-            @if($exhibition->floorplan_image)
-            <div class="mb-3">
-                <img src="{{ asset('storage/' . $exhibition->floorplan_image) }}" alt="Floor Plan" class="img-fluid border rounded" style="max-height: 500px;">
-            </div>
-            @endif
-            
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th width="50">
-                                <input type="checkbox" id="selectAll" title="Select All">
-                            </th>
-                            <th>Booth</th>
-                            <th>Category</th>
-                            <th>Type</th>
-                            <th>Size (sq ft)</th>
-                            <th>Sides Open</th>
-                            <th>Price</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($exhibition->booths->where('is_available', true) as $booth)
-                        <tr>
-                            <td>
-                                <input type="checkbox" name="booth_ids[]" value="{{ $booth->id }}" class="booth-checkbox" data-price="{{ $booth->price }}" data-name="{{ $booth->name }}">
-                            </td>
-                            <td><strong>{{ $booth->name }}</strong></td>
-                            <td>{{ $booth->category }}</td>
-                            <td>{{ $booth->booth_type }}</td>
-                            <td>{{ $booth->size_sqft }}</td>
-                            <td>{{ $booth->sides_open }}</td>
-                            <td>₹{{ number_format($booth->price, 0) }}</td>
-                            <td>
-                                @if($booth->is_free)
-                                    <span class="badge bg-info">Free</span>
-                                @else
-                                    <span class="badge bg-success">Available</span>
-                                @endif
-                            </td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-            
-            <div class="mt-3">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" name="merge_booths" id="mergeBooths" value="1">
-                    <label class="form-check-label" for="mergeBooths">
-                        Merge selected booths (e.g., D1 + D2 = D1D2)
-                    </label>
-                </div>
-            </div>
-            
-            <div class="mt-3">
-                <strong>Selected Booths:</strong> <span id="selectedBooths">None</span><br>
-                <strong>Total Amount:</strong> ₹<span id="totalAmount">0</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Additional Services -->
-    @if($exhibition->services->where('is_active', true)->count() > 0)
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Additional Services</h5>
-            <small class="text-muted">Select additional services (before {{ $exhibition->addon_services_cutoff_date ? $exhibition->addon_services_cutoff_date->format('d M Y') : 'cutoff date' }})</small>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                @foreach($exhibition->services->where('is_active', true) as $service)
-                <div class="col-md-4 mb-3">
-                    <div class="card border">
-                        <div class="card-body">
-                            @if($service->image)
-                            <img src="{{ asset('storage/' . $service->image) }}" class="img-fluid mb-2" style="max-height: 100px;">
-                            @endif
-                            <h6>{{ $service->name }}</h6>
-                            <p class="text-muted small mb-2">{{ $service->description }}</p>
-                            <p class="mb-2"><strong>Price:</strong> ₹{{ number_format($service->price, 0) }}</p>
-                            <div class="input-group">
-                                <input type="number" name="services[{{ $service->id }}][quantity]" class="form-control service-quantity" min="0" value="0" data-price="{{ $service->price }}" data-service-id="{{ $service->id }}">
-                                <input type="hidden" name="services[{{ $service->id }}][service_id]" value="{{ $service->id }}">
-                                <span class="input-group-text">Qty</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                @endforeach
-            </div>
-            <div class="mt-3">
-                <strong>Services Total:</strong> ₹<span id="servicesTotal">0</span>
-            </div>
-        </div>
-    </div>
+    @if(request()->has('booths'))
+        @foreach(explode(',', request()->get('booths')) as $boothId)
+            <input type="hidden" name="booth_ids[]" value="{{ $boothId }}">
+        @endforeach
     @endif
-
-    <!-- Contact Information -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="mb-0"><i class="bi bi-person-lines-fill me-2"></i>Contact Information</h5>
-            <small class="text-muted">Add up to 5 emails and 5 contact numbers</small>
+    
+    <!-- Company Information -->
+    <div class="form-section">
+        <h3 class="section-title">Company Information</h3>
+        <p class="section-description">Provide your company details for the booking.</p>
+        
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="company_name" class="form-label">Company Name *</label>
+                <input type="text" class="form-control" id="company_name" name="company_name" 
+                       value="{{ auth()->user()->company_name ?? old('company_name') }}" required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="company_website" class="form-label">Company Website</label>
+                <input type="url" class="form-control" id="company_website" name="company_website" 
+                       value="{{ auth()->user()->website ?? old('company_website') }}">
+            </div>
         </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-6">
-                    <label class="form-label">Email Addresses (up to 5)</label>
-                    <div id="emailContainer">
-                        <div class="input-group mb-2">
-                            <input type="email" name="contact_emails[]" class="form-control" placeholder="Email address">
-                            <button type="button" class="btn btn-outline-danger remove-email" style="display: none;"><i class="bi bi-trash"></i></button>
-                        </div>
-                    </div>
-                    <button type="button" class="btn btn-sm btn-outline-primary" id="addEmail" {{ count(old('contact_emails', [])) >= 5 ? 'disabled' : '' }}>
-                        <i class="bi bi-plus"></i> Add Email
-                    </button>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Contact Numbers (up to 5)</label>
-                    <div id="phoneContainer">
-                        <div class="input-group mb-2">
-                            <input type="text" name="contact_numbers[]" class="form-control" placeholder="Contact number">
-                            <button type="button" class="btn btn-outline-danger remove-phone" style="display: none;"><i class="bi bi-trash"></i></button>
-                        </div>
-                    </div>
-                    <button type="button" class="btn btn-sm btn-outline-primary" id="addPhone" {{ count(old('contact_numbers', [])) >= 5 ? 'disabled' : '' }}>
-                        <i class="bi bi-plus"></i> Add Number
-                    </button>
-                </div>
+        
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="company_address" class="form-label">Company Address *</label>
+                <input type="text" class="form-control" id="company_address" name="company_address" 
+                       value="{{ auth()->user()->address ?? old('company_address') }}" required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="company_city" class="form-label">City *</label>
+                <input type="text" class="form-control" id="company_city" name="company_city" 
+                       value="{{ auth()->user()->city ?? old('company_city') }}" required>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label for="company_state" class="form-label">State *</label>
+                <input type="text" class="form-control" id="company_state" name="company_state" 
+                       value="{{ auth()->user()->state ?? old('company_state') }}" required>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="company_country" class="form-label">Country *</label>
+                <input type="text" class="form-control" id="company_country" name="company_country" 
+                       value="{{ auth()->user()->country ?? old('company_country') }}" required>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="company_pincode" class="form-label">Zip Code *</label>
+                <input type="text" class="form-control" id="company_pincode" name="company_pincode" 
+                       value="{{ auth()->user()->pincode ?? old('company_pincode') }}" required>
             </div>
         </div>
     </div>
-
-    <!-- Summary -->
-    <div class="card mb-4">
-        <div class="card-header bg-success text-white">
-            <h5 class="mb-0"><i class="bi bi-calculator me-2"></i>Booking Summary</h5>
+    
+    <!-- Primary Contact Person -->
+    <div class="form-section">
+        <h3 class="section-title">Primary Contact Person</h3>
+        <p class="section-description">Main contact for booking coordination and communication.</p>
+        
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="contact_name" class="form-label">Full Name *</label>
+                <input type="text" class="form-control" id="contact_name" name="contact_name" 
+                       value="{{ auth()->user()->name ?? old('contact_name') }}" required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="contact_designation" class="form-label">Designation</label>
+                <input type="text" class="form-control" id="contact_designation" name="contact_designation" 
+                       value="{{ old('contact_designation') }}">
+            </div>
         </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-6">
-                    <p><strong>Booths Total:</strong> ₹<span id="boothsTotal">0</span></p>
-                    <p><strong>Services Total:</strong> ₹<span id="servicesTotalSummary">0</span></p>
-                </div>
-                <div class="col-md-6">
-                    <h4><strong>Grand Total:</strong> ₹<span id="grandTotal">0</span></h4>
-                </div>
+        
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="contact_email" class="form-label">Email Address *</label>
+                <input type="email" class="form-control" id="contact_email" name="contact_email" 
+                       value="{{ auth()->user()->email ?? old('contact_email') }}" required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="contact_phone" class="form-label">Phone Number *</label>
+                <input type="tel" class="form-control" id="contact_phone" name="contact_phone" 
+                       value="{{ auth()->user()->phone ?? old('contact_phone') }}" required>
             </div>
         </div>
     </div>
-
-    <div class="d-flex justify-content-between">
-        <a href="{{ route('exhibitions.show', $exhibition->id) }}" class="btn btn-secondary">
+    
+    <!-- Additional Requirements -->
+    <div class="form-section">
+        <h3 class="section-title">Additional Requirements</h3>
+        <p class="section-description">Any special requirements or requests for your booking.</p>
+        
+        <div class="mb-3">
+            <label for="additional_requirements" class="form-label">Special Requirements</label>
+            <textarea class="form-control" id="additional_requirements" name="additional_requirements" 
+                      rows="4" placeholder="Enter any special requirements or requests...">{{ old('additional_requirements') }}</textarea>
+        </div>
+    </div>
+    
+    <!-- Company Logo Upload -->
+    <div class="form-section">
+        <h3 class="section-title">Company Logo</h3>
+        <p class="section-description">Upload your company logo (PNG, JPG, max 5MB).</p>
+        
+        <div class="upload-area" id="logoUploadArea">
+            <i class="bi bi-cloud-upload upload-icon"></i>
+            <div class="upload-text">Drag & drop your logo here</div>
+            <div class="upload-hint">or click to browse</div>
+            <input type="file" id="logoFile" name="logo" accept="image/png,image/jpeg,image/jpg" style="display: none;">
+        </div>
+        <div id="logoPreview"></div>
+    </div>
+    
+    <!-- Promotional Brochures Upload -->
+    <div class="form-section">
+        <h3 class="section-title">Promotional Brochures</h3>
+        <p class="section-description">Upload promotional brochures (PDF, max 3 files, 5MB each).</p>
+        
+        <div class="upload-area" id="brochureUploadArea">
+            <i class="bi bi-file-earmark-pdf upload-icon"></i>
+            <div class="upload-text">Drag & drop brochures here</div>
+            <div class="upload-hint">or click to browse (max 3 files)</div>
+            <input type="file" id="brochureFiles" name="brochures[]" accept="application/pdf" multiple style="display: none;">
+        </div>
+        <div id="brochurePreview"></div>
+    </div>
+    
+    <!-- Terms & Conditions -->
+    <div class="terms-checkbox">
+        <input type="checkbox" id="terms" name="terms" required>
+        <label for="terms">
+            I agree to the <a href="#" target="_blank">Terms & Conditions</a> and <a href="#" target="_blank">Privacy Policy</a> *
+        </label>
+    </div>
+    
+    <!-- Form Actions -->
+    <div class="form-actions">
+        <a href="{{ route('exhibitions.show', $exhibition->id) }}" class="btn btn-back">
             <i class="bi bi-arrow-left me-2"></i>Back
         </a>
-        <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
-            <i class="bi bi-check-circle me-2"></i>Proceed to Payment
+        <button type="submit" class="btn btn-continue" id="submitBtn">
+            Continue to Payment <i class="bi bi-arrow-right ms-2"></i>
         </button>
     </div>
 </form>
 
 @push('scripts')
 <script>
-$(document).ready(function() {
-    let selectedBooths = [];
-    let totalAmount = 0;
-    let servicesTotal = 0;
+// Logo upload
+const logoUploadArea = document.getElementById('logoUploadArea');
+const logoFile = document.getElementById('logoFile');
+const logoPreview = document.getElementById('logoPreview');
 
-    // Select All checkbox
-    $('#selectAll').on('change', function() {
-        $('.booth-checkbox').prop('checked', this.checked);
-        updateBoothSelection();
-    });
+logoUploadArea.addEventListener('click', () => logoFile.click());
+logoUploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    logoUploadArea.classList.add('dragover');
+});
+logoUploadArea.addEventListener('dragleave', () => {
+    logoUploadArea.classList.remove('dragover');
+});
+logoUploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    logoUploadArea.classList.remove('dragover');
+    if (e.dataTransfer.files.length > 0) {
+        logoFile.files = e.dataTransfer.files;
+        handleLogoFile(e.dataTransfer.files[0]);
+    }
+});
 
-    // Individual booth selection
-    $('.booth-checkbox').on('change', function() {
-        updateBoothSelection();
-        $('#selectAll').prop('checked', $('.booth-checkbox:checked').length === $('.booth-checkbox').length);
-    });
+logoFile.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        handleLogoFile(e.target.files[0]);
+    }
+});
 
-    function updateBoothSelection() {
-        selectedBooths = [];
-        totalAmount = 0;
+function handleLogoFile(file) {
+    if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB');
+        return;
+    }
+    
+    if (!file.type.match('image.*')) {
+        alert('Please upload an image file');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        logoPreview.innerHTML = `
+            <div class="file-preview">
+                <div class="file-info">
+                    <i class="bi bi-file-image file-icon"></i>
+                    <div class="file-details">
+                        <div class="file-name">${file.name}</div>
+                        <div class="file-size">${(file.size / 1024).toFixed(2)} KB</div>
+                    </div>
+                </div>
+                <button type="button" class="remove-file" onclick="removeLogo()">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        `;
+    };
+    reader.readAsDataURL(file);
+}
+
+function removeLogo() {
+    logoFile.value = '';
+    logoPreview.innerHTML = '';
+}
+
+// Brochure upload
+const brochureUploadArea = document.getElementById('brochureUploadArea');
+const brochureFiles = document.getElementById('brochureFiles');
+const brochurePreview = document.getElementById('brochurePreview');
+let brochureFilesList = [];
+
+brochureUploadArea.addEventListener('click', () => brochureFiles.click());
+brochureUploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    brochureUploadArea.classList.add('dragover');
+});
+brochureUploadArea.addEventListener('dragleave', () => {
+    brochureUploadArea.classList.remove('dragover');
+});
+brochureUploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    brochureUploadArea.classList.remove('dragover');
+    if (e.dataTransfer.files.length > 0) {
+        handleBrochureFiles(Array.from(e.dataTransfer.files));
+    }
+});
+
+brochureFiles.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        handleBrochureFiles(Array.from(e.target.files));
+    }
+});
+
+function handleBrochureFiles(files) {
+    files.forEach(file => {
+        if (brochureFilesList.length >= 3) {
+            alert('Maximum 3 files allowed');
+            return;
+        }
         
-        $('.booth-checkbox:checked').each(function() {
-            selectedBooths.push($(this).data('name'));
-            totalAmount += parseFloat($(this).data('price'));
-        });
-
-        $('#selectedBooths').text(selectedBooths.length > 0 ? selectedBooths.join(', ') : 'None');
-        $('#boothsTotal').text(totalAmount.toLocaleString('en-IN'));
-        updateGrandTotal();
-        updateSubmitButton();
-    }
-
-    // Service quantity change
-    $('.service-quantity').on('change', function() {
-        calculateServicesTotal();
-    });
-
-    function calculateServicesTotal() {
-        servicesTotal = 0;
-        $('.service-quantity').each(function() {
-            const quantity = parseInt($(this).val()) || 0;
-            const price = parseFloat($(this).data('price')) || 0;
-            servicesTotal += quantity * price;
-        });
-        $('#servicesTotal').text(servicesTotal.toLocaleString('en-IN'));
-        $('#servicesTotalSummary').text(servicesTotal.toLocaleString('en-IN'));
-        updateGrandTotal();
-    }
-
-    function updateGrandTotal() {
-        const grandTotal = totalAmount + servicesTotal;
-        $('#grandTotal').text(grandTotal.toLocaleString('en-IN'));
-    }
-
-    function updateSubmitButton() {
-        $('#submitBtn').prop('disabled', selectedBooths.length === 0);
-    }
-
-    // Add/Remove Email
-    $('#addEmail').on('click', function() {
-        const count = $('#emailContainer .input-group').length;
-        if (count < 5) {
-            const newEmail = `
-                <div class="input-group mb-2">
-                    <input type="email" name="contact_emails[]" class="form-control" placeholder="Email address">
-                    <button type="button" class="btn btn-outline-danger remove-email"><i class="bi bi-trash"></i></button>
-                </div>
-            `;
-            $('#emailContainer').append(newEmail);
-            if (count + 1 >= 5) $(this).prop('disabled', true);
-            $('.remove-email').show();
+        if (file.size > 5 * 1024 * 1024) {
+            alert(`${file.name} is larger than 5MB`);
+            return;
         }
-    });
-
-    $(document).on('click', '.remove-email', function() {
-        if ($('#emailContainer .input-group').length > 1) {
-            $(this).closest('.input-group').remove();
-            if ($('#emailContainer .input-group').length < 5) $('#addEmail').prop('disabled', false);
-            if ($('#emailContainer .input-group').length === 1) $('.remove-email').hide();
+        
+        if (file.type !== 'application/pdf') {
+            alert(`${file.name} is not a PDF file`);
+            return;
         }
+        
+        brochureFilesList.push(file);
+        addBrochurePreview(file);
     });
+    
+    updateBrochureInput();
+}
 
-    // Add/Remove Phone
-    $('#addPhone').on('click', function() {
-        const count = $('#phoneContainer .input-group').length;
-        if (count < 5) {
-            const newPhone = `
-                <div class="input-group mb-2">
-                    <input type="text" name="contact_numbers[]" class="form-control" placeholder="Contact number">
-                    <button type="button" class="btn btn-outline-danger remove-phone"><i class="bi bi-trash"></i></button>
-                </div>
-            `;
-            $('#phoneContainer').append(newPhone);
-            if (count + 1 >= 5) $(this).prop('disabled', true);
-            $('.remove-phone').show();
-        }
-    });
+function addBrochurePreview(file) {
+    const div = document.createElement('div');
+    div.className = 'file-preview';
+    div.innerHTML = `
+        <div class="file-info">
+            <i class="bi bi-file-earmark-pdf file-icon"></i>
+            <div class="file-details">
+                <div class="file-name">${file.name}</div>
+                <div class="file-size">${(file.size / 1024).toFixed(2)} KB</div>
+            </div>
+        </div>
+        <button type="button" class="remove-file" onclick="removeBrochure('${file.name}')">
+            <i class="bi bi-trash"></i>
+        </button>
+    `;
+    div.dataset.fileName = file.name;
+    brochurePreview.appendChild(div);
+}
 
-    $(document).on('click', '.remove-phone', function() {
-        if ($('#phoneContainer .input-group').length > 1) {
-            $(this).closest('.input-group').remove();
-            if ($('#phoneContainer .input-group').length < 5) $('#addPhone').prop('disabled', false);
-            if ($('#phoneContainer .input-group').length === 1) $('.remove-phone').hide();
-        }
-    });
+function removeBrochure(fileName) {
+    brochureFilesList = brochureFilesList.filter(f => f.name !== fileName);
+    document.querySelector(`[data-file-name="${fileName}"]`).remove();
+    updateBrochureInput();
+}
+
+function updateBrochureInput() {
+    const dt = new DataTransfer();
+    brochureFilesList.forEach(file => dt.items.add(file));
+    brochureFiles.files = dt.files;
+}
+
+// Form validation
+document.getElementById('bookingForm').addEventListener('submit', function(e) {
+    const terms = document.getElementById('terms');
+    if (!terms.checked) {
+        e.preventDefault();
+        alert('Please accept the Terms & Conditions');
+        return false;
+    }
 });
 </script>
 @endpush
 @endsection
-

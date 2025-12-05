@@ -142,8 +142,18 @@
                 </a>
             </li>
             <li>
+                <a href="{{ route('bookings.index') }}" class="{{ request()->routeIs('bookings.*') ? 'active' : '' }}">
+                    <i class="bi bi-calendar-check"></i>My Bookings
+                </a>
+            </li>
+            <li>
                 <a href="{{ route('home') }}" class="{{ request()->routeIs('home') || request()->routeIs('exhibitions.*') ? 'active' : '' }}">
-                    <i class="bi bi-calendar-event"></i>Browse Exhibitions
+                    <i class="bi bi-calendar-plus"></i>Book New Stall
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('payments.index') }}" class="{{ request()->routeIs('payments.*') ? 'active' : '' }}">
+                    <i class="bi bi-credit-card"></i>My Payments
                 </a>
             </li>
             <li>
@@ -153,17 +163,22 @@
             </li>
             <li>
                 <a href="{{ route('badges.index') }}" class="{{ request()->routeIs('badges.*') ? 'active' : '' }}">
-                    <i class="bi bi-person-badge"></i>Badges
+                    <i class="bi bi-person-badge"></i>Badge Management
                 </a>
             </li>
             <li>
-                <a href="{{ route('messages.index') }}" class="{{ request()->routeIs('messages.*') ? 'active' : '' }}">
-                    <i class="bi bi-envelope"></i>Messages
+                <a href="#" class="">
+                    <i class="bi bi-star"></i>Additional Services
                 </a>
             </li>
             <li>
-                <a href="{{ route('wallet.index') }}" class="{{ request()->routeIs('wallet.*') ? 'active' : '' }}">
-                    <i class="bi bi-wallet2"></i>Wallet
+                <a href="#" class="">
+                    <i class="bi bi-trophy"></i>Sponsorship
+                </a>
+            </li>
+            <li>
+                <a href="#" class="">
+                    <i class="bi bi-gear"></i>Settings
                 </a>
             </li>
             <li>
@@ -183,7 +198,21 @@
                 <h5 class="mb-0">@yield('page-title', 'Dashboard')</h5>
                 <small class="text-muted">Welcome, {{ auth()->user()->name }}</small>
             </div>
-            <div>
+            <div class="top-bar-user">
+                <div class="user-avatar">
+                    {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                </div>
+                <div class="user-info">
+                    <div class="user-name">{{ auth()->user()->name }}</div>
+                    <div class="user-role">Exhibitor Manager</div>
+                </div>
+                <div class="notification-icon">
+                    <i class="bi bi-bell"></i>
+                    <span class="notification-badge">3</span>
+                </div>
+                <a href="{{ route('messages.index') }}" class="message-icon text-decoration-none">
+                    <i class="bi bi-envelope"></i>
+                </a>
                 <button class="btn btn-sm btn-outline-secondary d-md-none" id="sidebarToggle">
                     <i class="bi bi-list"></i>
                 </button>

@@ -14,6 +14,47 @@ use Illuminate\Support\Facades\DB;
 
 class BookingController extends Controller
 {
+    public function index(Request $request)
+    {
+        $user = auth()->user();
+        $query = Booking::with(['exhibition', 'booth'])
+            ->where('user_id', $user->id);
+        
+        // Filter by status
+        if ($request->has('status') && $request->status !== 'all') {
+            if ($request->status === 'active') {
+                $query->where('status', 'confirmed');
+            } elseif ($request->status === 'completed') {
+                $query->where('status', 'confirmed')
+                    ->whereHas('exhibition', function($q) {
+                        $q->where('end_date', '<', now());
+                    });
+            } elseif ($request->status === 'cancelled') {
+                $query->where('status', 'cancelled');
+            } elseif ($request->status === 'pending') {
+                $query->where('approval_status', 'pending');
+            }
+        }
+        
+        // Search
+        if ($request->has('search') && $request->search) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('booking_number', 'like', "%{$search}%")
+                  ->orWhereHas('exhibition', function($q) use ($search) {
+                      $q->where('name', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('booth', function($q) use ($search) {
+                      $q->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+        
+        $bookings = $query->latest()->paginate(15);
+        
+        return view('frontend.bookings.index', compact('bookings'));
+    }
+    
     public function create($exhibitionId)
     {
         $exhibition = Exhibition::with(['booths', 'services'])->findOrFail($exhibitionId);
@@ -37,6 +78,10 @@ class BookingController extends Controller
             'services' => 'nullable|array',
             'services.*.service_id' => 'exists:services,id',
             'services.*.quantity' => 'integer|min:1',
+            'logo' => 'nullable|image|max:5120', // 5MB
+            'brochures' => 'nullable|array|max:3',
+            'brochures.*' => 'file|mimes:pdf|max:5120', // 5MB each
+            'terms' => 'required|accepted',
         ]);
 
         $user = auth()->user();
@@ -91,6 +136,12 @@ class BookingController extends Controller
 
             $totalAmount += $servicesTotal;
 
+            // Handle logo upload
+            $logoPath = null;
+            if ($request->hasFile('logo')) {
+                $logoPath = $request->file('logo')->store('bookings/logos', 'public');
+            }
+
             // Create booking with approval status
             $booking = Booking::create([
                 'exhibition_id' => $exhibition->id,
@@ -103,7 +154,24 @@ class BookingController extends Controller
                 'paid_amount' => 0,
                 'contact_emails' => $request->contact_emails ?? [],
                 'contact_numbers' => $request->contact_numbers ?? [],
+                'logo' => $logoPath,
             ]);
+            
+            // Handle brochure uploads (store as documents)
+            if ($request->hasFile('brochures')) {
+                foreach ($request->file('brochures') as $brochure) {
+                    $brochurePath = $brochure->store('bookings/brochures', 'public');
+                    \App\Models\Document::create([
+                        'booking_id' => $booking->id,
+                        'user_id' => $user->id,
+                        'name' => 'Promotional Brochure - ' . $brochure->getClientOriginalName(),
+                        'type' => 'Promotional Brochure',
+                        'file_path' => $brochurePath,
+                        'file_size' => $brochure->getSize(),
+                        'status' => 'pending',
+                    ]);
+                }
+            }
             
             // Create booth request for booking approval
             \App\Models\BoothRequest::create([
