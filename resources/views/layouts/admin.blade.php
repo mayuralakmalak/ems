@@ -246,6 +246,29 @@
                                 <i class="bi bi-graph-up me-2"></i> Reports
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.bookings.*') ? 'active' : '' }}" href="{{ route('admin.bookings.index') }}">
+                                <i class="bi bi-calendar-check me-2"></i> Bookings
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.booth-requests.*') ? 'active' : '' }}" href="{{ route('admin.booth-requests.index') }}">
+                                <i class="bi bi-clock-history me-2"></i> Booth Requests
+                                @php
+                                    $pendingCount = \App\Models\BoothRequest::where('status', 'pending')->count();
+                                @endphp
+                                @if($pendingCount > 0)
+                                    <span class="badge bg-danger ms-2">{{ $pendingCount }}</span>
+                                @endif
+                            </a>
+                        </li>
+                        @if(request()->routeIs('admin.booths.*'))
+                        <li class="nav-item">
+                            <a class="nav-link active" href="#">
+                                <i class="bi bi-grid-3x3-gap me-2"></i> Booths
+                            </a>
+                        </li>
+                        @endif
                     </ul>
                 </div>
             </nav>

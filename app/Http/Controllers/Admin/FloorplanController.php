@@ -1,0 +1,169 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Models\Exhibition;
+use App\Models\Booth;
+use Illuminate\Http\Request;
+
+class FloorplanController extends Controller
+{
+    public function show($id)
+    {
+        $exhibition = Exhibition::with('booths')->findOrFail($id);
+        return view('admin.floorplan.show', compact('exhibition'));
+    }
+
+    public function updateBoothPosition(Request $request, $exhibitionId, $boothId)
+    {
+        $booth = Booth::where('exhibition_id', $exhibitionId)->findOrFail($boothId);
+        
+        $request->validate([
+            'position_x' => 'required|numeric',
+            'position_y' => 'required|numeric',
+            'width' => 'nullable|numeric|min:50',
+            'height' => 'nullable|numeric|min:50',
+        ]);
+
+        $booth->update([
+            'position_x' => $request->position_x,
+            'position_y' => $request->position_y,
+            'width' => $request->width ?? $booth->width ?? 100,
+            'height' => $request->height ?? $booth->height ?? 100,
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Booth position updated']);
+    }
+
+    public function mergeBooths(Request $request, $exhibitionId)
+    {
+        $exhibition = Exhibition::findOrFail($exhibitionId);
+        
+        $request->validate([
+            'booth_ids' => 'required|array|min:2',
+            'booth_ids.*' => 'exists:booths,id',
+            'new_name' => 'required|string|max:255',
+        ]);
+
+        $booths = Booth::whereIn('id', $request->booth_ids)
+            ->where('exhibition_id', $exhibitionId)
+            ->where('is_booked', false)
+            ->get();
+
+        if ($booths->count() < 2) {
+            return response()->json(['success' => false, 'message' => 'At least 2 available booths required'], 400);
+        }
+
+        // Calculate merged booth properties
+        $totalSize = $booths->sum('size_sqft');
+        $totalPrice = $booths->sum('price');
+        $avgSidesOpen = round($booths->avg('sides_open'));
+        $category = $booths->first()->category; // Use first booth's category
+
+        // Calculate position for merged booth
+        $minX = $booths->min('position_x') ?? 0;
+        $minY = $booths->min('position_y') ?? 0;
+        $maxX = $booths->max(function($b) { return ($b->position_x ?? 0) + ($b->width ?? 100); });
+        $maxY = $booths->max(function($b) { return ($b->position_y ?? 0) + ($b->height ?? 80); });
+        $mergedWidth = max(100, $maxX - $minX);
+        $mergedHeight = max(80, $maxY - $minY);
+
+        // Create merged booth
+        $mergedBooth = Booth::create([
+            'exhibition_id' => $exhibitionId,
+            'name' => $request->new_name,
+            'category' => $category,
+            'booth_type' => $booths->first()->booth_type,
+            'size_sqft' => $totalSize,
+            'sides_open' => $avgSidesOpen,
+            'price' => $totalPrice,
+            'is_merged' => true,
+            'merged_booths' => $booths->pluck('id')->toArray(),
+            'position_x' => $minX,
+            'position_y' => $minY,
+            'width' => $mergedWidth,
+            'height' => $mergedHeight,
+            'is_available' => true,
+            'is_booked' => false,
+        ]);
+
+        // Mark original booths as merged
+        foreach ($booths as $booth) {
+            $booth->update([
+                'is_available' => false,
+                'parent_booth_id' => $mergedBooth->id,
+            ]);
+        }
+
+        return response()->json(['success' => true, 'message' => 'Booths merged successfully', 'booth' => $mergedBooth]);
+    }
+
+    public function splitBooth(Request $request, $exhibitionId, $boothId)
+    {
+        $booth = Booth::where('exhibition_id', $exhibitionId)
+            ->where('is_booked', false)
+            ->findOrFail($boothId);
+
+        $request->validate([
+            'split_count' => 'required|integer|min:2|max:4',
+            'new_names' => 'required|array|size:' . $request->split_count,
+            'new_names.*' => 'required|string|max:255',
+        ]);
+
+        if ($booth->is_booked) {
+            return response()->json(['success' => false, 'message' => 'Cannot split a booked booth'], 400);
+        }
+
+        // Calculate split booth properties
+        $sizePerBooth = $booth->size_sqft / $request->split_count;
+        $pricePerBooth = $booth->price / $request->split_count;
+
+        $splitBooths = [];
+        $baseX = $booth->position_x ?? 0;
+        $baseY = $booth->position_y ?? 0;
+        $originalWidth = $booth->width ?? 100;
+        $originalHeight = $booth->height ?? 80;
+        
+        // Calculate grid layout for split booths
+        $cols = $request->split_count <= 2 ? $request->split_count : 2;
+        $rows = ceil($request->split_count / $cols);
+        $width = $originalWidth / $cols;
+        $height = $originalHeight / $rows;
+
+        // Create split booths
+        for ($i = 0; $i < $request->split_count; $i++) {
+            $col = $i % $cols;
+            $row = floor($i / $cols);
+            $x = $baseX + ($col * $width);
+            $y = $baseY + ($row * $height);
+
+            $splitBooth = Booth::create([
+                'exhibition_id' => $exhibitionId,
+                'name' => $request->new_names[$i],
+                'category' => $booth->category,
+                'booth_type' => $booth->booth_type,
+                'size_sqft' => $sizePerBooth,
+                'sides_open' => $booth->sides_open,
+                'price' => $pricePerBooth,
+                'is_split' => true,
+                'parent_booth_id' => $booth->id,
+                'position_x' => $x,
+                'position_y' => $y,
+                'width' => $width,
+                'height' => $height,
+                'is_available' => true,
+                'is_booked' => false,
+            ]);
+
+            $splitBooths[] = $splitBooth;
+        }
+
+        // Mark original booth as split
+        $booth->update([
+            'is_available' => false,
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Booth split successfully', 'booths' => $splitBooths]);
+    }
+}

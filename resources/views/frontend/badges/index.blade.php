@@ -1,15 +1,17 @@
-@extends('layouts.frontend')
+@extends('layouts.exhibitor')
 
 @section('title', 'My Badges')
 
+@section('page-title', 'My Badges')
+
 @section('content')
-<div class="container my-5">
-    <div class="row mb-4">
-        <div class="col-12">
-            <h1 class="mb-1">My Badges</h1>
-            <p class="text-muted mb-0">View badges generated for your exhibitions</p>
-        </div>
+<div class="row mb-4">
+    <div class="col-12">
+        <a href="{{ route('badges.create') }}" class="btn btn-primary mb-3">
+            <i class="bi bi-plus-circle me-2"></i>Create Badge
+        </a>
     </div>
+</div>
 
     <div class="card">
         <div class="card-body">

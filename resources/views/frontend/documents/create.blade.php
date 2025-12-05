@@ -1,18 +1,16 @@
-@extends('layouts.frontend')
+@extends('layouts.exhibitor')
 
 @section('title', 'Upload Document')
+@section('page-title', 'Upload New Document')
 
 @section('content')
-<div class="container my-5">
-    <div class="row mb-4">
-        <div class="col-12">
-            <a href="{{ route('documents.index') }}" class="btn btn-outline-secondary mb-3">
-                <i class="bi bi-arrow-left me-2"></i>Back to Documents
-            </a>
-            <h1 class="mb-1">Upload New Document</h1>
-            <p class="text-muted mb-0">Attach documents to your bookings (max 5 MB per file)</p>
-        </div>
+<div class="row mb-4">
+    <div class="col-12">
+        <a href="{{ route('documents.index') }}" class="btn btn-outline-secondary mb-3">
+            <i class="bi bi-arrow-left me-2"></i>Back to Documents
+        </a>
     </div>
+</div>
 
     <div class="card">
         <div class="card-body">

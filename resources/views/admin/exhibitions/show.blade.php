@@ -86,8 +86,21 @@
                     <p class="text-muted text-center mt-2">Showing first 10 of {{ $exhibition->booths->count() }} booths</p>
                     @endif
                 </div>
+                <div class="mt-3">
+                    <a href="{{ route('admin.booths.index', $exhibition->id) }}" class="btn btn-primary me-2">
+                        <i class="bi bi-grid-3x3-gap me-2"></i>Manage All Booths
+                    </a>
+                    <a href="{{ route('admin.floorplan.show', $exhibition->id) }}" class="btn btn-success">
+                        <i class="bi bi-diagram-3 me-2"></i>Interactive Floorplan
+                    </a>
+                </div>
                 @else
                 <p class="text-muted text-center">No booths configured yet.</p>
+                <div class="mt-3 text-center">
+                    <a href="{{ route('admin.booths.create', $exhibition->id) }}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-2"></i>Create First Booth
+                    </a>
+                </div>
                 @endif
             </div>
         </div>

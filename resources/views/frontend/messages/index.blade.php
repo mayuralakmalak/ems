@@ -1,15 +1,15 @@
-@extends('layouts.frontend')
+@extends('layouts.exhibitor')
 
 @section('title', 'Messages')
+@section('page-title', 'Messages')
 
 @section('content')
-<div class="container my-5">
-    <div class="row mb-4">
-        <div class="col-12">
-            <h1 class="mb-1">Messages</h1>
-            <p class="text-muted mb-0">Send messages to the admin team</p>
-        </div>
+<div class="row mb-4">
+    <div class="col-12">
+        <h3 class="mb-1">Messages</h3>
+        <p class="text-muted mb-0">Send messages to the admin team</p>
     </div>
+</div>
 
     <div class="row g-4">
         <div class="col-lg-6">

@@ -19,7 +19,7 @@
             <p>{{ $exhibition->description }}</p>
         </div>
         <div class="col-lg-4">
-            <div class="card">
+            <div class="card mb-3">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Booking Info</h5>
                 </div>
@@ -28,6 +28,22 @@
                     <p class="mb-2"><strong>Raw Booth / Sq Ft:</strong> ₹{{ number_format($exhibition->raw_price_per_sqft ?? 0, 0) }}</p>
                     <p class="mb-2"><strong>Orphand Booth / Sq Ft:</strong> ₹{{ number_format($exhibition->orphand_price_per_sqft ?? 0, 0) }}</p>
                     <p class="mb-0 text-muted"><small>Pricing may vary based on booth type, size and sides open.</small></p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body text-center">
+                    <a href="{{ route('floorplan.show.public', $exhibition->id) }}" class="btn btn-primary w-100 mb-2">
+                        <i class="bi bi-diagram-3 me-2"></i>View Interactive Floorplan
+                    </a>
+                    @auth
+                    <a href="{{ route('floorplan.show', $exhibition->id) }}" class="btn btn-success w-100">
+                        <i class="bi bi-cart-check me-2"></i>Book Booth
+                    </a>
+                    @else
+                    <a href="{{ route('login') }}" class="btn btn-success w-100">
+                        <i class="bi bi-box-arrow-in-right me-2"></i>Login to Book
+                    </a>
+                    @endauth
                 </div>
             </div>
         </div>

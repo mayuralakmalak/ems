@@ -12,7 +12,8 @@ class Booth extends Model
     protected $fillable = [
         'exhibition_id', 'name', 'category', 'booth_type', 'size_sqft',
         'sides_open', 'price', 'is_free', 'is_available', 'is_booked',
-        'logo', 'coordinates', 'merged_booths', 'is_merged', 'is_split', 'parent_booth_id'
+        'logo', 'coordinates', 'merged_booths', 'is_merged', 'is_split', 'parent_booth_id',
+        'position_x', 'position_y', 'width', 'height'
     ];
 
     protected $casts = [

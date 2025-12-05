@@ -14,7 +14,8 @@ class Booking extends Model
         'total_amount', 'paid_amount', 'discount_percent',
         'contact_emails', 'contact_numbers', 'logo',
         'possession_letter_issued', 'cancellation_reason',
-        'cancellation_type', 'cancellation_amount', 'account_details'
+        'cancellation_type', 'cancellation_amount', 'account_details',
+        'approval_status', 'approved_by', 'approved_at', 'rejection_reason'
     ];
 
     protected $casts = [
@@ -56,5 +57,10 @@ class Booking extends Model
     public function bookingServices()
     {
         return $this->hasMany(BookingService::class);
+    }
+
+    public function approver()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 }

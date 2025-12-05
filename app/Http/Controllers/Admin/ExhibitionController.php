@@ -46,7 +46,7 @@ class ExhibitionController extends Controller
 
     public function step2($id)
     {
-        $exhibition = Exhibition::with('stallSchemes')->findOrFail($id);
+        $exhibition = Exhibition::with(['stallSchemes', 'booths'])->findOrFail($id);
         return view('admin.exhibitions.step2', compact('exhibition'));
     }
 
@@ -75,7 +75,93 @@ class ExhibitionController extends Controller
         }
 
         $exhibition->update($validated);
+
+        // Handle booth creation/updates
+        if ($request->has('booths') && is_array($request->booths)) {
+            foreach ($request->booths as $boothData) {
+                if (isset($boothData['id']) && $boothData['id']) {
+                    // Update existing booth
+                    $booth = Booth::where('id', $boothData['id'])
+                        ->where('exhibition_id', $exhibition->id)
+                        ->first();
+                    
+                    if ($booth) {
+                        $price = $this->calculateBoothPrice($exhibition, $boothData);
+                        $booth->update([
+                            'name' => $boothData['name'],
+                            'category' => $boothData['category'],
+                            'booth_type' => $boothData['booth_type'],
+                            'size_sqft' => $boothData['size_sqft'],
+                            'sides_open' => $boothData['sides_open'],
+                            'price' => $price,
+                            'is_free' => isset($boothData['is_free']) ? 1 : 0,
+                        ]);
+                    }
+                } else {
+                    // Create new booth - check for duplicate name
+                    $existingBooth = Booth::where('exhibition_id', $exhibition->id)
+                        ->where('name', $boothData['name'])
+                        ->first();
+                    
+                    if (!$existingBooth) {
+                        $price = $this->calculateBoothPrice($exhibition, $boothData);
+                        Booth::create([
+                            'exhibition_id' => $exhibition->id,
+                            'name' => $boothData['name'],
+                            'category' => $boothData['category'],
+                            'booth_type' => $boothData['booth_type'],
+                            'size_sqft' => $boothData['size_sqft'],
+                            'sides_open' => $boothData['sides_open'],
+                            'price' => $price,
+                            'is_free' => isset($boothData['is_free']) ? 1 : 0,
+                            'is_available' => true,
+                            'is_booked' => false,
+                        ]);
+                    }
+                }
+            }
+        }
+
+        // Handle booth deletions
+        if ($request->has('delete_booths')) {
+            Booth::whereIn('id', $request->delete_booths)
+                ->where('exhibition_id', $exhibition->id)
+                ->where('is_booked', false)
+                ->delete();
+        }
+
         return redirect()->route('admin.exhibitions.step3', $exhibition->id);
+    }
+
+    private function calculateBoothPrice($exhibition, $boothData)
+    {
+        if (isset($boothData['is_free']) && $boothData['is_free']) {
+            return 0;
+        }
+
+        $basePrice = $boothData['booth_type'] === 'Raw' 
+            ? ($exhibition->raw_price_per_sqft ?? 0)
+            : ($exhibition->orphand_price_per_sqft ?? 0);
+        
+        $size = $boothData['size_sqft'] ?? 0;
+        $sidesOpen = $boothData['sides_open'] ?? 1;
+        
+        // Apply side open percentage
+        $sidePercent = $exhibition->{'side_' . $sidesOpen . '_open_percent'} ?? 0;
+        $sideMultiplier = 1 + ($sidePercent / 100);
+        
+        // Base price calculation
+        $calculatedPrice = $basePrice * $size * $sideMultiplier;
+        
+        // Add category premium
+        $category = $boothData['category'] ?? 'Standard';
+        if ($category === 'Premium' && $exhibition->premium_price) {
+            $calculatedPrice += $exhibition->premium_price;
+        } elseif ($category === 'Economy' && $exhibition->economy_price) {
+            $calculatedPrice -= ($exhibition->economy_price ?? 0);
+        }
+        
+        return round(max(0, $calculatedPrice), 2);
     }
 
     public function step3($id)

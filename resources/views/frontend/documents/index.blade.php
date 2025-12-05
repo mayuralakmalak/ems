@@ -1,20 +1,20 @@
-@extends('layouts.frontend')
+@extends('layouts.exhibitor')
 
 @section('title', 'My Documents')
+@section('page-title', 'My Documents')
 
 @section('content')
-<div class="container my-5">
-    <div class="row mb-4">
-        <div class="col-12 d-flex justify-content-between align-items-center">
-            <div>
-                <h1 class="mb-1">My Documents</h1>
-                <p class="text-muted mb-0">Upload and manage documents for your bookings</p>
-            </div>
-            <a href="{{ route('documents.create') }}" class="btn btn-primary">
-                <i class="bi bi-upload me-2"></i>Upload Document
-            </a>
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h3 class="mb-1">My Documents</h3>
+            <p class="text-muted mb-0">Upload and manage documents for your bookings</p>
         </div>
+        <a href="{{ route('documents.create') }}" class="btn btn-primary">
+            <i class="bi bi-upload me-2"></i>Upload Document
+        </a>
     </div>
+</div>
 
     <div class="card">
         <div class="card-body">
