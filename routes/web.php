@@ -121,6 +121,7 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     // Service Configuration (Wireframe 32)
     Route::get('/services/config', [\App\Http\Controllers\Admin\ServiceConfigController::class, 'index'])->name('services.config');
     Route::post('/services/config', [\App\Http\Controllers\Admin\ServiceConfigController::class, 'store'])->name('services.config.store');
+    Route::get('/services/config/{id}', [\App\Http\Controllers\Admin\ServiceConfigController::class, 'show'])->name('services.config.show');
     Route::put('/services/config/{id}', [\App\Http\Controllers\Admin\ServiceConfigController::class, 'update'])->name('services.config.update');
     Route::delete('/services/config/{id}', [\App\Http\Controllers\Admin\ServiceConfigController::class, 'destroy'])->name('services.config.destroy');
     Route::post('/services/config/bulk-action', [\App\Http\Controllers\Admin\ServiceConfigController::class, 'bulkAction'])->name('services.config.bulk-action');

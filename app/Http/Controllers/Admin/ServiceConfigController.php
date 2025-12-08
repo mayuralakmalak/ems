@@ -61,6 +61,18 @@ class ServiceConfigController extends Controller
         return redirect()->route('admin.services.config')->with('success', 'Service created successfully.');
     }
 
+    public function show($id)
+    {
+        $service = Service::findOrFail($id);
+        
+        // Return JSON if requested via AJAX
+        if (request()->wantsJson() || request()->ajax()) {
+            return response()->json($service);
+        }
+        
+        return back()->with('info', 'Service details');
+    }
+
     public function update(Request $request, $id)
     {
         $service = Service::findOrFail($id);

@@ -34,19 +34,24 @@ class ExhibitionController extends Controller
     {
         $exhibitions = Exhibition::where('status', 'active')
             ->latest()
-            ->paginate(12);
+            ->paginate(9); // 3-card grid per page for front-end list
         return view('frontend.exhibitions.list', compact('exhibitions'));
     }
 
     public function show($id)
     {
-        $exhibition = Exhibition::with(['booths', 'services', 'sponsorships'])->findOrFail($id);
-        
-        // If user is logged in, show booking page, otherwise show public view
-        if (auth()->check()) {
-            return view('frontend.bookings.create', compact('exhibition'));
+        try {
+            $exhibition = Exhibition::with('booths')->findOrFail($id);
+            
+            // If user is logged in, show booking page, otherwise show public view
+            if (auth()->check()) {
+                return view('frontend.bookings.create', compact('exhibition'));
+            }
+            
+            return view('frontend.exhibitions.show', compact('exhibition'));
+        } catch (\Exception $e) {
+            return redirect()->route('home')
+                ->with('error', 'Exhibition not found or error loading exhibition details.');
         }
-        
-        return view('frontend.exhibitions.show', compact('exhibition'));
     }
 }

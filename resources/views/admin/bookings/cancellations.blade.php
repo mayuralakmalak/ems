@@ -285,9 +285,13 @@
                     <div class="detail-item">
                         <div class="detail-label">Assigned Booth</div>
                         <div class="detail-value">
-                            <a href="#" class="detail-link">
-                                {{ $booking->booth->name ?? 'N/A' }}
-                            </a>
+                            @if($booking->booth)
+                                <a href="{{ route('admin.booths.show', [$booking->exhibition_id, $booking->booth->id]) }}" class="detail-link">
+                                    {{ $booking->booth->name }}
+                                </a>
+                            @else
+                                <span>N/A</span>
+                            @endif
                         </div>
                     </div>
                     <div class="detail-item">

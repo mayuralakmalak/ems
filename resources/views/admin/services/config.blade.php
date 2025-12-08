@@ -74,13 +74,13 @@
                             </span>
                         </td>
                         <td>
-                            <a href="#" class="btn btn-sm btn-warning" onclick="editService({{ $service->id }}); return false;">
+                            <button type="button" class="btn btn-sm btn-warning" onclick="editService({{ $service->id }})" title="Edit">
                                 <i class="bi bi-pencil"></i>
-                            </a>
+                            </button>
                             <form action="{{ route('admin.services.config.destroy', $service->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure?')">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" class="btn btn-sm btn-danger">
+                                <button type="submit" class="btn btn-sm btn-danger" title="Delete">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>
@@ -201,6 +201,51 @@ function applyBulkAction() {
     document.body.appendChild(form);
     form.submit();
 }
+
+function editService(id) {
+    // Fetch service data and populate modal
+    fetch(`/admin/services/config/${id}`, {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Service not found');
+        }
+        return response.json();
+    })
+    .then(service => {
+        // Populate form fields
+        document.querySelector('#addServiceModal input[name="exhibition_id"]').value = service.exhibition_id || '';
+        document.querySelector('#addServiceModal input[name="name"]').value = service.name || '';
+        document.querySelector('#addServiceModal textarea[name="description"]').value = service.description || '';
+        document.querySelector('#addServiceModal input[name="type"]').value = service.type || '';
+        document.querySelector('#addServiceModal input[name="category"]').value = service.category || '';
+        document.querySelector('#addServiceModal input[name="price"]').value = service.price || '';
+        document.querySelector('#addServiceModal input[name="price_unit"]').value = service.price_unit || '';
+        document.querySelector('#addServiceModal input[name="available_from"]').value = service.available_from || '';
+        document.querySelector('#addServiceModal input[name="available_to"]').value = service.available_to || '';
+        document.querySelector('#addServiceModal input[name="is_active"]').checked = service.is_active || false;
+        
+        // Change form action to update
+        const form = document.querySelector('#addServiceModal form');
+        form.action = `/admin/services/config/${id}`;
+        form.innerHTML += '<input type="hidden" name="_method" value="PUT">';
+        
+        // Update modal title
+        document.querySelector('#addServiceModal .modal-title').textContent = 'Edit Service';
+        
+        // Show modal
+        new bootstrap.Modal(document.getElementById('addServiceModal')).show();
+    })
+    .catch(error => {
+        console.error('Error loading service:', error);
+        alert('Error loading service details. Please try again.');
+    });
+}
+
 document.getElementById('selectAll').addEventListener('change', function() {
     document.querySelectorAll('.service-checkbox').forEach(cb => cb.checked = this.checked);
 });

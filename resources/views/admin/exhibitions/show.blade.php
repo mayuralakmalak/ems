@@ -31,11 +31,11 @@
                     </div>
                     <div class="col-md-6 mb-3">
                         <strong><i class="bi bi-calendar3 text-primary me-2"></i>Start Date:</strong>
-                        <p class="mb-0">{{ $exhibition->start_date->format('d M Y') }} {{ $exhibition->start_time ? 'at ' . $exhibition->start_time : '' }}</p>
+                        <p class="mb-0">{{ $exhibition->start_date ? $exhibition->start_date->format('d M Y') : 'N/A' }} {{ $exhibition->start_time ? 'at ' . $exhibition->start_time : '' }}</p>
                     </div>
                     <div class="col-md-6 mb-3">
                         <strong><i class="bi bi-calendar-check text-primary me-2"></i>End Date:</strong>
-                        <p class="mb-0">{{ $exhibition->end_date->format('d M Y') }} {{ $exhibition->end_time ? 'at ' . $exhibition->end_time : '' }}</p>
+                        <p class="mb-0">{{ $exhibition->end_date ? $exhibition->end_date->format('d M Y') : 'N/A' }} {{ $exhibition->end_time ? 'at ' . $exhibition->end_time : '' }}</p>
                     </div>
                     <div class="col-md-6 mb-3">
                         <strong><i class="bi bi-tag text-primary me-2"></i>Status:</strong>

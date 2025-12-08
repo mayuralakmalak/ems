@@ -282,9 +282,15 @@
                     @endif
                 </div>
                 <div class="exhibition-card-body">
-                    <h5 class="exhibition-card-title">{{ $exhibition->name }}</h5>
-                    <p class="exhibition-card-date">{{ $exhibition->start_date->format('d M Y') }} - {{ $exhibition->end_date->format('d M Y') }}</p>
-                    <p class="exhibition-card-location">{{ $exhibition->venue }}</p>
+                    <h5 class="exhibition-card-title">{{ $exhibition->name ?? 'Exhibition' }}</h5>
+                    <p class="exhibition-card-date">
+                        @if($exhibition->start_date && $exhibition->end_date)
+                            {{ $exhibition->start_date->format('d M Y') }} - {{ $exhibition->end_date->format('d M Y') }}
+                        @else
+                            Date TBA
+                        @endif
+                    </p>
+                    <p class="exhibition-card-location">{{ $exhibition->venue ?? 'Venue TBA' }}</p>
                     <a href="{{ route('exhibitions.show', $exhibition->id) }}" class="exhibition-card-btn">
                         View Details
                     </a>
@@ -317,9 +323,15 @@
                     @endif
                 </div>
                 <div class="exhibition-card-body">
-                    <h5 class="exhibition-card-title">{{ $exhibition->name }}</h5>
-                    <p class="exhibition-card-date">{{ $exhibition->start_date->format('d M Y') }} - {{ $exhibition->end_date->format('d M Y') }}</p>
-                    <p class="exhibition-card-location">{{ $exhibition->venue }}</p>
+                    <h5 class="exhibition-card-title">{{ $exhibition->name ?? 'Exhibition' }}</h5>
+                    <p class="exhibition-card-date">
+                        @if($exhibition->start_date && $exhibition->end_date)
+                            {{ $exhibition->start_date->format('d M Y') }} - {{ $exhibition->end_date->format('d M Y') }}
+                        @else
+                            Date TBA
+                        @endif
+                    </p>
+                    <p class="exhibition-card-location">{{ $exhibition->venue ?? 'Venue TBA' }}</p>
                     <a href="{{ route('exhibitions.show', $exhibition->id) }}" class="exhibition-card-btn">
                         View Details
                     </a>

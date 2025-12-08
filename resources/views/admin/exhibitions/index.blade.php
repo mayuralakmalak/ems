@@ -36,13 +36,13 @@
                                 <td>{{ $exhibition->end_date->format('Y-m-d') }}</td>
                                 <td>{{ $exhibition->venue }}</td>
                                 <td>
-                                    <a href="{{ route('admin.exhibitions.edit', $exhibition->id) }}" class="text-primary me-2" onclick="editExhibition({{ $exhibition->id }}); return false;">Edit</a>
+                                    <a href="{{ route('admin.exhibitions.edit', $exhibition->id) }}" class="text-primary me-2">Edit</a>
+                                    <a href="{{ route('admin.exhibitions.show', $exhibition->id) }}" class="text-info me-2">View Details</a>
                                     <form action="{{ route('admin.exhibitions.destroy', $exhibition->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure?');">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="btn btn-link text-danger p-0 border-0">Delete</button>
                                     </form>
-                                    <a href="#" class="text-info ms-2" onclick="duplicateExhibition({{ $exhibition->id }}); return false;">Duplicate</a>
                                 </td>
                             </tr>
                             @empty

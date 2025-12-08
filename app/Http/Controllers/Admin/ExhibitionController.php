@@ -16,7 +16,8 @@ class ExhibitionController extends Controller
 {
     public function index()
     {
-        $exhibitions = Exhibition::latest()->paginate(15);
+        // Show 10 exhibitions per page for manageable server-side pagination
+        $exhibitions = Exhibition::latest()->paginate(10);
         return view('admin.exhibitions.index', compact('exhibitions'));
     }
 
@@ -278,8 +279,22 @@ class ExhibitionController extends Controller
 
     public function show($id)
     {
-        $exhibition = Exhibition::with(['booths', 'bookings', 'services'])->findOrFail($id);
-        return view('admin.exhibitions.show', compact('exhibition'));
+        try {
+            $exhibition = Exhibition::with(['booths', 'bookings'])->findOrFail($id);
+            
+            // Return JSON if requested via AJAX
+            if (request()->wantsJson() || request()->ajax()) {
+                return response()->json($exhibition);
+            }
+            
+            return view('admin.exhibitions.show', compact('exhibition'));
+        } catch (\Exception $e) {
+            if (request()->wantsJson() || request()->ajax()) {
+                return response()->json(['error' => $e->getMessage()], 500);
+            }
+            return redirect()->route('admin.exhibitions.index')
+                ->with('error', 'Error loading exhibition: ' . $e->getMessage());
+        }
     }
 
     public function edit($id)
