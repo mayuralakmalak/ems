@@ -73,8 +73,9 @@ class BookingController extends Controller
             'booth_id' => 'required_without:booth_ids|exists:booths,id',
             'merge_booths' => 'nullable|boolean',
             'contact_emails' => 'nullable|array|max:5',
-            'contact_emails.*' => 'email',
+            'contact_emails.*' => 'nullable|email',
             'contact_numbers' => 'nullable|array|max:5',
+            'contact_numbers.*' => 'nullable|string',
             'services' => 'nullable|array',
             'services.*.service_id' => 'exists:services,id',
             'services.*.quantity' => 'integer|min:1',
@@ -92,6 +93,18 @@ class BookingController extends Controller
             $boothIds = [$request->booth_id];
         }
         
+        // Ensure we have at least one booth
+        if (empty($boothIds)) {
+            return back()->withInput()->with('error', 'Please select at least one booth to book.');
+        }
+        
+        // Remove duplicates and filter empty values
+        $boothIds = array_unique(array_filter($boothIds));
+        
+        if (empty($boothIds)) {
+            return back()->withInput()->with('error', 'Please select at least one valid booth to book.');
+        }
+        
         DB::beginTransaction();
         try {
             // Check if booths are available
@@ -101,7 +114,8 @@ class BookingController extends Controller
                 ->get();
 
             if ($booths->count() !== count($boothIds)) {
-                return back()->with('error', 'One or more booths are not available.');
+                DB::rollBack();
+                return back()->withInput()->with('error', 'One or more selected booths are not available. Please select different booths.');
             }
 
             // Handle booth merging
@@ -142,6 +156,22 @@ class BookingController extends Controller
                 $logoPath = $request->file('logo')->store('bookings/logos', 'public');
             }
 
+            // Filter out empty contact emails and numbers
+            $contactEmails = array_filter($request->contact_emails ?? [], function($email) {
+                return !empty($email);
+            });
+            $contactNumbers = array_filter($request->contact_numbers ?? [], function($number) {
+                return !empty($number);
+            });
+            
+            // Ensure at least one contact email and number
+            if (empty($contactEmails)) {
+                $contactEmails = [auth()->user()->email];
+            }
+            if (empty($contactNumbers)) {
+                $contactNumbers = [auth()->user()->phone ?? ''];
+            }
+            
             // Create booking with approval status
             $booking = Booking::create([
                 'exhibition_id' => $exhibition->id,
@@ -152,8 +182,8 @@ class BookingController extends Controller
                 'approval_status' => 'pending', // Requires admin approval
                 'total_amount' => $totalAmount,
                 'paid_amount' => 0,
-                'contact_emails' => $request->contact_emails ?? [],
-                'contact_numbers' => $request->contact_numbers ?? [],
+                'contact_emails' => array_values($contactEmails),
+                'contact_numbers' => array_values($contactNumbers),
                 'logo' => $logoPath,
             ]);
             
@@ -178,7 +208,7 @@ class BookingController extends Controller
                 'exhibition_id' => $exhibition->id,
                 'user_id' => $user->id,
                 'request_type' => 'booking',
-                'booth_ids' => [$boothId],
+                'booth_ids' => $boothIds, // Use all selected booth IDs
                 'status' => 'pending',
             ]);
 
@@ -205,10 +235,16 @@ class BookingController extends Controller
             DB::commit();
 
             return redirect()->route('bookings.show', $booking->id)
-                ->with('success', 'Booth booked successfully! Please complete payment to confirm.');
+                ->with('success', 'Booking request submitted successfully! Your request is pending admin approval. You will be notified once it is reviewed.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Booking failed: ' . $e->getMessage());
+            \Log::error('Booking creation failed: ' . $e->getMessage(), [
+                'user_id' => $user->id,
+                'exhibition_id' => $exhibition->id,
+                'booth_ids' => $boothIds,
+                'trace' => $e->getTraceAsString()
+            ]);
+            return back()->withInput()->with('error', 'Booking failed: ' . $e->getMessage() . '. Please try again or contact support.');
         }
     }
 

@@ -213,6 +213,25 @@
 @endpush
 
 @section('content')
+@if(session('error'))
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="bi bi-exclamation-circle me-2"></i>{{ session('error') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+@endif
+
+@if($errors->any())
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <strong><i class="bi bi-exclamation-triangle me-2"></i>Please fix the following errors:</strong>
+        <ul class="mb-0 mt-2">
+            @foreach($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+@endif
+
 <form action="{{ route('bookings.store') }}" method="POST" id="bookingForm" enctype="multipart/form-data">
     @csrf
     <input type="hidden" name="exhibition_id" value="{{ $exhibition->id }}">
@@ -222,6 +241,37 @@
             <input type="hidden" name="booth_ids[]" value="{{ $boothId }}">
         @endforeach
     @endif
+    
+    <!-- Booth Selection -->
+    <div class="form-section">
+        <h3 class="section-title">Select Booth</h3>
+        <p class="section-description">Choose the booth(s) you want to book for this exhibition.</p>
+        
+        @php
+            $availableBooths = $exhibition->booths->where('is_available', true);
+        @endphp
+        
+        @if($availableBooths->count() > 0)
+            <div class="row">
+                <div class="col-12 mb-3">
+                    <label for="booth_selection" class="form-label">Available Booths *</label>
+                    <select class="form-select" id="booth_selection" name="booth_ids[]" multiple required size="5" style="min-height: 150px;">
+                        @foreach($availableBooths as $booth)
+                            <option value="{{ $booth->id }}" 
+                                @if(request()->has('booths') && in_array($booth->id, explode(',', request()->get('booths')))) selected @endif>
+                                {{ $booth->name }} - {{ $booth->category ?? 'Standard' }} ({{ $booth->size_sqft ?? 'N/A' }} sq ft) - ₹{{ number_format($booth->price ?? 0, 0) }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <small class="text-muted d-block mt-2">Hold Ctrl/Cmd (Windows/Mac) to select multiple booths. You can also select booths from the floorplan.</small>
+                </div>
+            </div>
+        @else
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle me-2"></i>No booths are currently available for this exhibition. Please contact the administrator.
+            </div>
+        @endif
+    </div>
     
     <!-- Company Information -->
     <div class="form-section">
@@ -291,18 +341,28 @@
             </div>
         </div>
         
-        <div class="row">
-            <div class="col-md-6 mb-3">
-                <label for="contact_email" class="form-label">Email Address *</label>
-                <input type="email" class="form-control" id="contact_email" name="contact_email" 
-                       value="{{ auth()->user()->email ?? old('contact_email') }}" required>
-            </div>
-            <div class="col-md-6 mb-3">
-                <label for="contact_phone" class="form-label">Phone Number *</label>
-                <input type="tel" class="form-control" id="contact_phone" name="contact_phone" 
-                       value="{{ auth()->user()->phone ?? old('contact_phone') }}" required>
-            </div>
-        </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="contact_email" class="form-label">Email Address *</label>
+                        <input type="email" class="form-control" id="contact_email" name="contact_emails[]" 
+                               value="{{ auth()->user()->email ?? old('contact_emails.0') }}" required>
+                        <small class="text-muted">You can add more contact emails below if needed.</small>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="contact_phone" class="form-label">Phone Number *</label>
+                        <input type="tel" class="form-control" id="contact_phone" name="contact_numbers[]" 
+                               value="{{ auth()->user()->phone ?? old('contact_numbers.0') }}" required>
+                        <small class="text-muted">You can add more contact numbers below if needed.</small>
+                    </div>
+                </div>
+                <div class="row" id="additionalContacts">
+                    <!-- Additional contact emails and numbers will be added here via JavaScript -->
+                </div>
+                <div class="mb-3">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="addContactBtn">
+                        <i class="bi bi-plus-circle me-1"></i>Add Additional Contact
+                    </button>
+                </div>
     </div>
     
     <!-- Additional Requirements -->
@@ -513,12 +573,64 @@ function updateBrochureInput() {
     brochureFiles.files = dt.files;
 }
 
+// Add additional contacts
+let contactCount = 0;
+document.getElementById('addContactBtn').addEventListener('click', function() {
+    if (contactCount >= 4) {
+        alert('Maximum 5 contacts allowed');
+        return;
+    }
+    
+    const container = document.getElementById('additionalContacts');
+    const row = document.createElement('div');
+    row.className = 'row mb-2';
+    row.innerHTML = `
+        <div class="col-md-6 mb-2">
+            <input type="email" class="form-control" name="contact_emails[]" placeholder="Additional Email (Optional)">
+        </div>
+        <div class="col-md-5 mb-2">
+            <input type="tel" class="form-control" name="contact_numbers[]" placeholder="Additional Phone (Optional)">
+        </div>
+        <div class="col-md-1 mb-2">
+            <button type="button" class="btn btn-sm btn-danger w-100" onclick="this.closest('.row').remove(); contactCount--;">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+    `;
+    container.appendChild(row);
+    contactCount++;
+});
+
+// Auto-select first booth if coming from query parameter
+@if(request()->has('booths'))
+    document.addEventListener('DOMContentLoaded', function() {
+        const boothIds = '{{ request()->get('booths') }}'.split(',');
+        const boothSelection = document.getElementById('booth_selection');
+        if (boothSelection) {
+            boothIds.forEach(boothId => {
+                const option = boothSelection.querySelector(`option[value="${boothId.trim()}"]`);
+                if (option) {
+                    option.selected = true;
+                }
+            });
+        }
+    });
+@endif
+
 // Form validation
 document.getElementById('bookingForm').addEventListener('submit', function(e) {
     const terms = document.getElementById('terms');
     if (!terms.checked) {
         e.preventDefault();
         alert('Please accept the Terms & Conditions');
+        return false;
+    }
+    
+    // Check if at least one booth is selected
+    const boothSelection = document.getElementById('booth_selection');
+    if (!boothSelection || boothSelection.selectedOptions.length === 0) {
+        e.preventDefault();
+        alert('Please select at least one booth to book');
         return false;
     }
 });
