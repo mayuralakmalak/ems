@@ -18,10 +18,14 @@ use App\Http\Controllers\Frontend\MessageController;
 use App\Http\Controllers\Frontend\WalletController;
 use Illuminate\Support\Facades\Route;
 
-// Public Routes
+// Public home page
 Route::get('/', [FrontendExhibitionController::class, 'index'])->name('home');
-Route::get('/exhibitions', [FrontendExhibitionController::class, 'list'])->name('exhibitions.list');
-Route::get('/exhibitions/{id}', [FrontendExhibitionController::class, 'show'])->name('exhibitions.show');
+
+// Exhibitions require authentication
+Route::middleware('auth')->group(function () {
+    Route::get('/exhibitions', [FrontendExhibitionController::class, 'list'])->name('exhibitions.list');
+    Route::get('/exhibitions/{id}', [FrontendExhibitionController::class, 'show'])->name('exhibitions.show');
+});
 Route::get('/exhibitions/{id}/floorplan', [\App\Http\Controllers\Frontend\FloorplanController::class, 'show'])->name('floorplan.show.public');
 
 // Admin Routes

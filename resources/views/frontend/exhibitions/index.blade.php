@@ -291,9 +291,15 @@
                         @endif
                     </p>
                     <p class="exhibition-card-location">{{ $exhibition->venue ?? 'Venue TBA' }}</p>
-                    <a href="{{ route('exhibitions.show', $exhibition->id) }}" class="exhibition-card-btn">
-                        View Details
-                    </a>
+                    @auth
+                        <a href="{{ route('exhibitions.show', $exhibition->id) }}" class="exhibition-card-btn">
+                            View Details
+                        </a>
+                    @else
+                        <a href="{{ route('login') }}" class="exhibition-card-btn">
+                            View Details
+                        </a>
+                    @endauth
                 </div>
             </div>
         </div>
@@ -332,9 +338,15 @@
                         @endif
                     </p>
                     <p class="exhibition-card-location">{{ $exhibition->venue ?? 'Venue TBA' }}</p>
-                    <a href="{{ route('exhibitions.show', $exhibition->id) }}" class="exhibition-card-btn">
-                        View Details
-                    </a>
+                    @auth
+                        <a href="{{ route('exhibitions.show', $exhibition->id) }}" class="exhibition-card-btn">
+                            View Details
+                        </a>
+                    @else
+                        <a href="{{ route('login') }}" class="exhibition-card-btn">
+                            View Details
+                        </a>
+                    @endauth
                 </div>
             </div>
         </div>

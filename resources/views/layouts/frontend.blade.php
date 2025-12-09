@@ -81,7 +81,11 @@
                         <a class="nav-link {{ request()->routeIs('home') ? 'active' : '' }}" href="{{ route('home') }}">Home</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('exhibitions.*') ? 'active' : '' }}" href="{{ route('exhibitions.list') }}">Exhibitions</a>
+                        @auth
+                            <a class="nav-link {{ request()->routeIs('exhibitions.*') ? 'active' : '' }}" href="{{ route('exhibitions.list') }}">Exhibitions</a>
+                        @else
+                            <a class="nav-link" href="{{ route('login') }}">Exhibitions</a>
+                        @endauth
                     </li>
                 </ul>
                 <ul class="navbar-nav app-nav">
