@@ -96,6 +96,8 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     
     // Floorplan Management
         Route::get('/exhibitions/{id}/floorplan', [\App\Http\Controllers\Admin\FloorplanController::class, 'show'])->name('floorplan.show');
+        Route::get('/exhibitions/{id}/floorplan/config', [\App\Http\Controllers\Admin\FloorplanController::class, 'loadConfig'])->name('floorplan.config.load');
+        Route::post('/exhibitions/{id}/floorplan/config', [\App\Http\Controllers\Admin\FloorplanController::class, 'saveConfig'])->name('floorplan.config.save');
         Route::post('/exhibitions/{exhibitionId}/booths/{boothId}/position', [\App\Http\Controllers\Admin\FloorplanController::class, 'updateBoothPosition'])->name('floorplan.update-position');
         Route::post('/exhibitions/{exhibitionId}/booths/merge', [\App\Http\Controllers\Admin\FloorplanController::class, 'mergeBooths'])->name('floorplan.merge');
         Route::post('/exhibitions/{exhibitionId}/booths/{boothId}/split', [\App\Http\Controllers\Admin\FloorplanController::class, 'splitBooth'])->name('floorplan.split');

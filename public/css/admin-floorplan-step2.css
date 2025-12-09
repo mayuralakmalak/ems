@@ -1,0 +1,532 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f5f5f5;
+    color: #333;
+    overflow: auto;
+}
+
+.admin-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+
+/* Header */
+
+.admin-header {
+    background: #2c3e50;
+    color: white;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.admin-header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.header-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+
+/* Buttons */
+
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background: #2196f3;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #1976d2;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+}
+
+.btn-danger {
+    background: #f44336;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #d32f2f;
+}
+
+
+/* Main Layout */
+
+.admin-main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+
+/* Sidebar */
+
+.admin-sidebar {
+    width: 350px;
+    background: white;
+    overflow-y: auto;
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+    padding: 1rem;
+}
+
+.tool-section,
+.properties-section {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.tool-section:last-child,
+.properties-section:last-child {
+    border-bottom: none;
+}
+
+.tool-section h2,
+.properties-section h2 {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+    color: #2c3e50;
+}
+
+.tool-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+
+.tool-btn {
+    padding: 0.75rem;
+    border: 2px solid #ddd;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+}
+
+.tool-btn:hover {
+    border-color: #2196f3;
+    background: #e3f2fd;
+}
+
+.tool-btn.active {
+    border-color: #2196f3;
+    background: #2196f3;
+    color: white;
+}
+
+.tool-btn span {
+    font-size: 1.2rem;
+}
+
+
+/* Form Groups */
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #555;
+    font-size: 0.9rem;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group select {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.form-group input[type="checkbox"] {
+    margin-right: 0.5rem;
+}
+
+.form-group small {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.form-group label:has(input[type="checkbox"]) {
+    display: flex;
+    align-items: center;
+    font-weight: normal;
+}
+
+.button-group {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.button-group button {
+    flex: 1;
+}
+
+.quick-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.quick-actions button {
+    width: 100%;
+}
+
+.quick-actions button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+
+/* Canvas Area */
+
+.canvas-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #fafafa;
+}
+
+.canvas-header {
+    background: white;
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #ddd;
+}
+
+.canvas-info {
+    display: flex;
+    gap: 1.5rem;
+    font-size: 0.9rem;
+}
+
+.canvas-info strong {
+    color: #2196f3;
+}
+
+.canvas-controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.control-btn {
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: background 0.2s;
+}
+
+.control-btn:hover {
+    background: #e0e0e0;
+}
+
+.canvas-wrapper {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+    background: #fafafa;
+}
+
+.admin-svg {
+    width: 100%;
+    height: 100%;
+    min-width: 1200px;
+    min-height: 800px;
+    cursor: crosshair;
+}
+
+.admin-svg.select-mode {
+    cursor: default;
+}
+
+.admin-svg.hall-mode {
+    cursor: crosshair;
+}
+
+.admin-svg.booth-mode {
+    cursor: crosshair;
+}
+
+.admin-svg.delete-mode {
+    cursor: not-allowed;
+}
+
+
+/* Hall */
+
+.hall-outline {
+    fill: #f0f0f0;
+    stroke: #333;
+    stroke-width: 3;
+    cursor: pointer;
+}
+
+.hall-outline:hover {
+    stroke: #2196f3;
+    stroke-width: 4;
+}
+
+
+/* Booths */
+
+.booth-admin {
+    cursor: move;
+    transition: all 0.2s;
+    stroke-width: 2;
+}
+
+.booth-admin.available {
+    fill: #4caf50;
+    stroke: #2e7d32;
+}
+
+.booth-admin.reserved {
+    fill: #ff9800;
+    stroke: #f57c00;
+}
+
+.booth-admin.booked {
+    fill: #f44336;
+    stroke: #c62828;
+}
+
+.booth-admin.selected {
+    fill: #2196f3;
+    stroke: #1565c0;
+    stroke-width: 4;
+    filter: drop-shadow(0 0 8px rgba(33, 150, 243, 0.6));
+}
+
+.booth-admin.dragging {
+    opacity: 0.7;
+    cursor: grabbing;
+}
+
+.booth-label {
+    font-size: 11px;
+    font-weight: bold;
+    text-anchor: middle;
+    pointer-events: none;
+    fill: #333;
+    user-select: none;
+}
+
+
+/* Selection Box */
+
+.selection-box {
+    pointer-events: none;
+}
+
+
+/* Booths List */
+
+.booths-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.booth-list-item {
+    background: #f9f9f9;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.booth-list-item:hover {
+    background: #e3f2fd;
+    border-color: #2196f3;
+}
+
+.booth-list-item.selected {
+    background: #2196f3;
+    color: white;
+    border-color: #1565c0;
+}
+
+.booth-list-item .booth-id {
+    font-weight: 600;
+}
+
+.booth-list-item .booth-status {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    background: #ddd;
+}
+
+.booth-list-item.selected .booth-status {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.empty-message {
+    color: #999;
+    font-style: italic;
+    text-align: center;
+    padding: 1rem;
+}
+
+
+/* Modal */
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    font-size: 1.3rem;
+    color: #2c3e50;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #999;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+.modal-close:hover {
+    background: #f5f5f5;
+    color: #333;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #ddd;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+
+/* Utility */
+
+.hidden {
+    display: none !important;
+}
+
+
+/* Scrollbar Styling */
+
+.admin-sidebar::-webkit-scrollbar,
+.canvas-wrapper::-webkit-scrollbar,
+.booths-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.admin-sidebar::-webkit-scrollbar-track,
+.canvas-wrapper::-webkit-scrollbar-track,
+.booths-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb,
+.canvas-wrapper::-webkit-scrollbar-thumb,
+.booths-list::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb:hover,
+.canvas-wrapper::-webkit-scrollbar-thumb:hover,
+.booths-list::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}

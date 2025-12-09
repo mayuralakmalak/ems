@@ -17,6 +17,11 @@ class BoothController extends Controller
             ->latest()
             ->get();
         
+        // Return JSON if requested (for floor plan editor)
+        if (request()->wantsJson()) {
+            return response()->json($booths);
+        }
+        
         return view('admin.booths.index', compact('exhibition', 'booths'));
     }
 
@@ -30,6 +35,58 @@ class BoothController extends Controller
     {
         $exhibition = Exhibition::findOrFail($exhibitionId);
         
+        // Handle JSON requests from floor plan editor
+        if ($request->wantsJson() || $request->isJson()) {
+            $request->validate([
+                'booth_id' => 'nullable|string|max:255',
+                'name' => 'required|string|max:255',
+                'x' => 'required|numeric|min:0',
+                'y' => 'required|numeric|min:0',
+                'width' => 'required|numeric|min:0',
+                'height' => 'required|numeric|min:0',
+                'status' => 'nullable|in:available,reserved,booked',
+                'size' => 'nullable|in:small,medium,large',
+                'area' => 'nullable|numeric|min:0',
+                'price' => 'nullable|numeric|min:0',
+                'open_sides' => 'nullable|integer|in:1,2,3,4',
+                'category' => 'nullable|in:Premium,Standard,Economy,VIP',
+                'included_items' => 'nullable|array',
+            ]);
+
+            $boothId = $request->input('booth_id') ?: $request->input('name');
+            
+            // Check if booth exists by name
+            $booth = Booth::where('exhibition_id', $exhibitionId)
+                ->where('name', $boothId)
+                ->first();
+
+            $boothData = [
+                'exhibition_id' => $exhibitionId,
+                'name' => $boothId,
+                'category' => $request->input('category', 'Standard'),
+                'booth_type' => 'Raw', // Default
+                'size_sqft' => $request->input('area', 100),
+                'sides_open' => $request->input('open_sides', 2),
+                'price' => $request->input('price', 10000),
+                'position_x' => $request->input('x', 0),
+                'position_y' => $request->input('y', 0),
+                'width' => $request->input('width', 100),
+                'height' => $request->input('height', 80),
+                'is_available' => $request->input('status') !== 'booked',
+                'is_booked' => $request->input('status') === 'booked',
+                'is_free' => false,
+            ];
+
+            if ($booth) {
+                $booth->update($boothData);
+            } else {
+                $booth = Booth::create($boothData);
+            }
+
+            return response()->json(['success' => true, 'booth' => $booth]);
+        }
+        
+        // Handle regular form requests
         $request->validate([
             'name' => 'required|string|max:255|unique:booths,name,NULL,id,exhibition_id,' . $exhibitionId,
             'category' => 'required|in:Premium,Standard,Economy',
@@ -110,13 +167,25 @@ class BoothController extends Controller
 
     public function destroy($exhibitionId, $id)
     {
-        $booth = Booth::where('exhibition_id', $exhibitionId)->findOrFail($id);
+        $booth = Booth::where('exhibition_id', $exhibitionId)
+            ->where(function($query) use ($id) {
+                $query->where('id', $id)
+                      ->orWhere('name', $id);
+            })
+            ->firstOrFail();
         
         if ($booth->is_booked) {
+            if (request()->wantsJson()) {
+                return response()->json(['error' => 'Cannot delete a booked booth.'], 400);
+            }
             return back()->with('error', 'Cannot delete a booked booth.');
         }
 
         $booth->delete();
+
+        if (request()->wantsJson()) {
+            return response()->json(['success' => true]);
+        }
 
         return redirect()->route('admin.booths.index', $exhibitionId)
             ->with('success', 'Booth deleted successfully.');

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Exhibition;
 use App\Models\Booth;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class FloorplanController extends Controller
 {
@@ -165,5 +166,57 @@ class FloorplanController extends Controller
         ]);
 
         return response()->json(['success' => true, 'message' => 'Booth split successfully', 'booths' => $splitBooths]);
+    }
+
+    /**
+     * Save floorplan configuration (hall, grid, booths) as JSON per exhibition.
+     */
+    public function saveConfig(Request $request, $exhibitionId)
+    {
+        $request->validate([
+            'hall' => 'required|array',
+            'grid' => 'required|array',
+            'booths' => 'required|array',
+        ]);
+
+        $exhibition = Exhibition::findOrFail($exhibitionId);
+
+        $payload = $request->all();
+        $payload['lastUpdated'] = now()->toDateTimeString();
+
+        $path = "floorplans/exhibition_{$exhibition->id}.json";
+        Storage::disk('local')->put($path, json_encode($payload, JSON_PRETTY_PRINT));
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * Load floorplan configuration JSON per exhibition.
+     */
+    public function loadConfig($exhibitionId)
+    {
+        $exhibition = Exhibition::findOrFail($exhibitionId);
+        $path = "floorplans/exhibition_{$exhibition->id}.json";
+
+        if (Storage::disk('local')->exists($path)) {
+            $json = Storage::disk('local')->get($path);
+            return response($json, 200)->header('Content-Type', 'application/json');
+        }
+
+        // Default empty structure
+        return response()->json([
+            'hall' => [
+                'width' => 1200,
+                'height' => 800,
+                'margin' => 0,
+            ],
+            'grid' => [
+                'size' => 50,
+                'show' => true,
+                'snap' => true,
+            ],
+            'booths' => [],
+            'lastUpdated' => null,
+        ]);
     }
 }

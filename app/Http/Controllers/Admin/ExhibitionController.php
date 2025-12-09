@@ -75,7 +75,6 @@ class ExhibitionController extends Controller
         
         $validated = $request->validate([
             'floorplan_image' => 'nullable|image|max:10240',
-            'floorplan_editor_data' => 'nullable|string',
             'price_per_sqft' => 'nullable|numeric|min:0',
             'rear_price_per_sqft' => 'nullable|numeric|min:0',
             'orphaned_price_per_sqft' => 'nullable|numeric|min:0',
