@@ -65,4 +65,9 @@ class Exhibition extends Model
     {
         return $this->hasMany(BadgeConfiguration::class);
     }
+
+    public function boothSizes()
+    {
+        return $this->hasMany(ExhibitionBoothSize::class);
+    }
 }

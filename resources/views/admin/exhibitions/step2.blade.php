@@ -239,36 +239,164 @@
                 </div>
             </div>
 
-            <!-- Booth Configuration Section -->
-            <div class="row mb-4">
-                <div class="col-lg-6 col-md-12 mb-4">
-                    <div class="card h-100">
-                        <div class="card-header">
-                            <h6 class="mb-0">Booth Configuration</h6>
+            <!-- Booth & Pricing Configuration Section -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Booth & Pricing Configuration</h6>
+                    <button type="button" class="btn btn-sm btn-outline-primary add-size-btn">Add size</button>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <p class="text-muted mb-2">Size (sq ft) with row price, orphan price, category, and multiple items. Use Add size to manage multiple entries.</p>
+                        <div id="boothSizesContainer">
+                            @forelse($exhibition->boothSizes as $sizeIndex => $boothSize)
+                            <div class="border rounded p-3 mb-3 booth-size-card" data-size-index="{{ $sizeIndex }}">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="mb-0">Size #{{ $loop->iteration }}</h6>
+                                    <button type="button" class="btn btn-sm btn-link text-danger remove-size-btn">Remove size</button>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <label class="form-label">Size (sq ft)</label>
+                                        <input type="number" step="0.01" name="booth_sizes[{{ $sizeIndex }}][size_sqft]" class="form-control" value="{{ $boothSize->size_sqft }}">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Row price</label>
+                                        <input type="number" step="0.01" name="booth_sizes[{{ $sizeIndex }}][row_price]" class="form-control" value="{{ $boothSize->row_price }}">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Orphan price</label>
+                                        <input type="number" step="0.01" name="booth_sizes[{{ $sizeIndex }}][orphan_price]" class="form-control" value="{{ $boothSize->orphan_price }}">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Category</label>
+                                        <select name="booth_sizes[{{ $sizeIndex }}][category]" class="form-select">
+                                            <option value="">Select</option>
+                                            <option value="1" @selected($boothSize->category === '1' || $boothSize->category === 'Premium')>Premium</option>
+                                            <option value="2" @selected($boothSize->category === '2' || $boothSize->category === 'Standard')>Standard</option>
+                                            <option value="3" @selected($boothSize->category === '3' || $boothSize->category === 'Economy')>Economy</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="fw-semibold">Items for this size</span>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary add-item-btn" data-size-index="{{ $sizeIndex }}">Add item</button>
+                                    </div>
+                                    <div class="items-container">
+                                        @php $items = $boothSize->items ?? collect(); @endphp
+                                        @forelse($items as $itemIndex => $item)
+                                        <div class="row g-2 align-items-end item-row" data-item-index="{{ $itemIndex }}">
+                                            <div class="col-md-5">
+                                                <label class="form-label">Item name</label>
+                                                <input type="text" name="booth_sizes[{{ $sizeIndex }}][items][{{ $itemIndex }}][name]" class="form-control" value="{{ $item->item_name }}">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Quantity</label>
+                                                <input type="number" name="booth_sizes[{{ $sizeIndex }}][items][{{ $itemIndex }}][quantity]" class="form-control" value="{{ $item->quantity }}">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label">Images</label>
+                                                <input type="file" name="booth_sizes[{{ $sizeIndex }}][items][{{ $itemIndex }}][images][]" class="form-control" multiple>
+                                                @if(!empty($item->images))
+                                                    <small class="text-muted">Existing: {{ collect($item->images)->map(function($img){ return basename($img); })->implode(', ') }}</small>
+                                                @endif
+                                            </div>
+                                            <div class="col-12 text-end">
+                                                <button type="button" class="btn btn-sm btn-link text-danger remove-item-btn">Remove item</button>
+                                            </div>
+                                        </div>
+                                        @empty
+                                        <div class="row g-2 align-items-end item-row" data-item-index="0">
+                                            <div class="col-md-5">
+                                                <label class="form-label">Item name</label>
+                                                <input type="text" name="booth_sizes[{{ $sizeIndex }}][items][0][name]" class="form-control" placeholder="Item name">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Quantity</label>
+                                                <input type="number" name="booth_sizes[{{ $sizeIndex }}][items][0][quantity]" class="form-control" placeholder="0">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label">Images</label>
+                                                <input type="file" name="booth_sizes[{{ $sizeIndex }}][items][0][images][]" class="form-control" multiple>
+                                            </div>
+                                            <div class="col-12 text-end">
+                                                <button type="button" class="btn btn-sm btn-link text-danger remove-item-btn">Remove item</button>
+                                            </div>
+                                        </div>
+                                        @endforelse
+                                    </div>
+                                </div>
+                            </div>
+                            @empty
+                            <div class="border rounded p-3 mb-3 booth-size-card" data-size-index="0">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="mb-0">Size #1</h6>
+                                    <button type="button" class="btn btn-sm btn-link text-danger remove-size-btn">Remove size</button>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <label class="form-label">Size (sq ft)</label>
+                                        <input type="number" step="0.01" name="booth_sizes[0][size_sqft]" class="form-control" placeholder="e.g. 100">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Row price</label>
+                                        <input type="number" step="0.01" name="booth_sizes[0][row_price]" class="form-control" placeholder="e.g. 5000">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Orphan price</label>
+                                        <input type="number" step="0.01" name="booth_sizes[0][orphan_price]" class="form-control" placeholder="e.g. 4000">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Category</label>
+                                        <select name="booth_sizes[0][category]" class="form-select">
+                                            <option value="">Select</option>
+                                            <option value="1">Premium</option>
+                                            <option value="2">Standard</option>
+                                            <option value="3">Economy</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="fw-semibold">Items for this size</span>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary add-item-btn" data-size-index="0">Add item</button>
+                                    </div>
+                                    <div class="items-container">
+                                        <div class="row g-2 align-items-end item-row" data-item-index="0">
+                                            <div class="col-md-5">
+                                                <label class="form-label">Item name</label>
+                                                <input type="text" name="booth_sizes[0][items][0][name]" class="form-control" placeholder="Item name">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Quantity</label>
+                                                <input type="number" name="booth_sizes[0][items][0][quantity]" class="form-control" placeholder="0">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label">Images</label>
+                                                <input type="file" name="booth_sizes[0][items][0][images][]" class="form-control" multiple>
+                                            </div>
+                                            <div class="col-12 text-end">
+                                                <button type="button" class="btn btn-sm btn-link text-danger remove-item-btn">Remove item</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            @endforelse
                         </div>
-                        <div class="card-body">
-                            <div class="row mb-3">
-                                <div class="col-12">
-                                    <label class="form-label">Select Booth category</label>
-                                    <select name="booth_category" class="form-select">
-                                        <option value="">Select Category</option>
-                                        <option value="Premium">Premium</option>
-                                        <option value="Standard">Standard</option>
-                                        <option value="Economy">Economy</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="row mb-3">
-                                <div class="col-12">
-                                    <label class="form-label">Size (sq ft)</label>
-                                    <input type="number" name="booth_size" class="form-control" step="0.01" placeholder="Size in sq ft">
-                                </div>
-                            </div>
-                            <div class="row mb-3">
-                                <div class="col-12">
-                                    <label class="form-label">Category Label</label>
-                                    <input type="text" name="booth_category_name" class="form-control" placeholder="Category label (e.g., Hall A)">
-                                </div>
+                        <div class="d-flex justify-content-end mt-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary add-size-btn">Add size</button>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="row g-3">
+                        <div class="col-lg-6">
+                            <div class="mb-3">
+                                <label class="form-label">Base price per sq ft</label>
+                                <input type="number" name="price_per_sqft" class="form-control" step="0.01" placeholder="eg. 100" value="{{ $exhibition->price_per_sqft ?? '' }}">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Side open pricing % adjustment</label>
@@ -292,21 +420,7 @@
                                 <label class="form-check-label" for="free_booth">Free Booth</label>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Pricing Configuration -->
-                <div class="col-lg-6 col-md-12 mb-4">
-                    <div class="card h-100">
-                        <div class="card-header">
-                            <h6 class="mb-0">Pricing Configuration</h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <label class="form-label">Base price per sq ft</label>
-                                <input type="number" name="price_per_sqft" class="form-control" step="0.01" placeholder="eg. 100" value="{{ $exhibition->price_per_sqft ?? '' }}">
-                            </div>
-                            
+                        <div class="col-lg-6">
                             <div class="mb-3">
                                 <label class="form-label">Side Open Variations (% adjustment)</label>
                                 <div class="row">
@@ -336,7 +450,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <div class="mb-3">
                                 <label class="form-label">Category Pricing</label>
                                 <div class="table-responsive">
@@ -438,4 +551,121 @@
 
 @push('scripts')
 <script src="{{ asset('js/admin-floorplan-step2.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const sizesContainer = document.getElementById('boothSizesContainer');
+    const addSizeButtons = document.querySelectorAll('.add-size-btn');
+    let sizeCounter = sizesContainer ? sizesContainer.querySelectorAll('.booth-size-card').length : 0;
+
+    const itemTemplate = (sizeIndex, itemIndex) => `
+        <div class="row g-2 align-items-end item-row" data-item-index="${itemIndex}">
+            <div class="col-md-5">
+                <label class="form-label">Item name</label>
+                <input type="text" name="booth_sizes[${sizeIndex}][items][${itemIndex}][name]" class="form-control" placeholder="Item name">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Quantity</label>
+                <input type="number" name="booth_sizes[${sizeIndex}][items][${itemIndex}][quantity]" class="form-control" placeholder="0">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Images</label>
+                <input type="file" name="booth_sizes[${sizeIndex}][items][${itemIndex}][images][]" class="form-control" multiple>
+            </div>
+            <div class="col-12 text-end">
+                <button type="button" class="btn btn-sm btn-link text-danger remove-item-btn">Remove item</button>
+            </div>
+        </div>
+    `;
+
+    const sizeTemplate = (sizeIndex) => `
+        <div class="border rounded p-3 mb-3 booth-size-card" data-size-index="${sizeIndex}">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="mb-0">Size #${sizeIndex + 1}</h6>
+                <button type="button" class="btn btn-sm btn-link text-danger remove-size-btn">Remove size</button>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Size (sq ft)</label>
+                    <input type="number" step="0.01" name="booth_sizes[${sizeIndex}][size_sqft]" class="form-control" placeholder="e.g. 100">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Row price</label>
+                    <input type="number" step="0.01" name="booth_sizes[${sizeIndex}][row_price]" class="form-control" placeholder="e.g. 5000">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Orphan price</label>
+                    <input type="number" step="0.01" name="booth_sizes[${sizeIndex}][orphan_price]" class="form-control" placeholder="e.g. 4000">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Category</label>
+                    <select name="booth_sizes[${sizeIndex}][category]" class="form-select">
+                        <option value="">Select</option>
+                        <option value="1">Premium</option>
+                        <option value="2">Standard</option>
+                        <option value="3">Economy</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-semibold">Items for this size</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary add-item-btn" data-size-index="${sizeIndex}">Add item</button>
+                </div>
+                <div class="items-container">
+                    ${itemTemplate(sizeIndex, 0)}
+                </div>
+            </div>
+        </div>
+    `;
+
+    const addSizeCard = () => {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = sizeTemplate(sizeCounter).trim();
+        sizesContainer.appendChild(wrapper.firstElementChild);
+        sizeCounter += 1;
+    };
+
+    const addItemRow = (sizeCard) => {
+        const itemsContainer = sizeCard.querySelector('.items-container');
+        const sizeIndex = sizeCard.getAttribute('data-size-index');
+        const nextIndex = itemsContainer.querySelectorAll('.item-row').length;
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = itemTemplate(sizeIndex, nextIndex).trim();
+        itemsContainer.appendChild(wrapper.firstElementChild);
+    };
+
+    if (addSizeButtons && addSizeButtons.length && sizesContainer) {
+        addSizeButtons.forEach((btn) => btn.addEventListener('click', () => addSizeCard()));
+    }
+
+    if (sizesContainer) {
+        sizesContainer.addEventListener('click', (event) => {
+            if (event.target.closest('.add-item-btn')) {
+                const button = event.target.closest('.add-item-btn');
+                const sizeCard = button.closest('.booth-size-card');
+                addItemRow(sizeCard);
+            }
+
+            if (event.target.closest('.remove-item-btn')) {
+                const itemRow = event.target.closest('.item-row');
+                const itemsContainer = itemRow.parentElement;
+                itemRow.remove();
+                if (!itemsContainer.querySelector('.item-row')) {
+                    const sizeCard = itemsContainer.closest('.booth-size-card');
+                    addItemRow(sizeCard);
+                }
+            }
+
+            if (event.target.closest('.remove-size-btn')) {
+                const sizeCard = event.target.closest('.booth-size-card');
+                sizeCard.remove();
+                if (!sizesContainer.querySelector('.booth-size-card')) {
+                    sizeCounter = 0;
+                    addSizeCard();
+                }
+            }
+        });
+    }
+});
+</script>
 @endpush

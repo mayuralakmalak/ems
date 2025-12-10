@@ -41,7 +41,6 @@ class ExhibitionController extends Controller
             'location' => 'nullable|string|max:255',
             'start_datetime' => 'required|date',
             'end_datetime' => 'required|date|after:start_datetime',
-            'duration_name' => 'nullable|string|max:255',
         ]);
 
         // Parse datetime fields
@@ -65,7 +64,7 @@ class ExhibitionController extends Controller
 
     public function step2($id)
     {
-        $exhibition = Exhibition::with(['stallSchemes', 'booths'])->findOrFail($id);
+        $exhibition = Exhibition::with(['stallSchemes', 'booths', 'boothSizes.items'])->findOrFail($id);
         return view('admin.exhibitions.step2', compact('exhibition'));
     }
 
@@ -85,6 +84,16 @@ class ExhibitionController extends Controller
             'premium_price' => 'nullable|numeric|min:0',
             'standard_price' => 'nullable|numeric|min:0',
             'economy_price' => 'nullable|numeric|min:0',
+            'booth_sizes' => 'nullable|array',
+            'booth_sizes.*.size_sqft' => 'nullable|numeric|min:0',
+            'booth_sizes.*.row_price' => 'nullable|numeric|min:0',
+            'booth_sizes.*.orphan_price' => 'nullable|numeric|min:0',
+            'booth_sizes.*.category' => 'nullable|string|max:255',
+            'booth_sizes.*.items' => 'nullable|array',
+            'booth_sizes.*.items.*.name' => 'nullable|string|max:255',
+            'booth_sizes.*.items.*.quantity' => 'nullable|integer|min:0',
+            'booth_sizes.*.items.*.images' => 'nullable|array',
+            'booth_sizes.*.items.*.images.*' => 'nullable|image|max:10240',
         ]);
 
         $updateData = [
@@ -105,6 +114,52 @@ class ExhibitionController extends Controller
         }
 
         $exhibition->update($updateData);
+
+        // Handle booth size blocks and included items
+        $exhibition->boothSizes()->delete();
+        $boothSizes = $request->input('booth_sizes', []);
+
+        foreach ($boothSizes as $sizeIndex => $boothSizeData) {
+            $sizeSqft = $boothSizeData['size_sqft'] ?? null;
+            $rowPrice = $boothSizeData['row_price'] ?? null;
+            $orphanPrice = $boothSizeData['orphan_price'] ?? null;
+            $category = $boothSizeData['category'] ?? null;
+
+            if (is_null($sizeSqft) && is_null($rowPrice) && is_null($orphanPrice) && empty($category)) {
+                continue;
+            }
+
+            $boothSize = $exhibition->boothSizes()->create([
+                'size_sqft' => $sizeSqft,
+                'row_price' => $rowPrice,
+                'orphan_price' => $orphanPrice,
+                'category' => $category,
+            ]);
+
+            $items = $boothSizeData['items'] ?? [];
+            foreach ($items as $itemIndex => $itemData) {
+                $name = $itemData['name'] ?? null;
+                $quantity = $itemData['quantity'] ?? null;
+                $itemFiles = $request->file("booth_sizes.$sizeIndex.items.$itemIndex.images") ?? [];
+
+                if (empty($name) && is_null($quantity) && empty($itemFiles)) {
+                    continue;
+                }
+
+                $storedImages = [];
+                foreach ($itemFiles as $imageFile) {
+                    if ($imageFile) {
+                        $storedImages[] = $imageFile->store('booth-size-items', 'public');
+                    }
+                }
+
+                $boothSize->items()->create([
+                    'item_name' => $name,
+                    'quantity' => $quantity ?? 0,
+                    'images' => $storedImages,
+                ]);
+            }
+        }
 
         return redirect()->route('admin.exhibitions.step3', $exhibition->id);
     }

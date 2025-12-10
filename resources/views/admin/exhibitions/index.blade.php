@@ -85,10 +85,6 @@
                             </div>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <label class="form-label">Duration Name</label>
-                            <input type="text" name="duration_name" id="duration_name" class="form-control" placeholder="Duration Name">
-                        </div>
-                        <div class="col-md-3 mb-3">
                             <label class="form-label">End Date and Time</label>
                             <div class="input-group">
                                 <input type="datetime-local" name="end_datetime" id="end_datetime" class="form-control" required>
