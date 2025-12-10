@@ -4,10 +4,21 @@
 @section('page-title', 'Edit Exhibition')
 
 @section('content')
-<div class="mb-4">
+<div class="mb-4 d-flex justify-content-between align-items-center">
     <a href="{{ route('admin.exhibitions.index') }}" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left me-2"></i>Back to Exhibitions
     </a>
+    <div class="text-end">
+        <div class="progress" style="height: 8px; width: 320px;">
+            <div class="progress-bar bg-warning" role="progressbar" style="width: 25%"></div>
+        </div>
+        <div class="d-flex justify-content-end gap-3 mt-2 small">
+            <a href="{{ route('admin.exhibitions.edit', $exhibition->id) }}" class="text-warning fw-bold text-decoration-none">Step 1</a>
+            <a href="{{ route('admin.exhibitions.step2', $exhibition->id) }}" class="text-muted text-decoration-none">Step 2</a>
+            <a href="{{ route('admin.exhibitions.step3', $exhibition->id) }}" class="text-muted text-decoration-none">Step 3</a>
+            <a href="{{ route('admin.exhibitions.step4', $exhibition->id) }}" class="text-muted text-decoration-none">Step 4</a>
+        </div>
+    </div>
 </div>
 
 <div class="card">
@@ -18,6 +29,7 @@
         <form action="{{ route('admin.exhibitions.update', $exhibition->id) }}" method="POST">
             @csrf
             @method('PUT')
+            <input type="hidden" name="redirect_step2" value="1">
             
             <div class="row">
                 <div class="col-md-6 mb-3">
@@ -139,12 +151,16 @@
                 <a href="{{ route('admin.exhibitions.index') }}" class="btn btn-secondary">
                     <i class="bi bi-x-circle me-2"></i>Cancel
                 </a>
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-check-circle me-2"></i>Update Exhibition
-                </button>
+                <div class="d-flex gap-2">
+                    <a href="{{ route('admin.exhibitions.step2', $exhibition->id) }}" class="btn btn-outline-primary">
+                        Go to Step 2
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle me-2"></i>Update & Continue
+                    </button>
+                </div>
             </div>
         </form>
     </div>
 </div>
 @endsection
-

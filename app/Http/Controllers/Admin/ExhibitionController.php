@@ -364,6 +364,11 @@ class ExhibitionController extends Controller
         ]);
         
         $exhibition->update($validated);
+        if ($request->boolean('redirect_step2')) {
+            return redirect()->route('admin.exhibitions.step2', $exhibition->id)
+                ->with('success', 'Exhibition updated successfully! Continue with Step 2.');
+        }
+
         return redirect()->route('admin.exhibitions.index')->with('success', 'Exhibition updated successfully!');
     }
 
