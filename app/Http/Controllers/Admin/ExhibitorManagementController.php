@@ -104,12 +104,23 @@ class ExhibitorManagementController extends Controller
             ->firstOrFail();
 
         $discountPercent = 0;
+        $discountedPrice = $validated['price'];
+
         if ($validated['discount_id']) {
             $discount = Discount::find($validated['discount_id']);
-            $discountPercent = $discount->discount_percent ?? 0;
-        }
 
-        $discountedPrice = $validated['price'] * (1 - $discountPercent / 100);
+            if ($discount && $discount->status === 'active') {
+                $discountPercent = $discount->type === 'percentage'
+                    ? (float) $discount->amount
+                    : ($validated['price'] > 0 ? ($discount->amount / $validated['price']) * 100 : 0);
+
+                $discountValue = $discount->type === 'percentage'
+                    ? $validated['price'] * ($discount->amount / 100)
+                    : $discount->amount;
+
+                $discountedPrice = max(0, $validated['price'] - $discountValue);
+            }
+        }
 
         $booking->update([
             'exhibition_id' => $validated['exhibition_id'],

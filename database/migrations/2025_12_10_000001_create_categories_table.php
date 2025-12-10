@@ -1,0 +1,38 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('categories', function (Blueprint $table) {
+            $table->id();
+            $table->string('title')->unique();
+            $table->boolean('status')->default(true);
+            $table->timestamps();
+        });
+
+        // Seed default categories to keep existing booth flows working
+        $now = now();
+        DB::table('categories')->insert([
+            ['title' => 'Premium', 'status' => true, 'created_at' => $now, 'updated_at' => $now],
+            ['title' => 'Standard', 'status' => true, 'created_at' => $now, 'updated_at' => $now],
+            ['title' => 'Economy', 'status' => true, 'created_at' => $now, 'updated_at' => $now],
+        ]);
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('categories');
+    }
+};

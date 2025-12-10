@@ -4,15 +4,21 @@
 @section('page-title', 'Exhibition Management')
 
 @section('content')
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <a href="{{ route('admin.dashboard') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
+    </a>
+    <button type="button" class="btn btn-primary" onclick="showCreateForm()">
+        <i class="bi bi-plus-circle me-2"></i>Create New
+    </button>
+</div>
 <div class="row">
     <!-- Exhibition List Section -->
     <div class="col-12 mb-4">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Exhibition List</h5>
-                <button type="button" class="btn btn-primary btn-sm" onclick="showCreateForm()">
-                    + Create New
-                </button>
+                <span class="text-muted small">{{ $exhibitions->count() }} total</span>
             </div>
             <div class="card-body">
                 <div class="table-responsive">

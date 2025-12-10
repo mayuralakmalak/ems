@@ -21,10 +21,6 @@ class Service extends Model
         'is_active' => 'boolean',
     ];
 
-    protected $casts = [
-        'is_active' => 'boolean',
-    ];
-
     public function exhibition()
     {
         return $this->belongsTo(Exhibition::class);

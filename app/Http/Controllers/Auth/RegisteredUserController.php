@@ -75,6 +75,7 @@ class RegisteredUserController extends Controller
 
         Auth::login($user);
 
-        return redirect(route('dashboard', absolute: false));
+        // Redirect exhibitors to frontend homepage instead of dashboard
+        return redirect(route('home', absolute: false));
     }
 }

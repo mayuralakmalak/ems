@@ -33,10 +33,27 @@
             <div class="row">
                 <div class="col-md-4 mb-3">
                     <label class="form-label">Category *</label>
+                    @php
+                        $activeCategoryTitles = $categories->pluck('title')->toArray();
+                        $availableCategories = $activeCategoryTitles;
+
+                        if (!in_array($booth->category, $availableCategories, true) && !empty($booth->category)) {
+                            $availableCategories[] = $booth->category;
+                        }
+
+                        if (empty($availableCategories)) {
+                            $availableCategories = ['Premium', 'Standard', 'Economy'];
+                        }
+
+                        $availableCategories = array_values(array_unique($availableCategories));
+                        $selectedCategory = old('category', $booth->category);
+                    @endphp
                     <select name="category" class="form-select" id="category" required>
-                        <option value="Premium" {{ $booth->category == 'Premium' ? 'selected' : '' }}>Premium</option>
-                        <option value="Standard" {{ $booth->category == 'Standard' ? 'selected' : '' }}>Standard</option>
-                        <option value="Economy" {{ $booth->category == 'Economy' ? 'selected' : '' }}>Economy</option>
+                        @foreach($availableCategories as $category)
+                            <option value="{{ $category }}" {{ $selectedCategory === $category ? 'selected' : '' }}>
+                                {{ $category }}@if(!in_array($category, $activeCategoryTitles, true) && $category === $booth->category) (inactive) @endif
+                            </option>
+                        @endforeach
                     </select>
                 </div>
                 <div class="col-md-4 mb-3">

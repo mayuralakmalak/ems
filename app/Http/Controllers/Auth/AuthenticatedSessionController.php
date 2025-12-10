@@ -34,7 +34,8 @@ class AuthenticatedSessionController extends Controller
         if ($user->hasRole('Admin') || $user->hasRole('Sub Admin')) {
             return redirect()->route('admin.dashboard');
         } else {
-            return redirect()->route('dashboard');
+            // Redirect exhibitors to frontend homepage instead of dashboard
+            return redirect()->route('home');
         }
     }
 

@@ -13,6 +13,10 @@ class PaymentSchedule extends Model
         'due_date',
     ];
 
+    protected $casts = [
+        'due_date' => 'date',
+    ];
+
     public function exhibition()
     {
         return $this->belongsTo(Exhibition::class);

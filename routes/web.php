@@ -16,6 +16,7 @@ use App\Http\Controllers\Frontend\DocumentController;
 use App\Http\Controllers\Frontend\BadgeController;
 use App\Http\Controllers\Frontend\MessageController;
 use App\Http\Controllers\Frontend\WalletController;
+use App\Http\Controllers\Admin\CategoryController;
 use Illuminate\Support\Facades\Route;
 
 // Public Routes
@@ -66,6 +67,9 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     Route::get('/payments/create', [\App\Http\Controllers\Admin\PaymentController::class, 'create'])->name('payments.create');
     Route::post('/payments', [\App\Http\Controllers\Admin\PaymentController::class, 'store'])->name('payments.store');
     Route::get('/payments/{id}', [\App\Http\Controllers\Admin\PaymentController::class, 'show'])->name('payments.show');
+    
+    // Category Management
+    Route::resource('categories', CategoryController::class)->except(['show']);
     
     // Role Management
     Route::get('/roles', [\App\Http\Controllers\Admin\RoleController::class, 'index'])->name('roles.index');
@@ -151,6 +155,8 @@ Route::middleware('auth')->group(function () {
     
     // Booking
     Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
+    Route::get('/exhibitions/{exhibitionId}/book', [BookingController::class, 'book'])->name('bookings.book');
+    Route::get('/exhibitions/{exhibitionId}/booking/details', [BookingController::class, 'details'])->name('bookings.details');
     Route::get('/exhibitions/{exhibitionId}/bookings/create', [BookingController::class, 'create'])->name('bookings.create');
     Route::post('/bookings', [BookingController::class, 'store'])->name('bookings.store');
     Route::get('/bookings/{id}', [BookingController::class, 'show'])->name('bookings.show');

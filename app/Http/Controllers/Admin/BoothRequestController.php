@@ -42,10 +42,16 @@ class BoothRequestController extends Controller
             ]);
 
             DB::commit();
-            return response()->json(['success' => true, 'message' => 'Request approved successfully']);
+            if (request()->expectsJson()) {
+                return response()->json(['success' => true, 'message' => 'Request approved successfully']);
+            }
+            return back()->with('success', 'Request approved successfully');
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['success' => false, 'message' => 'Error processing request: ' . $e->getMessage()], 500);
+            if (request()->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Error processing request: ' . $e->getMessage()], 500);
+            }
+            return back()->with('error', 'Error processing request: ' . $e->getMessage());
         }
     }
 
@@ -60,6 +66,22 @@ class BoothRequestController extends Controller
             'rejection_reason' => $request->rejection_reason,
         ]);
 
+        // If this was a booking request, mark related pending bookings as rejected
+        if ($boothRequest->request_type === 'booking') {
+            Booking::where('user_id', $boothRequest->user_id)
+                ->where('exhibition_id', $boothRequest->exhibition_id)
+                ->whereIn('booth_id', $boothRequest->booth_ids ?? [])
+                ->where('approval_status', 'pending')
+                ->update([
+                    'approval_status' => 'rejected',
+                    'status' => 'rejected',
+                    'rejection_reason' => $request->rejection_reason,
+                ]);
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'message' => 'Request rejected']);
+        }
         return back()->with('success', 'Request rejected');
     }
 
@@ -184,7 +206,7 @@ class BoothRequestController extends Controller
         ]);
         
         // Mark all booths in the booking as booked
-        foreach ($boothRequest->booth_ids as $boothId) {
+        foreach ($boothRequest->booth_ids ?? [] as $boothId) {
             $booth = Booth::find($boothId);
             if ($booth && !$booth->is_booked) {
                 $booth->update([

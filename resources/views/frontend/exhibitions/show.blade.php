@@ -37,11 +37,11 @@
             </div>
             <div class="card">
                 <div class="card-body text-center">
-                    <a href="{{ url('/exhibitions/' . $exhibition->id . '/floorplan') }}" class="btn btn-primary w-100 mb-2">
+                    <a href="{{ route('floorplan.show.public', $exhibition->id) }}" class="btn btn-primary w-100 mb-2">
                         <i class="bi bi-diagram-3 me-2"></i>View Interactive Floorplan
                     </a>
                     @auth
-                    <a href="{{ route('floorplan.show', $exhibition->id) }}" class="btn btn-success w-100">
+                    <a href="{{ route('bookings.book', $exhibition->id) }}" class="btn btn-success w-100">
                         <i class="bi bi-cart-check me-2"></i>Book Booth
                     </a>
                     @else
@@ -94,14 +94,9 @@
                                     <td>
                                         @if($booth->is_available ?? false)
                                             @auth
-                                            <form action="{{ route('bookings.store') }}" method="POST">
-                                                @csrf
-                                                <input type="hidden" name="exhibition_id" value="{{ $exhibition->id }}">
-                                                <input type="hidden" name="booth_id" value="{{ $booth->id }}">
-                                                <button type="submit" class="btn btn-sm btn-primary">
+                                            <a href="{{ route('bookings.book', $exhibition->id) }}" class="btn btn-sm btn-primary">
                                                     <i class="bi bi-cart-plus me-1"></i>Book Booth
-                                                </button>
-                                            </form>
+                                            </a>
                                             @else
                                             <a href="{{ route('login') }}" class="btn btn-sm btn-outline-primary">
                                                 Login to Book
