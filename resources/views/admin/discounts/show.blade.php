@@ -14,39 +14,33 @@
     <div class="card-body">
         <div class="row">
             <div class="col-md-6 mb-3">
-                <strong>Discount Code:</strong>
-                <p>{{ $discount->code }}</p>
-            </div>
-            <div class="col-md-6 mb-3">
-                <strong>Discount Name:</strong>
-                <p>{{ $discount->name }}</p>
-            </div>
-            <div class="col-md-6 mb-3">
-                <strong>Discount Percent:</strong>
-                <p>{{ $discount->discount_percent }}%</p>
-            </div>
-            <div class="col-md-6 mb-3">
-                <strong>Status:</strong>
-                <p>
-                    <span class="badge bg-{{ $discount->status === 'active' ? 'success' : ($discount->status === 'completed' ? 'info' : 'secondary') }}">
-                        {{ ucfirst($discount->status) }}
-                    </span>
-                </p>
-            </div>
-            <div class="col-md-6 mb-3">
-                <strong>Start Date:</strong>
-                <p>{{ $discount->start_date->format('d M Y') }}</p>
-            </div>
-            <div class="col-md-6 mb-3">
-                <strong>End Date:</strong>
-                <p>{{ $discount->end_date->format('d M Y') }}</p>
-            </div>
-            @if($discount->description)
-            <div class="col-12 mb-3">
-                <strong>Description:</strong>
-                <p>{{ $discount->description }}</p>
-            </div>
-            @endif
+                    <strong>Title:</strong>
+                    <p>{{ $discount->title }}</p>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <strong>Code:</strong>
+                    <p>{{ $discount->code }}</p>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <strong>Type:</strong>
+                    <p>
+                        <span class="badge bg-{{ $discount->type === 'percentage' ? 'info' : 'primary' }}">
+                            {{ ucfirst($discount->type) }}
+                        </span>
+                    </p>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <strong>Amount:</strong>
+                    <p>{{ $discount->type === 'percentage' ? $discount->amount . '%' : number_format($discount->amount, 2) }}</p>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <strong>Status:</strong>
+                    <p>
+                        <span class="badge bg-{{ $discount->status === 'active' ? 'success' : 'secondary' }}">
+                            {{ ucfirst($discount->status) }}
+                        </span>
+                    </p>
+                </div>
         </div>
         <div class="d-flex gap-2">
             <a href="{{ route('admin.discounts.index') }}" class="btn btn-secondary">

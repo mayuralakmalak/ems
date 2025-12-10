@@ -22,13 +22,11 @@ class DiscountController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'title' => 'required|string|max:255',
             'code' => 'required|string|max:255|unique:discounts,code',
-            'name' => 'required|string|max:255',
-            'discount_percent' => 'required|numeric|min:0|max:100',
-            'status' => 'required|in:active,completed,inactive',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after:start_date',
-            'description' => 'nullable|string',
+            'type' => 'required|in:fixed,percentage',
+            'amount' => 'required|numeric|min:0',
+            'status' => 'required|in:active,inactive',
         ]);
 
         Discount::create($validated);
@@ -51,13 +49,11 @@ class DiscountController extends Controller
     {
         $discount = Discount::findOrFail($id);
         $validated = $request->validate([
+            'title' => 'required|string|max:255',
             'code' => 'required|string|max:255|unique:discounts,code,' . $id,
-            'name' => 'required|string|max:255',
-            'discount_percent' => 'required|numeric|min:0|max:100',
-            'status' => 'required|in:active,completed,inactive',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after:start_date',
-            'description' => 'nullable|string',
+            'type' => 'required|in:fixed,percentage',
+            'amount' => 'required|numeric|min:0',
+            'status' => 'required|in:active,inactive',
         ]);
 
         $discount->update($validated);

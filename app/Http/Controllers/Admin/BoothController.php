@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booth;
+use App\Models\Category;
 use App\Models\Exhibition;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class BoothController extends Controller
 {
@@ -28,7 +30,9 @@ class BoothController extends Controller
     public function create($exhibitionId)
     {
         $exhibition = Exhibition::findOrFail($exhibitionId);
-        return view('admin.booths.create', compact('exhibition'));
+        $categories = $this->activeCategories();
+
+        return view('admin.booths.create', compact('exhibition', 'categories'));
     }
 
     public function store(Request $request, $exhibitionId)
@@ -37,6 +41,8 @@ class BoothController extends Controller
         
         // Handle JSON requests from floor plan editor
         if ($request->wantsJson() || $request->isJson()) {
+            $jsonAllowedCategories = $this->allowedCategories();
+
             $request->validate([
                 'booth_id' => 'nullable|string|max:255',
                 'name' => 'required|string|max:255',
@@ -49,7 +55,7 @@ class BoothController extends Controller
                 'area' => 'nullable|numeric|min:0',
                 'price' => 'nullable|numeric|min:0',
                 'open_sides' => 'nullable|integer|in:1,2,3,4',
-                'category' => 'nullable|in:Premium,Standard,Economy,VIP',
+                'category' => ['nullable', Rule::in($jsonAllowedCategories)],
                 'included_items' => 'nullable|array',
             ]);
 
@@ -87,9 +93,11 @@ class BoothController extends Controller
         }
         
         // Handle regular form requests
+        $allowedCategories = $this->allowedCategories();
+
         $request->validate([
             'name' => 'required|string|max:255|unique:booths,name,NULL,id,exhibition_id,' . $exhibitionId,
-            'category' => 'required|in:Premium,Standard,Economy',
+            'category' => ['required', Rule::in($allowedCategories)],
             'booth_type' => 'required|in:Raw,Orphand',
             'size_sqft' => 'required|numeric|min:0',
             'sides_open' => 'required|integer|in:1,2,3,4',
@@ -132,7 +140,9 @@ class BoothController extends Controller
     {
         $exhibition = Exhibition::findOrFail($exhibitionId);
         $booth = Booth::where('exhibition_id', $exhibitionId)->findOrFail($id);
-        return view('admin.booths.edit', compact('exhibition', 'booth'));
+        $categories = $this->activeCategories();
+
+        return view('admin.booths.edit', compact('exhibition', 'booth', 'categories'));
     }
 
     public function update(Request $request, $exhibitionId, $id)
@@ -140,9 +150,11 @@ class BoothController extends Controller
         $exhibition = Exhibition::findOrFail($exhibitionId);
         $booth = Booth::where('exhibition_id', $exhibitionId)->findOrFail($id);
         
+        $allowedCategories = $this->allowedCategories([$booth->category]);
+
         $request->validate([
             'name' => 'required|string|max:255|unique:booths,name,' . $id . ',id,exhibition_id,' . $exhibitionId,
-            'category' => 'required|in:Premium,Standard,Economy',
+            'category' => ['required', Rule::in($allowedCategories)],
             'booth_type' => 'required|in:Raw,Orphand',
             'size_sqft' => 'required|numeric|min:0',
             'sides_open' => 'required|integer|in:1,2,3,4',
@@ -220,5 +232,21 @@ class BoothController extends Controller
         }
         
         return round(max(0, $calculatedPrice), 2);
+    }
+
+    private function activeCategories()
+    {
+        return Category::where('status', true)
+            ->orderBy('title')
+            ->get();
+    }
+
+    private function allowedCategories(array $additional = []): array
+    {
+        $active = Category::where('status', true)->orderBy('title')->pluck('title')->toArray();
+        $defaults = ['Premium', 'Standard', 'Economy', 'VIP'];
+        $base = $active ?: $defaults;
+
+        return array_values(array_unique(array_merge($base, $additional)));
     }
 }

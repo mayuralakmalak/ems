@@ -653,7 +653,7 @@ document.getElementById('resetBtn').addEventListener('click', function() {
 // Proceed to book
 document.getElementById('proceedToBookBtn').addEventListener('click', function() {
     if (selectedBooths.length > 0) {
-        window.location.href = `/ems-laravel/public/exhibitions/{{ $exhibition->id }}/bookings/create?booths=${selectedBooths.join(',')}`;
+        window.location.href = `{{ route('bookings.book', $exhibition->id) }}?booths=${selectedBooths.join(',')}`;
     }
 });
 </script>

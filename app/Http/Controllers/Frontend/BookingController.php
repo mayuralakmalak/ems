@@ -57,8 +57,59 @@ class BookingController extends Controller
     
     public function create($exhibitionId)
     {
-        $exhibition = Exhibition::with(['booths', 'services'])->findOrFail($exhibitionId);
-        return view('frontend.bookings.create', compact('exhibition'));
+        // Redirect to new booking interface instead of old create form
+        return redirect()->route('bookings.book', $exhibitionId);
+    }
+
+    public function book($exhibitionId)
+    {
+        // Load exhibition with booth visibility rules:
+        //  - Show main booths (parent_booth_id null) that are NOT split parents
+        //  - Show split children (parent_booth_id not null AND is_split true)
+        //  - Hide merged originals (parent_booth_id not null AND is_split false)
+        $exhibition = Exhibition::with(['booths' => function($query) {
+            $query->where(function($q) {
+                // Main booths (including merged booth itself) but not split parents
+                $q->whereNull('parent_booth_id')
+                  ->where('is_split', false);
+            })->orWhere(function($q) {
+                // Split children
+                $q->whereNotNull('parent_booth_id')
+                  ->where('is_split', true);
+            })
+            ->orderBy('name', 'asc');
+        }, 'services', 'stallSchemes'])->findOrFail($exhibitionId);
+        
+        return view('frontend.bookings.book', compact('exhibition'));
+    }
+
+    public function details(Request $request, $exhibitionId)
+    {
+        $exhibition = Exhibition::with(['booths', 'services', 'stallSchemes'])->findOrFail($exhibitionId);
+        $boothIds = array_filter(explode(',', $request->query('booths', '')));
+        
+        if (empty($boothIds)) {
+            return redirect()->route('bookings.book', $exhibitionId)
+                ->with('error', 'Please select at least one booth to continue.');
+        }
+
+        $booths = Booth::whereIn('id', $boothIds)
+            ->where('exhibition_id', $exhibition->id)
+            ->get();
+
+        if ($booths->isEmpty()) {
+            return redirect()->route('bookings.book', $exhibitionId)
+                ->with('error', 'Selected booths are not available. Please choose again.');
+        }
+
+        $totalAmount = $booths->sum('price');
+
+        return view('frontend.bookings.details', [
+            'exhibition' => $exhibition,
+            'booths' => $booths,
+            'boothIds' => $boothIds,
+            'totalAmount' => $totalAmount,
+        ]);
     }
 
     public function store(Request $request)
@@ -177,6 +228,7 @@ class BookingController extends Controller
                 'exhibition_id' => $exhibition->id,
                 'user_id' => $user->id,
                 'booth_id' => $boothId,
+                'selected_booth_ids' => $boothIds,
                 'booking_number' => 'BK' . now()->format('YmdHis') . rand(100, 999),
                 'status' => 'pending',
                 'approval_status' => 'pending', // Requires admin approval
@@ -203,15 +255,6 @@ class BookingController extends Controller
                 }
             }
             
-            // Create booth request for booking approval
-            \App\Models\BoothRequest::create([
-                'exhibition_id' => $exhibition->id,
-                'user_id' => $user->id,
-                'request_type' => 'booking',
-                'booth_ids' => $boothIds, // Use all selected booth IDs
-                'status' => 'pending',
-            ]);
-
             // DO NOT mark booths as booked yet - wait for admin approval
             // Booths will be marked as booked when admin approves the request
 
@@ -234,8 +277,8 @@ class BookingController extends Controller
 
             DB::commit();
 
-            return redirect()->route('bookings.show', $booking->id)
-                ->with('success', 'Booking request submitted successfully! Your request is pending admin approval. You will be notified once it is reviewed.');
+            return redirect()->route('payments.create', $booking->id)
+                ->with('success', 'Booking captured. Please complete payment to submit your booth request to the admin.');
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::error('Booking creation failed: ' . $e->getMessage(), [

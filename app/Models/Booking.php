@@ -10,7 +10,7 @@ class Booking extends Model
     use HasFactory;
 
     protected $fillable = [
-        'exhibition_id', 'user_id', 'booth_id', 'booking_number', 'status',
+        'exhibition_id', 'user_id', 'booth_id', 'selected_booth_ids', 'booking_number', 'status',
         'total_amount', 'paid_amount', 'discount_percent',
         'contact_emails', 'contact_numbers', 'logo',
         'possession_letter_issued', 'cancellation_reason',
@@ -19,6 +19,7 @@ class Booking extends Model
     ];
 
     protected $casts = [
+        'selected_booth_ids' => 'array',
         'contact_emails' => 'array',
         'contact_numbers' => 'array',
         'possession_letter_issued' => 'boolean',

@@ -107,7 +107,9 @@
                             <select name="discount_id" class="form-select">
                                 <option value="">No Discount</option>
                                 @foreach($discounts as $discount)
-                                <option value="{{ $discount->id }}">{{ $discount->code }} ({{ $discount->discount_percent }}%)</option>
+                                <option value="{{ $discount->id }}">
+                                    {{ $discount->code }} ({{ $discount->type === 'percentage' ? $discount->amount . '%' : number_format($discount->amount, 2) }})
+                                </option>
                                 @endforeach
                             </select>
                         </div>

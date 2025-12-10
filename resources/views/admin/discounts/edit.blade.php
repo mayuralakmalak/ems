@@ -14,23 +14,33 @@
             @method('PUT')
             <div class="row">
                 <div class="col-md-6 mb-3">
-                    <label class="form-label">Discount Code <span class="text-danger">*</span></label>
+                    <label class="form-label">Title <span class="text-danger">*</span></label>
+                    <input type="text" name="title" class="form-control @error('title') is-invalid @enderror" value="{{ old('title', $discount->title) }}" required>
+                    @error('title')
+                    <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Code <span class="text-danger">*</span></label>
                     <input type="text" name="code" class="form-control @error('code') is-invalid @enderror" value="{{ old('code', $discount->code) }}" required>
                     @error('code')
                     <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label class="form-label">Discount Name <span class="text-danger">*</span></label>
-                    <input type="text" name="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name', $discount->name) }}" required>
-                    @error('name')
+                    <label class="form-label">Type <span class="text-danger">*</span></label>
+                    <select name="type" class="form-select @error('type') is-invalid @enderror" required>
+                        <option value="fixed" {{ old('type', $discount->type) === 'fixed' ? 'selected' : '' }}>Fixed</option>
+                        <option value="percentage" {{ old('type', $discount->type) === 'percentage' ? 'selected' : '' }}>Percentage</option>
+                    </select>
+                    @error('type')
                     <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label class="form-label">Discount Percent <span class="text-danger">*</span></label>
-                    <input type="number" name="discount_percent" step="0.01" min="0" max="100" class="form-control @error('discount_percent') is-invalid @enderror" value="{{ old('discount_percent', $discount->discount_percent) }}" required>
-                    @error('discount_percent')
+                    <label class="form-label">Amount <span class="text-danger">*</span></label>
+                    <input type="number" name="amount" step="0.01" min="0" class="form-control @error('amount') is-invalid @enderror" value="{{ old('amount', $discount->amount) }}" required>
+                    @error('amount')
                     <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
                 </div>
@@ -38,31 +48,9 @@
                     <label class="form-label">Status <span class="text-danger">*</span></label>
                     <select name="status" class="form-select @error('status') is-invalid @enderror" required>
                         <option value="active" {{ old('status', $discount->status) === 'active' ? 'selected' : '' }}>Active</option>
-                        <option value="completed" {{ old('status', $discount->status) === 'completed' ? 'selected' : '' }}>Completed</option>
                         <option value="inactive" {{ old('status', $discount->status) === 'inactive' ? 'selected' : '' }}>Inactive</option>
                     </select>
                     @error('status')
-                    <div class="invalid-feedback">{{ $message }}</div>
-                    @enderror
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Start Date <span class="text-danger">*</span></label>
-                    <input type="date" name="start_date" class="form-control @error('start_date') is-invalid @enderror" value="{{ old('start_date', $discount->start_date->format('Y-m-d')) }}" required>
-                    @error('start_date')
-                    <div class="invalid-feedback">{{ $message }}</div>
-                    @enderror
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">End Date <span class="text-danger">*</span></label>
-                    <input type="date" name="end_date" class="form-control @error('end_date') is-invalid @enderror" value="{{ old('end_date', $discount->end_date->format('Y-m-d')) }}" required>
-                    @error('end_date')
-                    <div class="invalid-feedback">{{ $message }}</div>
-                    @enderror
-                </div>
-                <div class="col-12 mb-3">
-                    <label class="form-label">Description</label>
-                    <textarea name="description" class="form-control @error('description') is-invalid @enderror" rows="3">{{ old('description', $discount->description) }}</textarea>
-                    @error('description')
                     <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
                 </div>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\BoothRequest;
 use App\Models\Payment;
 use App\Models\Wallet;
 use Illuminate\Http\Request;
@@ -86,6 +87,7 @@ class PaymentController extends Controller
         $booking = Booking::where('user_id', auth()->id())->findOrFail($request->booking_id);
         $amount = (float) $request->amount;
         $user = auth()->user();
+        $boothIds = $booking->selected_booth_ids ?? [$booking->booth_id];
 
         // Handle wallet payment
         if ($request->payment_method === 'wallet') {
@@ -119,11 +121,33 @@ class PaymentController extends Controller
         ]);
 
         $booking->paid_amount += $amount;
-        if ($booking->paid_amount >= $booking->total_amount) {
-            $booking->status = 'confirmed';
-            $booking->approval_status = 'approved';
-        }
+        // Keep booking pending until admin approval even if fully paid
+        $booking->status = 'pending';
+        $booking->approval_status = $booking->approval_status ?? 'pending';
         $booking->save();
+
+        // Create booth request after payment is initiated
+        $existingRequest = BoothRequest::where('request_type', 'booking')
+            ->where('exhibition_id', $booking->exhibition_id)
+            ->where('user_id', $user->id)
+            ->where('request_data->booking_id', $booking->id)
+            ->first();
+
+        if (!$existingRequest) {
+            BoothRequest::create([
+                'exhibition_id' => $booking->exhibition_id,
+                'user_id' => $user->id,
+                'request_type' => 'booking',
+                'booth_ids' => $boothIds,
+                'status' => 'pending',
+                'request_data' => [
+                    'booking_id' => $booking->id,
+                    'total_amount' => $booking->total_amount,
+                    'paid_amount' => $booking->paid_amount,
+                    'payment_method' => $request->payment_method,
+                ],
+            ]);
+        }
 
         // Redirect to payment confirmation
         return redirect()->route('payments.confirmation', $payment->id)

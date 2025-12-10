@@ -1,10 +1,36 @@
-@extends('layouts.exhibitor')
+@extends('layouts.frontend')
 
 @section('title', 'Payment Confirmation')
-@section('page-title', 'Payment Processing')
 
 @push('styles')
 <style>
+    .stepper {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+    }
+    .step-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        color: #475569;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    .step-pill.active {
+        background: #10b981;
+        color: #fff;
+        box-shadow: 0 8px 20px rgba(16,185,129,0.25);
+    }
+    .step-pill .badge {
+        background: rgba(255,255,255,0.2);
+        color: inherit;
+    }
     .confirmation-container {
         max-width: 800px;
         margin: 0 auto;
@@ -114,6 +140,15 @@
 
 @section('content')
 <div class="confirmation-container">
+    <div class="stepper mb-3">
+        <span class="step-pill"><span class="badge bg-light text-dark">1</span> Select Booth</span>
+        <i class="bi bi-arrow-right text-secondary"></i>
+        <span class="step-pill"><span class="badge bg-light text-dark">2</span> Booking Details</span>
+        <i class="bi bi-arrow-right text-secondary"></i>
+        <span class="step-pill"><span class="badge bg-light text-dark">3</span> Payment</span>
+        <i class="bi bi-arrow-right text-secondary"></i>
+        <span class="step-pill active"><span class="badge bg-light text-dark">4</span> Confirmation</span>
+    </div>
     <div class="confirmation-card">
         <div class="success-icon">
             <i class="bi bi-check-lg"></i>

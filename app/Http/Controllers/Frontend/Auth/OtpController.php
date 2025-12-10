@@ -80,6 +80,7 @@ class OtpController extends Controller
 
         auth()->login($user);
 
-        return redirect()->route('dashboard')->with('success', 'Logged in successfully!');
+        // Redirect exhibitors to frontend homepage instead of dashboard
+        return redirect()->route('home')->with('success', 'Logged in successfully!');
     }
 }

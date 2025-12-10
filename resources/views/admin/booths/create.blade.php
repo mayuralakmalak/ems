@@ -33,10 +33,19 @@
             <div class="row">
                 <div class="col-md-4 mb-3">
                     <label class="form-label">Category *</label>
+                    @php
+                        $availableCategories = $categories->pluck('title')->toArray();
+                        if (empty($availableCategories)) {
+                            $availableCategories = ['Premium', 'Standard', 'Economy'];
+                        }
+                        $selectedCategory = old('category', 'Standard');
+                    @endphp
                     <select name="category" class="form-select" id="category" required>
-                        <option value="Premium">Premium</option>
-                        <option value="Standard" selected>Standard</option>
-                        <option value="Economy">Economy</option>
+                        @foreach($availableCategories as $category)
+                            <option value="{{ $category }}" {{ $selectedCategory === $category ? 'selected' : '' }}>
+                                {{ $category }}
+                            </option>
+                        @endforeach
                     </select>
                 </div>
                 <div class="col-md-4 mb-3">

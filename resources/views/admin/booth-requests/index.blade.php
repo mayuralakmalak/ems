@@ -43,10 +43,14 @@
                             <td>{{ $request->description ?? 'N/A' }}</td>
                             <td>{{ $request->created_at->format('d M Y H:i') }}</td>
                             <td>
-                                <button class="btn btn-sm btn-success" onclick="approveRequest({{ $request->id }})">
+                                <button class="btn btn-sm btn-success"
+                                        data-approve-url="{{ url('admin/booth-requests/'.$request->id.'/approve') }}"
+                                        onclick="approveRequest(this)">
                                     <i class="bi bi-check-circle"></i> Approve
                                 </button>
-                                <button class="btn btn-sm btn-danger" onclick="rejectRequest({{ $request->id }})">
+                                <button class="btn btn-sm btn-danger"
+                                        data-reject-url="{{ url('admin/booth-requests/'.$request->id.'/reject') }}"
+                                        onclick="rejectRequest(this)">
                                     <i class="bi bi-x-circle"></i> Reject
                                 </button>
                             </td>
@@ -87,18 +91,26 @@
 
 @push('scripts')
 <script>
-function approveRequest(requestId) {
+function approveRequest(btn) {
+    const approveUrl = btn.getAttribute('data-approve-url');
     if (confirm('Are you sure you want to approve this request?')) {
-        fetch(`/admin/booth-requests/${requestId}/approve`, {
+        fetch(approveUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            }
+            },
+            credentials: 'same-origin'
         })
         .then(response => {
             if (!response.ok) {
-                throw new Error('Network response was not ok');
+                return response.json().then(data => {
+                    throw new Error(data.message || 'Network response was not ok');
+                }).catch(() => {
+                    throw new Error('Network response was not ok');
+                });
             }
             return response.json();
         })
@@ -116,9 +128,9 @@ function approveRequest(requestId) {
     }
 }
 
-function rejectRequest(requestId) {
+function rejectRequest(btn) {
     const form = document.getElementById('rejectForm');
-    form.action = `/admin/booth-requests/${requestId}/reject`;
+    form.action = btn.getAttribute('data-reject-url');
     new bootstrap.Modal(document.getElementById('rejectModal')).show();
 }
 </script>
