@@ -398,27 +398,6 @@
                                 <label class="form-label">Base price per sq ft</label>
                                 <input type="number" name="price_per_sqft" class="form-control" step="0.01" placeholder="eg. 100" value="{{ $exhibition->price_per_sqft ?? '' }}">
                             </div>
-                            <div class="mb-3">
-                                <label class="form-label">Side open pricing % adjustment</label>
-                                <div class="row">
-                                    <div class="col-md-6 mb-2">
-                                        <div class="input-group">
-                                            <span class="input-group-text">Rear</span>
-                                            <input type="number" name="rear_price_per_sqft" class="form-control" step="0.01" placeholder="Price/sq ft" value="{{ $exhibition->raw_price_per_sqft ?? '' }}">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 mb-2">
-                                        <div class="input-group">
-                                            <span class="input-group-text">Orphaned</span>
-                                            <input type="number" name="orphaned_price_per_sqft" class="form-control" step="0.01" placeholder="Price/sq ft" value="{{ $exhibition->orphand_price_per_sqft ?? '' }}">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="form-check mb-3">
-                                <input class="form-check-input" type="checkbox" name="free_booth" id="free_booth" value="1">
-                                <label class="form-check-label" for="free_booth">Free Booth</label>
-                            </div>
                         </div>
                         <div class="col-lg-6">
                             <div class="mb-3">
@@ -427,63 +406,75 @@
                                     <div class="col-md-6 mb-2">
                                         <div class="input-group">
                                             <span class="input-group-text">1 Side Open</span>
-                                            <input type="number" name="side_1_open_percent" class="form-control" step="0.01" placeholder="%" value="{{ $exhibition->side_1_open_percent ?? '' }}">
+                                            <input type="text" name="side_1_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_1_open_percent ?? '' }}">
                                         </div>
                                     </div>
                                     <div class="col-md-6 mb-2">
                                         <div class="input-group">
                                             <span class="input-group-text">2 Sides Open</span>
-                                            <input type="number" name="side_2_open_percent" class="form-control" step="0.01" placeholder="%" value="{{ $exhibition->side_2_open_percent ?? '' }}">
+                                            <input type="text" name="side_2_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_2_open_percent ?? '' }}">
                                         </div>
                                     </div>
                                     <div class="col-md-6 mb-2">
                                         <div class="input-group">
                                             <span class="input-group-text">3 Sides Open</span>
-                                            <input type="number" name="side_3_open_percent" class="form-control" step="0.01" placeholder="%" value="{{ $exhibition->side_3_open_percent ?? '' }}">
+                                            <input type="text" name="side_3_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_3_open_percent ?? '' }}">
                                         </div>
                                     </div>
                                     <div class="col-md-6 mb-2">
                                         <div class="input-group">
                                             <span class="input-group-text">4 Sides Open</span>
-                                            <input type="number" name="side_4_open_percent" class="form-control" step="0.01" placeholder="%" value="{{ $exhibition->side_4_open_percent ?? '' }}">
+                                            <input type="text" name="side_4_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_4_open_percent ?? '' }}">
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            <div class="mb-3">
-                                <label class="form-label">Category Pricing</label>
-                                <div class="table-responsive">
-                                    <table class="table table-bordered mb-0">
-                                        <thead>
-                                            <tr>
-                                                <th>Category</th>
-                                                <th>Price</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <td>Premium</td>
-                                                <td>
-                                                    <input type="number" name="premium_price" class="form-control" step="0.01" placeholder="Price" value="{{ $exhibition->premium_price ?? '' }}">
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td>Standard</td>
-                                                <td>
-                                                    <input type="number" name="standard_price" class="form-control" step="0.01" placeholder="Price" value="{{ $exhibition->standard_price ?? '' }}">
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td>Economy</td>
-                                                <td>
-                                                    <input type="number" name="economy_price" class="form-control" step="0.01" placeholder="Price" value="{{ $exhibition->economy_price ?? '' }}">
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add-on Services Section -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Add-on Services</h6>
+                    <button type="button" class="btn btn-sm btn-outline-primary add-addon-btn">Add service</button>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">Add-on services are independent of booth sizes.</p>
+                    <div id="addonServicesContainer">
+                        @forelse($exhibition->addonServices as $idx => $service)
+                        <div class="row g-3 align-items-end addon-row" data-addon-index="{{ $idx }}">
+                            <div class="col-md-6">
+                                <label class="form-label">Item name</label>
+                                <input type="text" name="addon_services[{{ $idx }}][item_name]" class="form-control" value="{{ $service->item_name }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Price per quantity</label>
+                                <input type="number" step="0.01" name="addon_services[{{ $idx }}][price_per_quantity]" class="form-control" value="{{ $service->price_per_quantity }}">
+                            </div>
+                            <div class="col-md-2 text-end">
+                                <button type="button" class="btn btn-sm btn-link text-danger remove-addon-btn">Remove</button>
                             </div>
                         </div>
+                        @empty
+                        <div class="row g-3 align-items-end addon-row" data-addon-index="0">
+                            <div class="col-md-6">
+                                <label class="form-label">Item name</label>
+                                <input type="text" name="addon_services[0][item_name]" class="form-control" placeholder="Service name">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Price per quantity</label>
+                                <input type="number" step="0.01" name="addon_services[0][price_per_quantity]" class="form-control" placeholder="0.00">
+                            </div>
+                            <div class="col-md-2 text-end">
+                                <button type="button" class="btn btn-sm btn-link text-danger remove-addon-btn">Remove</button>
+                            </div>
+                        </div>
+                        @endforelse
+                    </div>
+                    <div class="d-flex justify-content-end mt-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary add-addon-btn">Add service</button>
                     </div>
                 </div>
             </div>
@@ -556,6 +547,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const sizesContainer = document.getElementById('boothSizesContainer');
     const addSizeButtons = document.querySelectorAll('.add-size-btn');
     let sizeCounter = sizesContainer ? sizesContainer.querySelectorAll('.booth-size-card').length : 0;
+    const addonContainer = document.getElementById('addonServicesContainer');
+    const addAddonButtons = document.querySelectorAll('.add-addon-btn');
+    let addonCounter = addonContainer ? addonContainer.querySelectorAll('.addon-row').length : 0;
 
     const itemTemplate = (sizeIndex, itemIndex) => `
         <div class="row g-2 align-items-end item-row" data-item-index="${itemIndex}">
@@ -662,6 +656,46 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!sizesContainer.querySelector('.booth-size-card')) {
                     sizeCounter = 0;
                     addSizeCard();
+                }
+            }
+        });
+    }
+
+    const addonTemplate = (idx) => `
+        <div class="row g-3 align-items-end addon-row" data-addon-index="${idx}">
+            <div class="col-md-6">
+                <label class="form-label">Item name</label>
+                <input type="text" name="addon_services[${idx}][item_name]" class="form-control" placeholder="Service name">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Price per quantity</label>
+                <input type="number" step="0.01" name="addon_services[${idx}][price_per_quantity]" class="form-control" placeholder="0.00">
+            </div>
+            <div class="col-md-2 text-end">
+                <button type="button" class="btn btn-sm btn-link text-danger remove-addon-btn">Remove</button>
+            </div>
+        </div>
+    `;
+
+    const addAddonRow = () => {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = addonTemplate(addonCounter).trim();
+        addonContainer.appendChild(wrapper.firstElementChild);
+        addonCounter += 1;
+    };
+
+    if (addAddonButtons && addAddonButtons.length && addonContainer) {
+        addAddonButtons.forEach((btn) => btn.addEventListener('click', () => addAddonRow()));
+    }
+
+    if (addonContainer) {
+        addonContainer.addEventListener('click', (event) => {
+            if (event.target.closest('.remove-addon-btn')) {
+                const row = event.target.closest('.addon-row');
+                row.remove();
+                if (!addonContainer.querySelector('.addon-row')) {
+                    addonCounter = 0;
+                    addAddonRow();
                 }
             }
         });

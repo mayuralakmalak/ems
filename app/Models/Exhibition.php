@@ -70,4 +70,9 @@ class Exhibition extends Model
     {
         return $this->hasMany(ExhibitionBoothSize::class);
     }
+
+    public function addonServices()
+    {
+        return $this->hasMany(ExhibitionAddonService::class);
+    }
 }

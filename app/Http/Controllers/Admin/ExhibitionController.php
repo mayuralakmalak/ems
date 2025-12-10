@@ -5,10 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Exhibition;
 use App\Models\Booth;
-use App\Models\StallScheme;
 use App\Models\PaymentSchedule;
 use App\Models\BadgeConfiguration;
 use App\Models\StallVariation;
+use App\Models\ExhibitionAddonService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -64,7 +64,7 @@ class ExhibitionController extends Controller
 
     public function step2($id)
     {
-        $exhibition = Exhibition::with(['stallSchemes', 'booths', 'boothSizes.items'])->findOrFail($id);
+        $exhibition = Exhibition::with(['stallSchemes', 'booths', 'boothSizes.items', 'addonServices'])->findOrFail($id);
         return view('admin.exhibitions.step2', compact('exhibition'));
     }
 
@@ -94,6 +94,9 @@ class ExhibitionController extends Controller
             'booth_sizes.*.items.*.quantity' => 'nullable|integer|min:0',
             'booth_sizes.*.items.*.images' => 'nullable|array',
             'booth_sizes.*.items.*.images.*' => 'nullable|image|max:10240',
+            'addon_services' => 'nullable|array',
+            'addon_services.*.item_name' => 'nullable|string|max:255',
+            'addon_services.*.price_per_quantity' => 'nullable|numeric|min:0',
         ]);
 
         $updateData = [
@@ -104,9 +107,9 @@ class ExhibitionController extends Controller
             'side_2_open_percent' => $validated['side_2_open_percent'] ?? null,
             'side_3_open_percent' => $validated['side_3_open_percent'] ?? null,
             'side_4_open_percent' => $validated['side_4_open_percent'] ?? null,
-            'premium_price' => $validated['premium_price'] ?? null,
-            'standard_price' => $validated['standard_price'] ?? null,
-            'economy_price' => $validated['economy_price'] ?? null,
+            'premium_price' => $validated['premium_price'] ?? $exhibition->premium_price ?? 0,
+            'standard_price' => $validated['standard_price'] ?? $exhibition->standard_price ?? 0,
+            'economy_price' => $validated['economy_price'] ?? $exhibition->economy_price ?? 0,
         ];
 
         if ($request->hasFile('floorplan_image')) {
@@ -161,6 +164,22 @@ class ExhibitionController extends Controller
             }
         }
 
+        // Handle add-on services (separate from sizes)
+        ExhibitionAddonService::where('exhibition_id', $exhibition->id)->delete();
+        $addonServices = $request->input('addon_services', []);
+        foreach ($addonServices as $service) {
+            $name = $service['item_name'] ?? null;
+            $price = $service['price_per_quantity'] ?? null;
+            if (empty($name) && is_null($price)) {
+                continue;
+            }
+            ExhibitionAddonService::create([
+                'exhibition_id' => $exhibition->id,
+                'item_name' => $name ?? '',
+                'price_per_quantity' => $price ?? 0,
+            ]);
+        }
+
         return redirect()->route('admin.exhibitions.step3', $exhibition->id);
     }
 
@@ -197,7 +216,7 @@ class ExhibitionController extends Controller
 
     public function step3($id)
     {
-        $exhibition = Exhibition::with(['paymentSchedules', 'stallSchemes'])->findOrFail($id);
+        $exhibition = Exhibition::with(['paymentSchedules'])->findOrFail($id);
         return view('admin.exhibitions.step3', compact('exhibition'));
     }
 
@@ -209,8 +228,6 @@ class ExhibitionController extends Controller
             'parts' => 'required|array',
             'parts.*.percentage' => 'required|numeric|min:0|max:100',
             'parts.*.due_date' => 'required|date',
-            'stall_scheme_9' => 'nullable|array',
-            'stall_scheme_18' => 'nullable|array',
             'addon_services_cutoff_date' => 'nullable|date',
             'document_upload_deadline' => 'nullable|date',
         ]);
@@ -226,35 +243,6 @@ class ExhibitionController extends Controller
                 'percentage' => $part['percentage'],
                 'due_date' => $part['due_date'],
             ]);
-        }
-
-        // Handle Stall Schemes
-        StallScheme::where('exhibition_id', $exhibition->id)->delete();
-        
-        if ($request->has('stall_scheme_9') && is_array($request->stall_scheme_9)) {
-            $items9 = array_filter($request->stall_scheme_9, function($item) {
-                return !empty($item['item_name']);
-            });
-            if (!empty($items9)) {
-                StallScheme::create([
-                    'exhibition_id' => $exhibition->id,
-                    'size_sqm' => 9,
-                    'items' => array_values($items9),
-                ]);
-            }
-        }
-
-        if ($request->has('stall_scheme_18') && is_array($request->stall_scheme_18)) {
-            $items18 = array_filter($request->stall_scheme_18, function($item) {
-                return !empty($item['item_name']);
-            });
-            if (!empty($items18)) {
-                StallScheme::create([
-                    'exhibition_id' => $exhibition->id,
-                    'size_sqm' => 18,
-                    'items' => array_values($items18),
-                ]);
-            }
         }
 
         // Update cut-off dates
