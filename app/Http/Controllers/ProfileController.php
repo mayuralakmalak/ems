@@ -16,6 +16,13 @@ class ProfileController extends Controller
      */
     public function edit(Request $request): View
     {
+        // Check if user is exhibitor and use exhibitor layout
+        if ($request->user()->hasRole('Exhibitor') || !$request->user()->hasAnyRole(['Admin', 'Sub Admin'])) {
+            return view('frontend.profile.edit', [
+                'user' => $request->user(),
+            ]);
+        }
+        
         return view('profile.edit', [
             'user' => $request->user(),
         ]);
@@ -26,15 +33,32 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $user = $request->user();
+        
+        // Handle photo upload
+        if ($request->hasFile('photo')) {
+            $photoPath = $request->file('photo')->store('profile-photos', 'public');
+            $user->photo = $photoPath;
+        }
+        
+        // Update other fields
+        $user->fill($request->only([
+            'name', 'email', 'phone', 'company_name', 'address', 'city', 
+            'state', 'country', 'pincode', 'gst_number', 'pan_number', 
+            'website', 'company_description'
+        ]));
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+        if ($user->isDirty('email')) {
+            $user->email_verified_at = null;
         }
 
-        $request->user()->save();
+        $user->save();
 
-        return Redirect::route('profile.edit')->with('status', 'profile-updated');
+        $redirectRoute = ($user->hasRole('Exhibitor') || !$user->hasAnyRole(['Admin', 'Sub Admin'])) 
+            ? 'profile.edit' 
+            : 'profile.edit';
+
+        return Redirect::route($redirectRoute)->with('success', 'Profile updated successfully.');
     }
 
     /**

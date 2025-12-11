@@ -4,40 +4,6 @@
 
 @push('styles')
 <style>
-    .dashboard-header {
-        background: #f8fafc;
-        padding: 20px;
-        border-radius: 12px;
-        margin-bottom: 30px;
-    }
-    
-    .dashboard-header h5 {
-        font-weight: 700;
-        color: #1e293b;
-        margin-bottom: 5px;
-    }
-    
-    .dashboard-header p {
-        color: #64748b;
-        margin: 0;
-        font-size: 0.95rem;
-    }
-    
-    .welcome-section {
-        margin-bottom: 30px;
-    }
-    
-    .welcome-title {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #1e293b;
-        margin-bottom: 10px;
-    }
-    
-    .welcome-subtitle {
-        color: #64748b;
-        font-size: 1rem;
-    }
     
     .stat-card {
         background: white;
@@ -325,19 +291,9 @@
 </style>
 @endpush
 
-@section('page-title', 'Dashboard Overview')
+@section('page-title', 'Dashboard')
 
 @section('content')
-<div class="dashboard-header">
-    <h5>Dashboard Overview</h5>
-    <p>Welcome, {{ $user->name }}</p>
-</div>
-
-<div class="welcome-section">
-    <h1 class="welcome-title">Welcome, {{ $user->name }}! 👋</h1>
-    <p class="welcome-subtitle">Manage your exhibition bookings, payments, documents and badges</p>
-</div>
-
 <!-- Stat Cards -->
 <div class="row mb-4 g-3">
     <div class="col-md-3">

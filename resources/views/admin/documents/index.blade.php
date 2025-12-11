@@ -228,106 +228,104 @@
 @endif
 
 <!-- Summary Cards -->
-<div class="summary-cards">
-    <div class="summary-card">
-        <div class="summary-label">Total Exhibitors</div>
-        <div class="summary-value">{{ $totalExhibitors }}</div>
-        <small class="text-muted">Registered in the system</small>
-    </div>
-    <div class="summary-card">
-        <div class="summary-label">Docs Pending Verification</div>
-        <div class="summary-value">{{ $docsPendingVerification }}</div>
-        <small class="text-muted">Awaiting your review</small>
-    </div>
-    <div class="summary-card">
-        <div class="summary-label">Docs Expiring Soon</div>
-        <div class="summary-value">{{ $docsExpiringSoon }}</div>
-        <small class="text-muted">Within the next 3 months</small>
-    </div>
-    <div class="summary-card">
-        <div class="summary-label">Missing Docs / Failed Uploads</div>
-        <div class="summary-value">{{ $missingDocs }}</div>
-        <small class="text-muted">Requires immediate attention</small>
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="summary-cards">
+            <div class="summary-card">
+                <div class="summary-label">Total Exhibitors</div>
+                <div class="summary-value">{{ $totalExhibitors }}</div>
+                <small class="text-muted">Registered in the system</small>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Docs Pending Verification</div>
+                <div class="summary-value">{{ $docsPendingVerification }}</div>
+                <small class="text-muted">Awaiting your review</small>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Docs Expiring Soon</div>
+                <div class="summary-value">{{ $docsExpiringSoon }}</div>
+                <small class="text-muted">Within the next 3 months</small>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Missing Docs / Failed Uploads</div>
+                <div class="summary-value">{{ $missingDocs }}</div>
+                <small class="text-muted">Requires immediate attention</small>
+            </div>
+        </div>
     </div>
 </div>
 
 <!-- Filters -->
-<div class="filter-bar">
-    <select class="filter-select" id="filterType">
-        <option value="">Filter by Type</option>
-        <option value="Certification">Certification</option>
-        <option value="Proof of Address">Proof of Address</option>
-        <option value="Product Catalog">Product Catalog</option>
-        <option value="Company Registration">Company Registration</option>
-    </select>
-    
-    <select class="filter-select" id="filterStatus">
-        <option value="">Filter by Status</option>
-        <option value="pending">Pending</option>
-        <option value="approved">Approved</option>
-        <option value="rejected">Rejected</option>
-    </select>
-    
-    <button class="btn-filter" id="bulkApproveBtn" disabled>
-        Bulk Approval (<span id="selectedCount">0</span>)
-    </button>
-    
-    <button class="btn-filter">
-        <i class="bi bi-download me-2"></i>Export Report
-    </button>
-    
-    <button class="btn-filter">
-        <i class="bi bi-code-slash me-2"></i>API Integration
-    </button>
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-funnel me-2"></i>Filters</h5>
+    </div>
+    <div class="card-body">
+        <form class="filter-bar" id="documentsFilterForm" method="GET" action="{{ route('admin.documents.index') }}">
+            <select class="filter-select" name="type">
+                <option value="">Filter by Type</option>
+                <option value="Certification" {{ request('type')==='Certification' ? 'selected' : '' }}>Certification</option>
+                <option value="Proof of Address" {{ request('type')==='Proof of Address' ? 'selected' : '' }}>Proof of Address</option>
+                <option value="Product Catalog" {{ request('type')==='Product Catalog' ? 'selected' : '' }}>Product Catalog</option>
+                <option value="Company Registration" {{ request('type')==='Company Registration' ? 'selected' : '' }}>Company Registration</option>
+            </select>
+            
+            <select class="filter-select" name="status">
+                <option value="">Filter by Status</option>
+                <option value="pending" {{ request('status')==='pending' ? 'selected' : '' }}>Pending</option>
+                <option value="approved" {{ request('status')==='approved' ? 'selected' : '' }}>Approved</option>
+                <option value="rejected" {{ request('status')==='rejected' ? 'selected' : '' }}>Rejected</option>
+            </select>
+
+            <select class="filter-select" name="user_id">
+                <option value="">Filter by User</option>
+                @foreach($users as $user)
+                    <option value="{{ $user->id }}" {{ request('user_id')==$user->id ? 'selected' : '' }}>
+                        {{ $user->name }}
+                    </option>
+                @endforeach
+            </select>
+
+            <select class="filter-select" name="exhibition_id">
+                <option value="">Filter by Exhibition</option>
+                @foreach($exhibitions as $exhibition)
+                    <option value="{{ $exhibition->id }}" {{ request('exhibition_id')==$exhibition->id ? 'selected' : '' }}>
+                        {{ $exhibition->name }}
+                    </option>
+                @endforeach
+            </select>
+
+            <input type="text" class="filter-select" name="search" placeholder="Search..." value="{{ request('search') }}">
+
+            <button type="submit" class="btn-filter">
+                Apply Filters
+            </button>
+
+            <a href="{{ route('admin.documents.index') }}" class="btn-filter">
+                Reset
+            </a>
+
+            <button type="button" class="btn-filter" id="bulkApproveBtn" disabled>
+                Bulk Approval (<span id="selectedCount">0</span>)
+            </button>
+        </form>
+    </div>
 </div>
 
 <!-- Documents Table -->
-<div class="documents-table">
-    <table>
-        <thead>
-            <tr>
-                <th width="50">
-                    <input type="checkbox" id="selectAll">
-                </th>
-                <th>Exhibitor</th>
-                <th>Document</th>
-                <th>Type</th>
-                <th>Uploaded</th>
-                <th width="50"></th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($documents as $document)
-            <tr onclick="showDocumentDetails({{ $document->id }})">
-                <td>
-                    <input type="checkbox" class="document-checkbox" value="{{ $document->id }}" onclick="event.stopPropagation()">
-                </td>
-                <td>{{ $document->user->company_name ?? $document->user->name }}</td>
-                <td>
-                    <a href="#" class="document-link" onclick="event.stopPropagation(); showDocumentDetails({{ $document->id }}); return false;">
-                        {{ $document->name }}
-                    </a>
-                </td>
-                <td>{{ $document->type }}</td>
-                <td>{{ $document->created_at->format('Y-m-d h:i A') }}</td>
-                <td>
-                    <i class="bi bi-chevron-right"></i>
-                </td>
-            </tr>
-            @empty
-            <tr>
-                <td colspan="6" class="text-center py-5 text-muted">No documents found</td>
-            </tr>
-            @endforelse
-        </tbody>
-    </table>
+<div class="card" id="documentsContainer">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-file-earmark-text me-2"></i>Documents</h5>
+    </div>
+    <div class="card-body p-0" id="documentsTableContainer">
+        @include('admin.documents.partials.table')
+    </div>
+    @if($documents->hasPages())
+    <div class="card-footer" id="documentsPaginationContainer">
+        @include('admin.documents.partials.pagination')
+    </div>
+    @endif
 </div>
-
-@if($documents->hasPages())
-<div class="mt-4">
-    {{ $documents->links() }}
-</div>
-@endif
 
 <!-- Right Panel - Document Details -->
 <div class="right-panel" id="documentDetailsPanel">
@@ -414,6 +412,87 @@ document.getElementById('bulkApproveBtn')?.addEventListener('click', function() 
         });
     }
 });
+
+// AJAX filter submit (no page reload)
+const filterForm = document.getElementById('documentsFilterForm');
+if (filterForm) {
+    filterForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const params = new URLSearchParams(new FormData(filterForm));
+        const url = `${filterForm.action}?${params.toString()}`;
+        
+        fetch(url, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.html) {
+                document.getElementById('documentsTableContainer').innerHTML = data.html;
+            }
+            if (data.pagination) {
+                const paginationContainer = document.getElementById('documentsPaginationContainer');
+                if (paginationContainer) {
+                    paginationContainer.innerHTML = data.pagination;
+                } else if (data.pagination.trim()) {
+                    const card = document.getElementById('documentsContainer');
+                    let footer = card.querySelector('.card-footer');
+                    if (!footer) {
+                        footer = document.createElement('div');
+                        footer.className = 'card-footer';
+                        footer.id = 'documentsPaginationContainer';
+                        card.appendChild(footer);
+                    }
+                    footer.innerHTML = data.pagination;
+                }
+            }
+            
+            // Re-bind all event listeners
+            selectedDocuments = [];
+            updateBulkApproveButton();
+            
+            // Re-bind select all
+            const selectAll = document.getElementById('selectAll');
+            if (selectAll) {
+                selectAll.addEventListener('change', function() {
+                    const checkboxes = document.querySelectorAll('.document-checkbox');
+                    checkboxes.forEach(cb => {
+                        cb.checked = this.checked;
+                        if (this.checked) {
+                            if (!selectedDocuments.includes(parseInt(cb.value))) {
+                                selectedDocuments.push(parseInt(cb.value));
+                            }
+                        } else {
+                            selectedDocuments = [];
+                        }
+                    });
+                    updateBulkApproveButton();
+                });
+            }
+            
+            // Re-bind individual checkboxes
+            document.querySelectorAll('.document-checkbox').forEach(cb => {
+                cb.addEventListener('change', function() {
+                    const id = parseInt(this.value);
+                    if (this.checked) {
+                        if (!selectedDocuments.includes(id)) {
+                            selectedDocuments.push(id);
+                        }
+                    } else {
+                        selectedDocuments = selectedDocuments.filter(x => x !== id);
+                    }
+                    updateBulkApproveButton();
+                });
+            });
+        })
+        .catch(err => {
+            console.error('Filter error:', err);
+            window.location = url; // fallback full reload on error
+        });
+    });
+}
 </script>
 @endpush
 @endsection

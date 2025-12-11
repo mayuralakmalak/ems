@@ -74,6 +74,15 @@
                         @foreach($boothIds as $boothId)
                             <input type="hidden" name="booth_ids[]" value="{{ $boothId }}">
                         @endforeach
+                        @php
+                            $serviceIds = array_filter(explode(',', request()->query('services', '')));
+                        @endphp
+                        @if(!empty($serviceIds))
+                            @foreach($serviceIds as $serviceId)
+                                <input type="hidden" name="services[{{ $loop->index }}][service_id]" value="{{ $serviceId }}">
+                                <input type="hidden" name="services[{{ $loop->index }}][quantity]" value="1">
+                            @endforeach
+                        @endif
 
                         <div class="alert alert-info">
                             <i class="bi bi-info-circle me-2"></i>Your booking will be submitted and payment is required on the next step.
@@ -174,9 +183,59 @@
                     <span class="summary-label">Selected Booths</span>
                     <span class="summary-value">{{ implode(', ', $booths->pluck('name')->toArray()) }}</span>
                 </div>
+                @php
+                    $boothTotal = $booths->sum('price');
+                    $serviceIds = array_filter(explode(',', request()->query('services', '')));
+                    $selectedServices = [];
+                    $servicesTotal = 0;
+                    if (!empty($serviceIds)) {
+                        $selectedServices = \App\Models\Service::whereIn('id', $serviceIds)
+                            ->where('exhibition_id', $exhibition->id)
+                            ->where('is_active', true)
+                            ->get();
+                        $servicesTotal = $selectedServices->sum('price');
+                    }
+                    $grandTotal = $boothTotal + $servicesTotal;
+                @endphp
+                @if($selectedServices && $selectedServices->count() > 0)
                 <div class="summary-row">
-                    <span class="summary-label">Total Amount</span>
-                    <span class="summary-value">₹{{ number_format($totalAmount, 2) }}</span>
+                    <span class="summary-label">Additional Services</span>
+                    <span class="summary-value">
+                        @foreach($selectedServices as $service)
+                            <div style="font-size: 0.85rem; margin-bottom: 3px;">
+                                {{ $service->name }} - ₹{{ number_format($service->price, 2) }}
+                                @if($service->image)
+                                <button type="button" class="btn btn-sm btn-link p-0 ms-1" onclick="openServiceImage('{{ asset('storage/' . $service->image) }}', '{{ $service->name }}')" style="font-size: 0.75rem; text-decoration: none;">
+                                    <i class="bi bi-image"></i> View
+                                </button>
+                                @endif
+                            </div>
+                        @endforeach
+                    </span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Services Total</span>
+                    <span class="summary-value">₹{{ number_format($servicesTotal, 2) }}</span>
+                </div>
+                @endif
+                <div class="summary-row" style="border-top: 2px solid #e2e8f0; padding-top: 10px; margin-top: 10px;">
+                    <span class="summary-label" style="font-weight: 700;">Total Amount</span>
+                    <span class="summary-value" style="font-weight: 700; color: #6366f1; font-size: 1.2rem;">₹{{ number_format($grandTotal, 2) }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Service Image Modal -->
+        <div class="modal fade" id="serviceImageModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="serviceModalTitle">Service Image</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <img id="serviceModalImage" src="" alt="" style="max-width: 100%; max-height: 70vh; border-radius: 8px;">
+                    </div>
                 </div>
             </div>
         </div>
@@ -210,6 +269,14 @@ document.getElementById('addContactBtn').addEventListener('click', function() {
     container.appendChild(row);
     contactCount++;
 });
+
+function openServiceImage(imageUrl, serviceName) {
+    document.getElementById('serviceModalTitle').textContent = serviceName;
+    document.getElementById('serviceModalImage').src = imageUrl;
+    document.getElementById('serviceModalImage').alt = serviceName;
+    const modal = new bootstrap.Modal(document.getElementById('serviceImageModal'));
+    modal.show();
+}
 </script>
 @endpush
 @endsection

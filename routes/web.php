@@ -17,6 +17,8 @@ use App\Http\Controllers\Frontend\BadgeController;
 use App\Http\Controllers\Frontend\MessageController;
 use App\Http\Controllers\Frontend\WalletController;
 use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Admin\NotificationController as AdminNotificationController;
+use App\Http\Controllers\Frontend\NotificationController as FrontendNotificationController;
 use Illuminate\Support\Facades\Route;
 
 // Public Routes
@@ -54,10 +56,16 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     Route::get('/bookings', [AdminBookingController::class, 'index'])->name('bookings.index');
     Route::get('/bookings/cancellations', [AdminBookingController::class, 'cancellations'])->name('bookings.cancellations');
     Route::get('/bookings/{id}', [AdminBookingController::class, 'show'])->name('bookings.show');
+    Route::get('/bookings/{id}/edit', [AdminBookingController::class, 'edit'])->name('bookings.edit');
+    Route::put('/bookings/{id}', [AdminBookingController::class, 'update'])->name('bookings.update');
     Route::get('/bookings/{id}/manage-cancellation', [AdminBookingController::class, 'manageCancellation'])->name('bookings.manage-cancellation');
     Route::post('/bookings/{id}/process-cancellation', [AdminBookingController::class, 'processCancellation'])->name('bookings.process-cancellation');
     Route::post('/bookings/{id}/approve-cancellation', [AdminBookingController::class, 'approveCancellation'])->name('bookings.approve-cancellation');
     Route::post('/bookings/{id}/reject-cancellation', [AdminBookingController::class, 'rejectCancellation'])->name('bookings.reject-cancellation');
+    Route::get('/exhibitions/{exhibitionId}/bookings', [AdminBookingController::class, 'bookedByExhibition'])->name('exhibitions.bookings');
+    Route::delete('/bookings/{id}', [AdminBookingController::class, 'destroy'])->name('bookings.destroy');
+    Route::post('/documents/{documentId}/approve', [AdminBookingController::class, 'approveDocument'])->name('bookings.documents.approve');
+    Route::post('/documents/{documentId}/reject', [AdminBookingController::class, 'rejectDocument'])->name('bookings.documents.reject');
     
     // Financial Management
     Route::get('/financial', [FinancialController::class, 'index'])->name('financial.index');
@@ -67,6 +75,8 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     Route::get('/payments/create', [\App\Http\Controllers\Admin\PaymentController::class, 'create'])->name('payments.create');
     Route::post('/payments', [\App\Http\Controllers\Admin\PaymentController::class, 'store'])->name('payments.store');
     Route::get('/payments/{id}', [\App\Http\Controllers\Admin\PaymentController::class, 'show'])->name('payments.show');
+    Route::post('/payments/{id}/approve', [\App\Http\Controllers\Admin\PaymentController::class, 'approve'])->name('payments.approve');
+    Route::post('/payments/{id}/reject', [\App\Http\Controllers\Admin\PaymentController::class, 'reject'])->name('payments.reject');
     
     // Category Management
     Route::resource('categories', CategoryController::class)->except(['show']);
@@ -147,6 +157,11 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     Route::get('/emails/{id}/edit', [\App\Http\Controllers\Admin\EmailManagementController::class, 'edit'])->name('emails.edit');
     Route::put('/emails/{id}', [\App\Http\Controllers\Admin\EmailManagementController::class, 'update'])->name('emails.update');
     Route::post('/emails/{id}/toggle', [\App\Http\Controllers\Admin\EmailManagementController::class, 'toggleStatus'])->name('emails.toggle');
+    
+    // Notifications
+    Route::get('/notifications', [AdminNotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/{id}/read', [AdminNotificationController::class, 'markAsRead'])->name('notifications.read');
+    Route::post('/notifications/read-all', [AdminNotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
 });
 
 // Frontend Exhibitor Routes
@@ -160,6 +175,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/exhibitions/{exhibitionId}/bookings/create', [BookingController::class, 'create'])->name('bookings.create');
     Route::post('/bookings', [BookingController::class, 'store'])->name('bookings.store');
     Route::get('/bookings/{id}', [BookingController::class, 'show'])->name('bookings.show');
+    Route::get('/bookings/{id}/edit', [BookingController::class, 'edit'])->name('bookings.edit');
     Route::put('/bookings/{id}', [BookingController::class, 'update'])->name('bookings.update');
     Route::get('/bookings/{id}/cancel', [BookingController::class, 'showCancel'])->name('bookings.cancel.show');
     Route::post('/bookings/{id}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
@@ -170,6 +186,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/payments/{bookingId}', [PaymentController::class, 'create'])->name('payments.create');
     Route::post('/payments', [PaymentController::class, 'store'])->name('payments.store');
     Route::get('/payments/{paymentId}/confirmation', [PaymentController::class, 'confirmation'])->name('payments.confirmation');
+    Route::post('/payments/{paymentId}/upload-proof', [PaymentController::class, 'uploadProof'])->name('payments.upload-proof');
+    Route::get('/payments/{paymentId}/download', [PaymentController::class, 'download'])->name('payments.download');
     
     // Documents
     Route::resource('documents', DocumentController::class);
@@ -200,6 +218,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/exhibitions/{id}/floorplan', [\App\Http\Controllers\Frontend\FloorplanController::class, 'show'])->name('floorplan.show');
     Route::post('/exhibitions/{exhibitionId}/booths/merge-request', [\App\Http\Controllers\Frontend\FloorplanController::class, 'requestMerge'])->name('floorplan.merge-request');
     Route::post('/exhibitions/{exhibitionId}/booths/{boothId}/split-request', [\App\Http\Controllers\Frontend\FloorplanController::class, 'requestSplit'])->name('floorplan.split-request');
+    
+    // Notifications
+    Route::get('/notifications', [FrontendNotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/{id}/read', [FrontendNotificationController::class, 'markAsRead'])->name('notifications.read');
+    Route::post('/notifications/read-all', [FrontendNotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
 });
 
 // OTP Authentication

@@ -25,6 +25,18 @@ class ProfileUpdateRequest extends FormRequest
                 'max:255',
                 Rule::unique(User::class)->ignore($this->user()->id),
             ],
+            'phone' => ['nullable', 'string', 'max:20'],
+            'photo' => ['nullable', 'image', 'max:5120'],
+            'company_name' => ['nullable', 'string', 'max:255'],
+            'address' => ['nullable', 'string', 'max:500'],
+            'city' => ['nullable', 'string', 'max:100'],
+            'state' => ['nullable', 'string', 'max:100'],
+            'country' => ['nullable', 'string', 'max:100'],
+            'pincode' => ['nullable', 'string', 'max:20'],
+            'gst_number' => ['nullable', 'string', 'max:50'],
+            'pan_number' => ['nullable', 'string', 'max:50'],
+            'website' => ['nullable', 'url', 'max:255'],
+            'company_description' => ['nullable', 'string', 'max:2000'],
         ];
     }
 }

@@ -334,12 +334,68 @@
                                 <div class="payment-method-label">NEFT</div>
                             </div>
                         </div>
+                        <div class="col-md-4">
+                            <div class="payment-method-card" data-method="rtgs">
+                                <i class="bi bi-building payment-method-icon"></i>
+                                <div class="payment-method-label">RTGS</div>
+                            </div>
+                        </div>
                     </div>
                     
-                    <small class="text-muted mt-3 d-block">When clicked, a popup will be generated to confirm admin.</small>
+                    <small class="text-muted mt-3 d-block">For offline transfers (NEFT/RTGS), submit now and upload proof after you transfer.</small>
+                </div>
+
+                <!-- Offline Transfer Instructions -->
+                @php
+                    $bankDetails = [
+                        'account_name' => env('BANK_ACCOUNT_NAME', 'Your Company Name'),
+                        'account_number' => env('BANK_ACCOUNT_NUMBER', '0000000000'),
+                        'ifsc' => env('BANK_IFSC', 'IFSC000000'),
+                        'bank_name' => env('BANK_NAME', 'Your Bank Name'),
+                        'branch' => env('BANK_BRANCH', 'Branch'),
+                    ];
+                @endphp
+                <div class="section-card" id="offlineInstructions" style="display: none;">
+                    <h5 class="section-title">Bank Transfer Instructions</h5>
+                    <p class="section-description">Use these details to complete your NEFT/RTGS transfer. After transferring, you’ll upload proof on the confirmation screen for admin approval.</p>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="booking-summary-item">
+                                <div class="summary-label">Account Name</div>
+                                <div class="summary-value">{{ $bankDetails['account_name'] }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="booking-summary-item">
+                                <div class="summary-label">Account Number</div>
+                                <div class="summary-value">{{ $bankDetails['account_number'] }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="booking-summary-item">
+                                <div class="summary-label">IFSC</div>
+                                <div class="summary-value">{{ $bankDetails['ifsc'] }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="booking-summary-item">
+                                <div class="summary-label">Bank</div>
+                                <div class="summary-value">{{ $bankDetails['bank_name'] }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="booking-summary-item">
+                                <div class="summary-label">Branch</div>
+                                <div class="summary-value">{{ $bankDetails['branch'] }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="alert alert-warning mt-3" style="margin-bottom: 0;">
+                        <i class="bi bi-info-circle me-2"></i>After you transfer via NEFT/RTGS, continue and upload payment proof on the confirmation screen for admin approval.
+                    </div>
                 </div>
                 
-                <!-- Payment Details -->
+                <!-- Payment Details (online only) -->
                 <div class="section-card" id="paymentDetailsCard" style="display: none;">
                     <h5 class="section-title">Payment Details</h5>
                     <p class="section-description">Enter your chosen payment method details.</p>
@@ -373,14 +429,20 @@
                             </div>
                         </div>
                         
-                        <button type="submit" class="btn btn-payment" id="makePaymentBtn">
-                            Make Payment - ₹<span id="paymentButtonAmount">{{ number_format($initialAmount, 2) }}</span>
-                        </button>
-                        
                         <div class="security-note">
                             All transactions are secure and encrypted.<br>
                             <a href="#">Terms & Conditions</a> | <a href="#">Privacy Policy</a>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Primary submit button (always visible) -->
+                <div class="section-card" style="margin-top: -10px;">
+                    <button type="submit" class="btn btn-payment" id="makePaymentBtn">
+                        <span id="paymentButtonLabel">Make Payment</span> - ₹<span id="paymentButtonAmount">{{ number_format($initialAmount, 2) }}</span>
+                    </button>
+                    <div class="security-note">
+                        Online payments are secure and encrypted. NEFT/RTGS submissions stay pending until proof is approved.
                     </div>
                 </div>
             </div>
@@ -478,6 +540,22 @@ document.querySelectorAll('.payment-method-card').forEach(card => {
             document.getElementById('paymentDetailsCard').style.display = 'none';
             gatewayFee = 0;
         }
+
+        // Offline instructions for NEFT/RTGS
+        const offlineBlock = document.getElementById('offlineInstructions');
+        if (offlineBlock) {
+            offlineBlock.style.display = ['neft', 'rtgs'].includes(selectedMethod) ? 'block' : 'none';
+        }
+
+        // Button label text
+        const buttonLabel = document.getElementById('paymentButtonLabel');
+        if (buttonLabel) {
+            if (['neft', 'rtgs'].includes(selectedMethod)) {
+                buttonLabel.textContent = 'Submit & Proceed';
+            } else {
+                buttonLabel.textContent = 'Make Payment';
+            }
+        }
         
         updateGatewayFee();
     });
@@ -504,7 +582,8 @@ document.getElementById('paymentForm').addEventListener('submit', function(e) {
         'upi': 'online',
         'netbanking': 'online',
         'wallet': 'wallet',
-        'neft': 'neft'
+        'neft': 'neft',
+        'rtgs': 'rtgs'
     };
     
     document.getElementById('selectedPaymentMethod').value = methodMap[selectedMethod] || selectedMethod;

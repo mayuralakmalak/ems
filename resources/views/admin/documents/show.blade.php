@@ -51,23 +51,36 @@
 </div>
 
 <div class="mt-4">
-    <h6 class="mb-3">Verification History</h6>
-    
-    <form method="POST" action="{{ route('admin.documents.approve', $document->id) }}" class="mb-3">
-        @csrf
-        <div class="mb-3">
-            <label class="form-label">Manual Verification</label>
-            <textarea name="verification_comments" class="form-control" rows="3" placeholder="Enter verification comments..."></textarea>
+    <h6 class="mb-3">Verification</h6>
+
+    @if($document->status === 'approved')
+        <div class="alert alert-success mb-0">
+            Already approved.
         </div>
-        <button type="submit" class="btn-approve">Approve Document</button>
-    </form>
-    
-    <form method="POST" action="{{ route('admin.documents.reject', $document->id) }}">
-        @csrf
-        <div class="mb-3">
-            <textarea name="rejection_reason" class="form-control" rows="3" placeholder="Enter rejection reason..." required></textarea>
+    @elseif($document->status === 'rejected')
+        <div class="alert alert-danger">
+            Rejected.
+            @if($document->rejection_reason)
+                <div class="mt-2"><strong>Reason:</strong> {{ $document->rejection_reason }}</div>
+            @endif
         </div>
-        <button type="submit" class="btn-reject">Reject Document</button>
-    </form>
+    @else
+        <form method="POST" action="{{ route('admin.documents.approve', $document->id) }}" class="mb-3">
+            @csrf
+            <div class="mb-3">
+                <label class="form-label">Manual Verification</label>
+                <textarea name="verification_comments" class="form-control" rows="3" placeholder="Enter verification comments..."></textarea>
+            </div>
+            <button type="submit" class="btn-approve">Approve Document</button>
+        </form>
+        
+        <form method="POST" action="{{ route('admin.documents.reject', $document->id) }}">
+            @csrf
+            <div class="mb-3">
+                <textarea name="rejection_reason" class="form-control" rows="3" placeholder="Enter rejection reason..." required></textarea>
+            </div>
+            <button type="submit" class="btn-reject">Reject Document</button>
+        </form>
+    @endif
 </div>
 

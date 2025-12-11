@@ -346,6 +346,52 @@
                 </div>
                 @endif
             </div>
+
+            <!-- Company Assets -->
+            <div class="detail-section">
+                <h5 class="section-header">Company Assets</h5>
+
+                <!-- Company Logo Section -->
+                <div class="detail-item mb-4">
+                    <div class="detail-label">Company Logo</div>
+                    <div class="detail-value">
+                        @if($booking->logo)
+                            <img src="{{ asset('storage/' . $booking->logo) }}" alt="Company Logo" style="max-width: 220px; max-height: 120px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; background: #f8fafc;">
+                        @else
+                            <img src="https://via.placeholder.com/220x120/e2e8f0/64748b?text=No+Logo" alt="Default Logo" style="max-width: 220px; max-height: 120px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; background: #f8fafc;">
+                        @endif
+                    </div>
+                </div>
+
+                <!-- Brochures Section -->
+                @php
+                    $brochures = $booking->documents->where('type', 'Promotional Brochure');
+                @endphp
+
+                <div class="detail-item">
+                    <div class="detail-label">Brochures</div>
+                    <div class="detail-value">
+                        @if($brochures->count() > 0)
+                            @foreach($brochures as $brochure)
+                            <div class="contact-item">
+                                <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>
+                                <a href="{{ asset('storage/' . $brochure->file_path) }}" target="_blank" class="text-decoration-none">
+                                    {{ $brochure->name ?? 'Brochure' }}
+                                </a>
+                                @if($brochure->file_size)
+                                    <small class="text-muted ms-2">({{ number_format($brochure->file_size / 1024, 0) }} KB)</small>
+                                @endif
+                            </div>
+                            @endforeach
+                        @else
+                            <div class="contact-item text-muted">
+                                <i class="bi bi-file-earmark-pdf me-2"></i>
+                                No brochure uploaded
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
             
             <!-- Booth Details -->
             <div class="detail-section">
@@ -508,7 +554,7 @@
                     <a href="{{ route('bookings.cancel.show', $booking->id) }}" class="btn-action btn-cancel">
                         Cancel Booking
                     </a>
-                    <a href="{{ route('bookings.show', $booking->id) }}" class="btn-action btn-modify">
+                    <a href="{{ route('bookings.edit', $booking->id) }}" class="btn-action btn-modify">
                         Request Modification
                     </a>
                     @endif

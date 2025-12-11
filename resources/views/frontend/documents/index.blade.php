@@ -5,69 +5,6 @@
 
 @push('styles')
 <style>
-    .upload-section {
-        background: white;
-        border-radius: 12px;
-        padding: 30px;
-        margin-bottom: 25px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    }
-    
-    .upload-zone {
-        border: 2px dashed #cbd5e1;
-        border-radius: 12px;
-        padding: 60px 40px;
-        text-align: center;
-        background: #f8fafc;
-        transition: all 0.3s ease;
-        cursor: pointer;
-    }
-    
-    .upload-zone:hover {
-        border-color: #6366f1;
-        background: #f0f9ff;
-    }
-    
-    .upload-zone.dragover {
-        border-color: #6366f1;
-        background: #e0f2fe;
-    }
-    
-    .upload-icon {
-        font-size: 4rem;
-        color: #94a3b8;
-        margin-bottom: 20px;
-    }
-    
-    .upload-text {
-        color: #64748b;
-        font-size: 1rem;
-        margin-bottom: 10px;
-    }
-    
-    .upload-hint {
-        color: #94a3b8;
-        font-size: 0.9rem;
-    }
-    
-    .upload-progress {
-        margin-top: 20px;
-        display: none;
-    }
-    
-    .progress-bar {
-        height: 8px;
-        background: #e2e8f0;
-        border-radius: 4px;
-        overflow: hidden;
-    }
-    
-    .progress-fill {
-        height: 100%;
-        background: #6366f1;
-        transition: width 0.3s ease;
-    }
-    
     .category-tabs {
         display: flex;
         gap: 10px;
@@ -240,32 +177,6 @@
 @endpush
 
 @section('content')
-<!-- Upload Section -->
-<div class="upload-section">
-    <h5 class="mb-3">Upload</h5>
-    
-    <div class="upload-zone" id="uploadZone">
-        <i class="bi bi-cloud-upload upload-icon"></i>
-        <div class="upload-text">Drag and drop your files here, or browse</div>
-        <input type="file" id="fileInput" multiple accept=".pdf,.docx" style="display: none;">
-    </div>
-    
-    <div class="mt-3">
-        <small class="text-muted">File type requirements: PDF, DOCX.</small><br>
-        <small class="text-muted">Maximum 500kb.</small>
-    </div>
-    
-    <div class="upload-progress" id="uploadProgress">
-        <div class="d-flex justify-content-between mb-2">
-            <span id="uploadFileName">Uploading Document_A.pdf</span>
-            <span id="uploadPercent">75%</span>
-        </div>
-        <div class="progress-bar">
-            <div class="progress-fill" id="progressFill" style="width: 75%;"></div>
-        </div>
-    </div>
-</div>
-
 <!-- Document Categories -->
 <div class="mb-4">
     <h5 class="mb-3">Document Categories</h5>
@@ -279,162 +190,100 @@
 </div>
 
 <!-- My Documents -->
-<div class="documents-table">
-    <div class="p-3 d-flex justify-content-between align-items-center border-bottom">
-        <h5 class="mb-0">My Documents</h5>
-        <div class="filter-bar">
-            <select class="filter-select" id="filterStatus">
-                <option value="all">Filter by Status</option>
-                <option value="pending">Pending verification</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-            </select>
-            <select class="filter-select" id="sortBy">
-                <option value="date">Sort by: Upload Date</option>
-                <option value="name">Sort by: Name</option>
-                <option value="status">Sort by: Status</option>
-            </select>
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-file-earmark-text me-2"></i>My Documents</h5>
+        <a href="{{ route('documents.create') }}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-circle me-1"></i>Upload Document
+        </a>
+    </div>
+    <div class="card-body">
+        <div class="mb-3">
+            <form method="GET" action="{{ route('documents.index') }}" class="filter-bar">
+                <select name="status" class="filter-select" onchange="this.form.submit()">
+                    <option value="">All Status</option>
+                    <option value="pending" {{ request('status') === 'pending' ? 'selected' : '' }}>Pending verification</option>
+                    <option value="approved" {{ request('status') === 'approved' ? 'selected' : '' }}>Approved</option>
+                    <option value="rejected" {{ request('status') === 'rejected' ? 'selected' : '' }}>Rejected</option>
+                </select>
+                <select name="type" class="filter-select" onchange="this.form.submit()">
+                    <option value="">All Types</option>
+                    <option value="certificate" {{ request('type') === 'certificate' ? 'selected' : '' }}>Certificate</option>
+                    <option value="proof" {{ request('type') === 'proof' ? 'selected' : '' }}>Proof</option>
+                    <option value="catalog" {{ request('type') === 'catalog' ? 'selected' : '' }}>Catalog</option>
+                    <option value="design" {{ request('type') === 'design' ? 'selected' : '' }}>Booth Design</option>
+                    <option value="other" {{ request('type') === 'other' ? 'selected' : '' }}>Other</option>
+                </select>
+                @if(request('status') || request('type'))
+                <a href="{{ route('documents.index') }}" class="btn btn-sm btn-outline-secondary">Clear Filters</a>
+                @endif
+            </form>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Document Name</th>
+                        <th>Type</th>
+                        <th>Upload Date</th>
+                        <th>Status</th>
+                        <th>Expiry Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($documents as $document)
+                    <tr>
+                        <td><strong>{{ $document->name }}</strong></td>
+                        <td>{{ ucfirst($document->type) }}</td>
+                        <td>{{ $document->created_at->format('Y-m-d') }}</td>
+                        <td>
+                            <span class="status-badge {{ $document->status === 'approved' ? 'status-approved' : ($document->status === 'rejected' ? 'status-rejected' : 'status-pending') }}">
+                                {{ $document->status === 'approved' ? 'Approved' : ($document->status === 'rejected' ? 'Rejected' : 'Pending') }}
+                            </span>
+                            @if($document->status === 'rejected' && $document->rejection_reason)
+                            <div class="rejection-message mt-2">
+                                <div class="rejection-reason"><strong>Reason:</strong> {{ $document->rejection_reason }}</div>
+                                <a href="{{ route('documents.edit', $document->id) }}" class="btn-reupload">Reupload</a>
+                            </div>
+                            @endif
+                        </td>
+                        <td>{{ $document->expiry_date ? $document->expiry_date->format('Y-m-d') : 'N/A' }}</td>
+                        <td>
+                            <div class="action-icons">
+                                <a href="{{ asset('storage/' . $document->file_path) }}" target="_blank" class="action-icon view" title="View">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{{ asset('storage/' . $document->file_path) }}" download class="action-icon download" title="Download">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                                <a href="{{ route('documents.edit', $document->id) }}" class="action-icon edit" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <form action="{{ route('documents.destroy', $document->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this document?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="action-icon delete" title="Delete" style="border: none; background: none; padding: 0;">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">No documents found</td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
         </div>
     </div>
-    
-    <table>
-        <thead>
-            <tr>
-                <th>DOCUMENT NAME</th>
-                <th>DOCUMENT TYPE</th>
-                <th>UPLOAD DATE</th>
-                <th>STATUS</th>
-                <th>EXPIRY DATE</th>
-                <th>VERSION</th>
-                <th>ACTIONS</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($documents as $document)
-            <tr>
-                <td>
-                    <strong>{{ $document->name }}</strong>
-                </td>
-                <td>{{ $document->type }}</td>
-                <td>{{ $document->created_at->format('Y-m-d') }}</td>
-                <td>
-                    <span class="status-badge {{ $document->status === 'approved' ? 'status-approved' : ($document->status === 'rejected' ? 'status-rejected' : 'status-pending') }}">
-                        {{ $document->status === 'approved' ? 'Approved' : ($document->status === 'rejected' ? 'Rejected' : 'Pending verification') }}
-                    </span>
-                    @if($document->status === 'rejected' && $document->rejection_reason)
-                    <div class="rejection-message">
-                        <div class="rejection-reason">Reason: {{ $document->rejection_reason }}</div>
-                        <a href="{{ route('documents.edit', $document->id) }}" class="btn-reupload">Reupload</a>
-                    </div>
-                    @endif
-                </td>
-                <td>{{ $document->expiry_date ? $document->expiry_date->format('Y-m-d') : 'N/A' }}</td>
-                <td>{{ $document->version ?? '1.0' }}</td>
-                <td>
-                    <div class="action-icons">
-                        <a href="{{ asset('storage/' . $document->file_path) }}" target="_blank" class="action-icon view" title="View">
-                            <i class="bi bi-eye"></i>
-                        </a>
-                        <a href="{{ asset('storage/' . $document->file_path) }}" download class="action-icon download" title="Download">
-                            <i class="bi bi-download"></i>
-                        </a>
-                        <a href="{{ route('documents.edit', $document->id) }}" class="action-icon edit" title="Edit">
-                            <i class="bi bi-pencil"></i>
-                        </a>
-                        <form action="{{ route('documents.destroy', $document->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this document?');">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="action-icon delete" title="Delete" style="border: none; background: none; padding: 0;">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </form>
-                    </div>
-                </td>
-            </tr>
-            @empty
-            <tr>
-                <td colspan="7" class="text-center py-5 text-muted">No documents found</td>
-            </tr>
-            @endforelse
-        </tbody>
-    </table>
 </div>
 
 @push('scripts')
 <script>
-// Upload zone
-const uploadZone = document.getElementById('uploadZone');
-const fileInput = document.getElementById('fileInput');
-const uploadProgress = document.getElementById('uploadProgress');
-
-uploadZone.addEventListener('click', () => fileInput.click());
-uploadZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    uploadZone.classList.add('dragover');
-});
-uploadZone.addEventListener('dragleave', () => {
-    uploadZone.classList.remove('dragover');
-});
-uploadZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    uploadZone.classList.remove('dragover');
-    if (e.dataTransfer.files.length > 0) {
-        handleFiles(e.dataTransfer.files);
-    }
-});
-
-fileInput.addEventListener('change', (e) => {
-    if (e.target.files.length > 0) {
-        handleFiles(e.target.files);
-    }
-});
-
-function handleFiles(files) {
-    Array.from(files).forEach(file => {
-        if (file.size > 500 * 1024) {
-            alert(`${file.name} is larger than 500KB`);
-            return;
-        }
-        
-        if (!file.name.match(/\.(pdf|docx)$/i)) {
-            alert(`${file.name} is not a PDF or DOCX file`);
-            return;
-        }
-        
-        // Simulate upload progress
-        uploadProgress.style.display = 'block';
-        document.getElementById('uploadFileName').textContent = `Uploading ${file.name}`;
-        
-        let progress = 0;
-        const interval = setInterval(() => {
-            progress += 10;
-            document.getElementById('uploadPercent').textContent = progress + '%';
-            document.getElementById('progressFill').style.width = progress + '%';
-            
-            if (progress >= 100) {
-                clearInterval(interval);
-                setTimeout(() => {
-                    uploadProgress.style.display = 'none';
-                    location.reload();
-                }, 500);
-            }
-        }, 200);
-        
-        // Actually upload the file
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('name', file.name);
-        formData.append('type', 'Document');
-        formData.append('booking_id', '{{ $documents->first()->booking_id ?? 1 }}');
-        formData.append('_token', '{{ csrf_token() }}');
-        
-        fetch('/ems-laravel/public/documents', {
-            method: 'POST',
-            body: formData
-        });
-    });
-}
-
 // Category tabs
 document.querySelectorAll('.category-tab').forEach(tab => {
     tab.addEventListener('click', function() {

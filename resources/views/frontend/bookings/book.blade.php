@@ -484,6 +484,44 @@
         cursor: not-allowed;
         transform: none;
     }
+
+    /* Services */
+    .services-card {
+        margin-top: 0;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+
+    .services-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .service-item {
+        padding: 12px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background: white;
+    }
+
+    .service-name {
+        font-weight: 600;
+        color: #1e293b;
+        font-size: 0.95rem;
+    }
+
+    .service-price {
+        font-size: 0.85rem;
+        color: #475569;
+    }
+
+    .service-checkbox {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+    }
     
     .empty-state {
         text-align: center;
@@ -700,6 +738,46 @@
             </div>
         </div>
         
+        <!-- Additional Services (shown after booth selection) -->
+        @if($exhibition->services && $exhibition->services->where('is_active', true)->count() > 0)
+        <div class="panel-card services-card" id="servicesCard" style="display: none;">
+            <h5 class="panel-title">Additional Services</h5>
+            <div class="services-list">
+                @foreach($exhibition->services->where('is_active', true)->groupBy('category') as $category => $categoryServices)
+                    @if($category)
+                    <div style="margin-bottom: 15px;">
+                        <h6 style="font-size: 0.9rem; color: #64748b; margin-bottom: 10px; font-weight: 600;">{{ $category }}</h6>
+                    </div>
+                    @endif
+                    @foreach($categoryServices as $service)
+                    <div class="service-item">
+                        <div style="display: flex; justify-content: space-between; align-items: start; gap: 10px;">
+                            <div style="flex: 1;">
+                                <div class="service-name" style="margin-bottom: 5px;">{{ $service->name }}</div>
+                                <div class="service-price" style="margin-bottom: 5px;">₹{{ number_format($service->price, 2) }}</div>
+                                @if($service->image)
+                                <button type="button" class="btn-view-image" onclick="openImageGallery({{ $service->id }}, '{{ asset('storage/' . $service->image) }}', '{{ $service->name }}')" style="padding: 4px 12px; background: #6366f1; color: white; border: none; border-radius: 4px; font-size: 0.75rem; cursor: pointer; margin-top: 5px;">
+                                    <i class="bi bi-image me-1"></i>View Image
+                                </button>
+                                @endif
+                            </div>
+                            <div>
+                                <input type="checkbox" class="service-checkbox" data-service-id="{{ $service->id }}" data-service-price="{{ $service->price }}" data-service-name="{{ $service->name }}" onchange="updateServiceSelection()">
+                            </div>
+                        </div>
+                    </div>
+                    @endforeach
+                @endforeach
+            </div>
+            <div id="servicesTotal" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 0.9rem; color: #64748b;">Services Total:</span>
+                    <span style="font-weight: 600; color: #6366f1;" id="servicesTotalAmount">₹0</span>
+                </div>
+            </div>
+        </div>
+        @endif
+
         <!-- Selected Booths -->
         <div class="panel-card">
             <h5 class="panel-title">Selected Booths</h5>
@@ -717,12 +795,68 @@
                 <i class="bi bi-cart-check me-2"></i>Proceed to Booking Form
             </button>
         </div>
+
+        <!-- Additional Services (shown after booth selection) -->
+        @if($exhibition->services && $exhibition->services->where('is_active', true)->count() > 0)
+        <div class="panel-card services-card" id="servicesCard" style="display: none;">
+            <h5 class="panel-title">Additional Services</h5>
+            <div class="services-list">
+                @foreach($exhibition->services->where('is_active', true)->groupBy('category') as $category => $categoryServices)
+                    @if($category)
+                    <div style="margin-bottom: 15px;">
+                        <h6 style="font-size: 0.9rem; color: #64748b; margin-bottom: 10px; font-weight: 600;">{{ $category }}</h6>
+                    </div>
+                    @endif
+                    @foreach($categoryServices as $service)
+                    <div class="service-item">
+                        <div style="display: flex; justify-content: space-between; align-items: start; gap: 10px;">
+                            <div style="flex: 1;">
+                                <div class="service-name" style="margin-bottom: 5px;">{{ $service->name }}</div>
+                                <div class="service-price" style="margin-bottom: 5px;">₹{{ number_format($service->price, 2) }}</div>
+                                @if($service->image)
+                                <button type="button" class="btn-view-image" onclick="openImageGallery({{ $service->id }}, '{{ asset('storage/' . $service->image) }}', '{{ $service->name }}')" style="padding: 4px 12px; background: #6366f1; color: white; border: none; border-radius: 4px; font-size: 0.75rem; cursor: pointer; margin-top: 5px;">
+                                    <i class="bi bi-image me-1"></i>View Image
+                                </button>
+                                @endif
+                            </div>
+                            <div>
+                                <input type="checkbox" class="service-checkbox" data-service-id="{{ $service->id }}" data-service-price="{{ $service->price }}" data-service-name="{{ $service->name }}" onchange="updateServiceSelection()">
+                            </div>
+                        </div>
+                    </div>
+                    @endforeach
+                @endforeach
+            </div>
+            <div id="servicesTotal" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 0.9rem; color: #64748b;">Services Total:</span>
+                    <span style="font-weight: 600; color: #6366f1;" id="servicesTotalAmount">₹0</span>
+                </div>
+            </div>
+        </div>
+        @endif
+    </div>
+</div>
+
+<!-- Image Gallery Modal -->
+<div class="modal fade" id="imageGalleryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="galleryModalTitle">Service Image</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="galleryImage" src="" alt="" style="max-width: 100%; max-height: 70vh; border-radius: 8px;">
+            </div>
+        </div>
     </div>
 </div>
 
 @push('scripts')
 <script>
 let selectedBooths = [];
+let selectedServices = [];
 let currentZoom = 1;
 let selectedBoothId = null;
 let contactCount = 0;
@@ -734,6 +868,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupZoom();
     setupMergeSplit();
     setupPriceRange();
+    toggleServicesCard();
     
     // Pre-select booths from query parameter
     const urlParams = new URLSearchParams(window.location.search);
@@ -905,6 +1040,7 @@ function updateSelectedBoothsList() {
             </div>
         `;
         totalDiv.style.display = 'none';
+        updateTotalAmount();
         return;
     }
     
@@ -931,6 +1067,79 @@ function updateSelectedBoothsList() {
     list.innerHTML = html;
     document.getElementById('totalAmount').textContent = `₹${total.toLocaleString()}`;
     totalDiv.style.display = 'block';
+    updateTotalAmount();
+    toggleServicesCard();
+}
+
+function updateServiceSelection() {
+    selectedServices = [];
+    let servicesTotal = 0;
+    const checkboxes = document.querySelectorAll('.service-checkbox:checked');
+    
+    checkboxes.forEach(checkbox => {
+        const serviceId = checkbox.getAttribute('data-service-id');
+        const servicePrice = parseFloat(checkbox.getAttribute('data-service-price'));
+        const serviceName = checkbox.getAttribute('data-service-name');
+        selectedServices.push({
+            id: serviceId,
+            price: servicePrice,
+            name: serviceName
+        });
+        servicesTotal += servicePrice;
+    });
+    
+    const servicesTotalDiv = document.getElementById('servicesTotal');
+    const servicesTotalAmount = document.getElementById('servicesTotalAmount');
+    
+    if (selectedServices.length > 0) {
+        servicesTotalDiv.style.display = 'block';
+        servicesTotalAmount.textContent = `₹${servicesTotal.toLocaleString()}`;
+    } else {
+        servicesTotalDiv.style.display = 'none';
+    }
+    
+    updateTotalAmount();
+}
+
+function updateTotalAmount() {
+    let boothTotal = 0;
+    selectedBooths.forEach(boothId => {
+        const booth = document.querySelector(`[data-booth-id="${boothId}"]`);
+        if (booth) {
+            boothTotal += parseFloat(booth.getAttribute('data-booth-price'));
+        }
+    });
+    
+    let servicesTotal = 0;
+    selectedServices.forEach(service => {
+        servicesTotal += service.price;
+    });
+    
+    const grandTotal = boothTotal + servicesTotal;
+    document.getElementById('totalAmount').textContent = `₹${grandTotal.toLocaleString()}`;
+}
+
+function toggleServicesCard() {
+    const servicesCard = document.getElementById('servicesCard');
+    if (!servicesCard) return;
+    const shouldShow = selectedBooths.length > 0;
+    servicesCard.style.display = shouldShow ? 'block' : 'none';
+
+    if (!shouldShow) {
+        // Clear service selections when hidden so totals stay accurate
+        document.querySelectorAll('.service-checkbox').forEach(cb => cb.checked = false);
+        selectedServices = [];
+        document.getElementById('servicesTotal').style.display = 'none';
+        updateTotalAmount();
+    }
+}
+
+function openImageGallery(serviceId, imageUrl, serviceName) {
+    document.getElementById('galleryModalTitle').textContent = serviceName;
+    document.getElementById('galleryImage').src = imageUrl;
+    document.getElementById('galleryImage').alt = serviceName;
+    const modal = new bootstrap.Modal(document.getElementById('imageGalleryModal'));
+    modal.show();
 }
 
 function removeBooth(boothId) {
@@ -1156,6 +1365,9 @@ document.getElementById('proceedToBookBtn').addEventListener('click', function()
     const detailsUrl = "{{ route('bookings.details', $exhibition->id) }}";
     const params = new URLSearchParams();
     params.set('booths', selectedBooths.join(','));
+    if (selectedServices.length > 0) {
+        params.set('services', selectedServices.map(s => s.id).join(','));
+    }
     window.location.href = `${detailsUrl}?${params.toString()}`;
 });
 

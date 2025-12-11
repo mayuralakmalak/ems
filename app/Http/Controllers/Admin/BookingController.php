@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\Document;
 use App\Models\Wallet;
+use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -22,6 +24,68 @@ class BookingController extends Controller
         $bookings = $query->latest()->paginate(20);
         
         return view('admin.bookings.index', compact('bookings'));
+    }
+
+    public function edit($id)
+    {
+        $booking = Booking::with(['exhibition', 'booth', 'user'])->findOrFail($id);
+        $statuses = ['pending', 'confirmed', 'cancelled', 'replaced'];
+
+        return view('admin.bookings.edit', compact('booking', 'statuses'));
+    }
+
+    public function update(Request $request, $id)
+    {
+        $booking = Booking::with('booth')->findOrFail($id);
+
+        $request->validate([
+            'status' => 'required|in:pending,confirmed,cancelled,replaced',
+            'total_amount' => 'required|numeric|min:0',
+            'paid_amount' => 'required|numeric|min:0|max:' . $request->total_amount,
+        ]);
+
+        $oldStatus = $booking->status;
+        $booking->update([
+            'status' => $request->status,
+            'total_amount' => $request->total_amount,
+            'paid_amount' => $request->paid_amount,
+        ]);
+
+        // Notify exhibitor if status changed to confirmed or rejected
+        if ($oldStatus !== $request->status) {
+            if ($request->status === 'confirmed') {
+                \App\Models\Notification::create([
+                    'user_id' => $booking->user_id,
+                    'type' => 'booking',
+                    'title' => 'Booking Approved',
+                    'message' => 'Your booking request #' . $booking->booking_number . ' has been approved.',
+                    'notifiable_type' => \App\Models\Booking::class,
+                    'notifiable_id' => $booking->id,
+                ]);
+            } elseif ($request->status === 'cancelled') {
+                \App\Models\Notification::create([
+                    'user_id' => $booking->user_id,
+                    'type' => 'booking',
+                    'title' => 'Booking Cancelled',
+                    'message' => 'Your booking #' . $booking->booking_number . ' has been cancelled.',
+                    'notifiable_type' => \App\Models\Booking::class,
+                    'notifiable_id' => $booking->id,
+                ]);
+            }
+        }
+
+        return redirect()->route('admin.bookings.show', $booking->id)
+            ->with('success', 'Booking updated successfully.');
+    }
+
+    public function bookedByExhibition($exhibitionId)
+    {
+        $bookings = Booking::with(['exhibition', 'booth', 'user'])
+            ->where('exhibition_id', $exhibitionId)
+            ->latest()
+            ->paginate(20);
+
+        return view('admin.bookings.booked-booths', compact('bookings', 'exhibitionId'));
     }
     
     public function cancellations()
@@ -191,6 +255,70 @@ class BookingController extends Controller
             DB::rollBack();
             return back()->with('error', 'Failed to process cancellation: ' . $e->getMessage());
         }
+    }
+
+    public function destroy($id)
+    {
+        $booking = Booking::with('booth')->findOrFail($id);
+
+        DB::transaction(function () use ($booking) {
+            if ($booking->booth) {
+                $booking->booth->update([
+                    'is_available' => true,
+                    'is_booked' => false,
+                ]);
+            }
+            $booking->delete();
+        });
+
+        return redirect()->route('admin.bookings.index')->with('success', 'Booking deleted successfully.');
+    }
+
+    public function approveDocument($documentId)
+    {
+        $document = Document::with('booking')->findOrFail($documentId);
+        $document->update([
+            'status' => 'approved',
+            'rejection_reason' => null,
+        ]);
+
+        // Notify exhibitor
+        Notification::create([
+            'user_id' => $document->user_id,
+            'type' => 'document',
+            'title' => 'Document Approved',
+            'message' => 'Your document "' . $document->name . '" has been approved.',
+            'notifiable_type' => Document::class,
+            'notifiable_id' => $document->id,
+        ]);
+
+        return back()->with('success', 'Document approved.');
+    }
+
+    public function rejectDocument(Request $request, $documentId)
+    {
+        $document = Document::with('booking')->findOrFail($documentId);
+
+        $request->validate([
+            'rejection_reason' => 'required|string|max:1000',
+        ]);
+
+        $document->update([
+            'status' => 'rejected',
+            'rejection_reason' => $request->rejection_reason,
+        ]);
+
+        // Notify exhibitor
+        Notification::create([
+            'user_id' => $document->user_id,
+            'type' => 'document',
+            'title' => 'Document Rejected',
+            'message' => 'Your document "' . $document->name . '" has been rejected. Reason: ' . $request->rejection_reason,
+            'notifiable_type' => Document::class,
+            'notifiable_id' => $document->id,
+        ]);
+
+        return back()->with('success', 'Document rejected with reason recorded.');
     }
 }
 

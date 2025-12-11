@@ -137,8 +137,9 @@
         border-radius: 10px;
         font-size: 1rem;
         transition: all 0.2s ease;
-        background: rgba(255,255,255,0.03);
-        color: #f8fafc;
+        background: rgba(255,255,255,0.08);
+        color: #ffffff;
+        font-weight: 500;
     }
     
     .form-control::placeholder {
@@ -149,7 +150,16 @@
         border-color: #818cf8;
         box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
         outline: none;
-        background: rgba(255,255,255,0.05);
+        background: rgba(255,255,255,0.12);
+        color: #ffffff;
+    }
+    
+    .form-control:-webkit-autofill,
+    .form-control:-webkit-autofill:hover,
+    .form-control:-webkit-autofill:focus {
+        -webkit-text-fill-color: #ffffff !important;
+        -webkit-box-shadow: 0 0 0px 1000px rgba(255,255,255,0.08) inset !important;
+        transition: background-color 5000s ease-in-out 0s;
     }
     
     .btn-submit, .btn-verify {

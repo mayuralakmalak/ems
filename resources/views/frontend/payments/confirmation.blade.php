@@ -170,12 +170,39 @@
             </div>
         </div>
         
+        @if($payment->payment_method !== 'wallet' && $payment->payment_method !== 'online' && $payment->approval_status === 'pending')
+        <div class="card mt-4" style="background: #fef3c7; border: 2px solid #f59e0b;">
+            <div class="card-body">
+                <h6 class="card-title"><i class="bi bi-upload me-2"></i>Upload Payment Proof</h6>
+                <p class="card-text text-muted mb-3">Please upload proof of payment (PDF, Image, or DOC) for admin approval.</p>
+                <form method="POST" action="{{ route('payments.upload-proof', $payment->id) }}" enctype="multipart/form-data">
+                    @csrf
+                    <div class="mb-3">
+                        <input type="file" name="payment_proof" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" required>
+                        <small class="text-muted">Max size: 5 MB. Allowed: PDF, JPG, PNG, DOC, DOCX</small>
+                    </div>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-upload me-2"></i>Upload Proof
+                    </button>
+                </form>
+                @if($payment->payment_proof_file)
+                <div class="mt-3">
+                    <small class="text-muted">Current proof: </small>
+                    <a href="{{ asset('storage/' . $payment->payment_proof_file) }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-eye me-1"></i>View Uploaded Proof
+                    </a>
+                </div>
+                @endif
+            </div>
+        </div>
+        @endif
+        
         <div class="action-buttons">
             <a href="{{ route('dashboard') }}" class="btn-action btn-dashboard">
                 Go to Dashboard
             </a>
-            <a href="{{ route('bookings.show', $payment->booking->id) }}" class="btn-action btn-receipt">
-                Download Receipt
+            <a href="{{ route('payments.download', $payment->id) }}" class="btn-action btn-receipt">
+                Download Receipt (PDF)
             </a>
         </div>
     </div>
