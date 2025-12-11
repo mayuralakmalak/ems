@@ -187,6 +187,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/payments', [PaymentController::class, 'store'])->name('payments.store');
     Route::get('/payments/{paymentId}/confirmation', [PaymentController::class, 'confirmation'])->name('payments.confirmation');
     Route::post('/payments/{paymentId}/upload-proof', [PaymentController::class, 'uploadProof'])->name('payments.upload-proof');
+    Route::get('/payments/{paymentId}/download', [PaymentController::class, 'download'])->name('payments.download');
     
     // Documents
     Route::resource('documents', DocumentController::class);

@@ -201,8 +201,8 @@
             <a href="{{ route('dashboard') }}" class="btn-action btn-dashboard">
                 Go to Dashboard
             </a>
-            <a href="{{ route('bookings.show', $payment->booking->id) }}" class="btn-action btn-receipt">
-                Download Receipt
+            <a href="{{ route('payments.download', $payment->id) }}" class="btn-action btn-receipt">
+                Download Receipt (PDF)
             </a>
         </div>
     </div>

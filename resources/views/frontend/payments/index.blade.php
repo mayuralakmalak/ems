@@ -221,7 +221,19 @@
                             </span>
                         </td>
                         <td>
-                            <button class="btn-download">Download</button>
+                            @if($payment->receipt_file)
+                                <a href="{{ asset('storage/' . $payment->receipt_file) }}" download class="btn-download" style="text-decoration: none; display: inline-block;">
+                                    <i class="bi bi-download me-1"></i>Download Receipt
+                                </a>
+                            @elseif($payment->invoice_file)
+                                <a href="{{ asset('storage/' . $payment->invoice_file) }}" download class="btn-download" style="text-decoration: none; display: inline-block;">
+                                    <i class="bi bi-download me-1"></i>Download Invoice
+                                </a>
+                            @else
+                                <a href="{{ route('payments.download', $payment->id) }}" class="btn-download" style="text-decoration: none; display: inline-block;">
+                                    <i class="bi bi-download me-1"></i>Download
+                                </a>
+                            @endif
                         </td>
                     </tr>
                     @empty

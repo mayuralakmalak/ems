@@ -8,6 +8,9 @@ use App\Models\BoothRequest;
 use App\Models\Payment;
 use App\Models\Wallet;
 use Illuminate\Http\Request;
+use Mpdf\Mpdf;
+use Mpdf\Config\ConfigVariables;
+use Mpdf\Config\FontVariables;
 
 class PaymentController extends Controller
 {
@@ -194,5 +197,52 @@ class PaymentController extends Controller
         }
         
         return back()->with('success', 'Payment proof uploaded successfully. Waiting for admin approval.');
+    }
+    
+    public function download($paymentId)
+    {
+        $payment = Payment::where('user_id', auth()->id())
+            ->with(['booking.exhibition', 'user'])
+            ->findOrFail($paymentId);
+
+        // If stored receipt/invoice exists, serve it
+        if ($payment->receipt_file && \Storage::disk('public')->exists($payment->receipt_file)) {
+            return \Storage::disk('public')->download($payment->receipt_file);
+        }
+        if ($payment->invoice_file && \Storage::disk('public')->exists($payment->invoice_file)) {
+            return \Storage::disk('public')->download($payment->invoice_file);
+        }
+
+        // Otherwise generate PDF on the fly
+        $html = view('frontend.payments.receipt', compact('payment'))->render();
+
+        $defaultConfig = (new ConfigVariables())->getDefaults();
+        $fontDirs = $defaultConfig['fontDir'];
+        $defaultFontConfig = (new FontVariables())->getDefaults();
+        $fontData = $defaultFontConfig['fontdata'];
+
+        $mpdf = new Mpdf([
+            'tempDir' => storage_path('app/mpdf-temp'),
+            'format' => 'A4',
+            'margin_top' => 15,
+            'margin_right' => 12,
+            'margin_bottom' => 15,
+            'margin_left' => 12,
+            'fontDir' => array_merge($fontDirs, [
+                resource_path('fonts'),
+            ]),
+            'fontdata' => $fontData,
+            'default_font' => 'dejavusans',
+        ]);
+
+        $mpdf->SetTitle('Payment Receipt - ' . $payment->payment_number);
+        $mpdf->WriteHTML($html);
+
+        $pdfContent = $mpdf->Output('', 'S');
+        $filename = 'Payment_Receipt_' . $payment->payment_number . '.pdf';
+
+        return response($pdfContent, 200)
+            ->header('Content-Type', 'application/pdf')
+            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 }

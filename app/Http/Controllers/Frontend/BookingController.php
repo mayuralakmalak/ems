@@ -104,7 +104,20 @@ class BookingController extends Controller
                 ->with('error', 'Selected booths are not available. Please choose again.');
         }
 
-        $totalAmount = $booths->sum('price');
+        $boothTotal = $booths->sum('price');
+        
+        // Calculate services total
+        $serviceIds = array_filter(explode(',', $request->query('services', '')));
+        $servicesTotal = 0;
+        if (!empty($serviceIds)) {
+            $services = Service::whereIn('id', $serviceIds)
+                ->where('exhibition_id', $exhibition->id)
+                ->where('is_active', true)
+                ->get();
+            $servicesTotal = $services->sum('price');
+        }
+        
+        $totalAmount = $boothTotal + $servicesTotal;
 
         return view('frontend.bookings.details', [
             'exhibition' => $exhibition,
