@@ -1,83 +1,96 @@
 @extends('layouts.admin')
 
-@section('title', 'Admin Role Management 5')
-@section('page-title', 'Admin Role Management 5')
+@section('title', 'Payment Approvals')
+@section('page-title', 'Payment Approvals')
 
 @section('content')
-<div class="row">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4>Admin Role Management 5</h4>
-            <span class="text-muted">29 / 36</span>
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card primary">
+            <div class="stat-label">Pending Approvals</div>
+            <div class="stat-value">{{ $pendingCount }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card success">
+            <div class="stat-label">Approved</div>
+            <div class="stat-value">{{ $approvedCount }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card warning">
+            <div class="stat-label">Rejected</div>
+            <div class="stat-value">{{ $rejectedCount }}</div>
         </div>
     </div>
 </div>
 
-<div class="row mb-3">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center">
-            <h5>Admin Panel</h5>
-            <div>
-                <a href="{{ route('admin.dashboard') }}" class="text-primary me-3">Dashboard</a>
-                <a href="{{ route('admin.roles.index') }}" class="text-primary me-3">Roles</a>
-                <a href="{{ route('admin.exhibitions.index') }}" class="text-primary me-3">Exhibitions</a>
-                <a href="{{ route('admin.payments.index') }}" class="text-primary">Payments</a>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Payment Operations Section -->
-<div class="card mb-4">
-    <div class="card-header bg-light">
-        <h5 class="mb-0">Payment Management</h5>
-    </div>
-    <div class="card-body">
-        <p class="text-muted mb-4">A section dedicated to handling all payment-related operations and records.</p>
-        
-        <div class="d-flex gap-3">
-            <a href="{{ route('admin.payments.index') }}" class="btn btn-primary">
-                View Payments
-            </a>
-            <a href="{{ route('admin.payments.create') }}" class="btn btn-primary">
-                Add New Payment
-            </a>
-            <a href="{{ route('admin.settings.index') }}" class="btn btn-secondary">
-                Payment Settings
-            </a>
-        </div>
-    </div>
-</div>
-
-<!-- Recent Transactions Section -->
 <div class="card">
-    <div class="card-header bg-light">
-        <h5 class="mb-0">Recent Transactions</h5>
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Payment Approvals</h5>
+        <div class="btn-group">
+            <a href="{{ route('admin.payments.index', ['approval_status' => 'pending']) }}" class="btn btn-sm {{ request('approval_status') == 'pending' || !request('approval_status') ? 'btn-primary' : 'btn-outline-primary' }}">Pending</a>
+            <a href="{{ route('admin.payments.index', ['approval_status' => 'approved']) }}" class="btn btn-sm {{ request('approval_status') == 'approved' ? 'btn-primary' : 'btn-outline-primary' }}">Approved</a>
+            <a href="{{ route('admin.payments.index', ['approval_status' => 'rejected']) }}" class="btn btn-sm {{ request('approval_status') == 'rejected' ? 'btn-primary' : 'btn-outline-primary' }}">Rejected</a>
+        </div>
     </div>
     <div class="card-body">
-        @forelse($recentTransactions as $transaction)
-        <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
-            <div>
-                <strong>Transaction ID: #{{ $transaction->id }}</strong>
-                <br>
-                <small class="text-muted">
-                    Amount: ₹{{ number_format($transaction->amount, 2) }} - 
-                    Date: {{ $transaction->payment_date ? \Carbon\Carbon::parse($transaction->payment_date)->format('Y-m-d') : $transaction->created_at->format('Y-m-d') }}
-                </small>
-                @if($transaction->booking)
-                    <br>
-                    <small class="text-muted">Booking: {{ $transaction->booking->booking_number }}</small>
-                @endif
-            </div>
-            <div>
-                <a href="{{ route('admin.payments.show', $transaction->id) }}" class="btn btn-primary btn-sm">
-                    Details
-                </a>
-            </div>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Payment #</th>
+                        <th>Exhibitor</th>
+                        <th>Exhibition</th>
+                        <th>Amount</th>
+                        <th>Method</th>
+                        <th>Payment Proof</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($payments as $payment)
+                    <tr>
+                        <td><strong>{{ $payment->payment_number }}</strong></td>
+                        <td>{{ $payment->booking->user->name ?? 'N/A' }}</td>
+                        <td>{{ $payment->booking->exhibition->name ?? 'N/A' }}</td>
+                        <td>₹{{ number_format($payment->amount, 2) }}</td>
+                        <td>{{ ucfirst($payment->payment_method) }}</td>
+                        <td>
+                            @if($payment->payment_proof_file)
+                                <a href="{{ asset('storage/' . $payment->payment_proof_file) }}" target="_blank" class="btn btn-sm btn-info">
+                                    <i class="bi bi-eye"></i> View Proof
+                                </a>
+                            @else
+                                <span class="text-muted">No proof</span>
+                            @endif
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ $payment->approval_status === 'approved' ? 'success' : ($payment->approval_status === 'rejected' ? 'danger' : 'warning') }}">
+                                {{ ucfirst($payment->approval_status) }}
+                            </span>
+                        </td>
+                        <td>{{ $payment->created_at->format('Y-m-d') }}</td>
+                        <td>
+                            <a href="{{ route('admin.payments.show', $payment->id) }}" class="btn btn-sm btn-primary">
+                                <i class="bi bi-eye"></i> Details
+                            </a>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="9" class="text-center py-4 text-muted">No payments found</td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
         </div>
-        @empty
-        <p class="text-muted mb-0">No recent transactions found.</p>
-        @endforelse
+        
+        <div class="mt-3">
+            {{ $payments->links() }}
+        </div>
     </div>
 </div>
 @endsection

@@ -34,12 +34,54 @@
             box-shadow: 2px 0 10px rgba(0,0,0,0.1);
         }
         
-        .sidebar h4 {
-            color: #fff;
-            font-weight: 700;
+        .sidebar-brand {
             padding: 1.5rem 1rem;
             border-bottom: 2px solid rgba(255,255,255,0.1);
             margin-bottom: 1rem;
+        }
+        
+        .sidebar-brand-content {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .sidebar-brand-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 18px;
+            color: white;
+            flex-shrink: 0;
+        }
+        
+        .sidebar-brand-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .sidebar-brand-name {
+            margin: 0;
+            font-weight: 600;
+            font-size: 15px;
+            color: white;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .sidebar-brand-role {
+            margin: 0;
+            font-size: 12px;
+            color: rgba(255,255,255,0.8);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
         .sidebar .nav-link {
@@ -217,9 +259,17 @@
             <!-- Sidebar -->
             <nav class="col-md-3 col-lg-2 sidebar px-0">
                 <div class="p-3">
-                    <h4 class="text-white mb-4">
-                        <i class="bi bi-grid-3x3-gap"></i> EMS Admin
-                    </h4>
+                    <div class="sidebar-brand">
+                        <div class="sidebar-brand-content">
+                            <div class="sidebar-brand-avatar">
+                                {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                            </div>
+                            <div class="sidebar-brand-info">
+                                <div class="sidebar-brand-name">{{ auth()->user()->name }}</div>
+                                <div class="sidebar-brand-role">{{ auth()->user()->roles->first()->name ?? 'Admin' }}</div>
+                            </div>
+                        </div>
+                    </div>
                     <ul class="nav flex-column">
                         <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}" href="{{ route('admin.dashboard') }}">
@@ -262,6 +312,17 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.payments.*') ? 'active' : '' }}" href="{{ route('admin.payments.index') }}">
+                                <i class="bi bi-credit-card me-2"></i> Payment Approvals
+                                @php
+                                    $pendingPayments = \App\Models\Payment::where('approval_status', 'pending')->count();
+                                @endphp
+                                @if($pendingPayments > 0)
+                                    <span class="badge bg-danger ms-2">{{ $pendingPayments }}</span>
+                                @endif
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('admin.booth-requests.*') ? 'active' : '' }}" href="{{ route('admin.booth-requests.index') }}">
                                 <i class="bi bi-clock-history me-2"></i> Booth Requests
                                 @php
@@ -270,6 +331,11 @@
                                 @if($pendingCount > 0)
                                     <span class="badge bg-danger ms-2">{{ $pendingCount }}</span>
                                 @endif
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.documents.*') ? 'active' : '' }}" href="{{ route('admin.documents.index') }}">
+                                <i class="bi bi-file-earmark-check me-2"></i> Document Verification
                             </a>
                         </li>
                         @if(request()->routeIs('admin.booths.*'))
@@ -289,12 +355,30 @@
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom bg-white px-3 rounded">
                     <h1 class="h2">@yield('page-title', 'Dashboard')</h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
-                        <div class="btn-group me-2">
-                            <span class="text-muted me-3">{{ auth()->user()->name }}</span>
-                            <form method="POST" action="{{ route('logout') }}">
+                        <div class="btn-group me-2 d-flex align-items-center">
+                            <!-- Notifications -->
+                            <div class="dropdown me-3">
+                                <button class="btn btn-link position-relative p-0" type="button" id="notificationDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="text-decoration: none; color: #6366f1;">
+                                    <i class="bi bi-bell fs-5"></i>
+                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notificationBadge" style="display: none;">0</span>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="notificationDropdown" style="min-width: 350px; max-height: 400px; overflow-y: auto;">
+                                    <li><h6 class="dropdown-header">Notifications</h6></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <div id="notificationList">
+                                        <li class="px-3 py-2 text-muted text-center">Loading...</li>
+                                    </div>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item text-center" href="#" id="markAllReadBtn">Mark all as read</a></li>
+                                </ul>
+                            </div>
+                            <form method="POST" action="{{ route('logout') }}" class="d-inline">
                                 @csrf
-                                <button type="submit" class="btn btn-sm btn-outline-secondary">
-                                    <i class="bi bi-box-arrow-right"></i> Logout
+                                <button type="submit" class="btn btn-link p-0" style="width: 40px; height: 40px; border-radius: 50%; background: #ef4444; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; transition: all 0.3s ease;" title="Logout" onmouseover="this.style.background='#dc2626'; this.style.transform='scale(1.1)'" onmouseout="this.style.background='#ef4444'; this.style.transform='scale(1)'">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M18.36 6.64C19.6184 7.89879 20.4753 9.50244 20.8223 11.2482C21.1693 12.9939 20.9909 14.8034 20.3076 16.4478C19.6244 18.0921 18.4658 19.4976 16.9677 20.4864C15.4697 21.4752 13.6939 22.0029 11.88 22.0029C10.0661 22.0029 8.29026 21.4752 6.79219 20.4864C5.29412 19.4976 4.13554 18.0921 3.45231 16.4478C2.76908 14.8034 2.59066 12.9939 2.93768 11.2482C3.28469 9.50244 4.14159 7.89879 5.4 6.64" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M12 2V12" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
                                 </button>
                             </form>
                         </div>
@@ -325,6 +409,83 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script>
+        // Load notifications
+        function loadNotifications() {
+            $.ajax({
+                url: '{{ route("admin.notifications.index") }}',
+                method: 'GET',
+                success: function(response) {
+                    const badge = $('#notificationBadge');
+                    const list = $('#notificationList');
+                    
+                    if (response.unreadCount > 0) {
+                        badge.text(response.unreadCount).show();
+                    } else {
+                        badge.hide();
+                    }
+                    
+                    if (response.notifications.length === 0) {
+                        list.html('<li class="px-3 py-2 text-muted text-center">No notifications</li>');
+                    } else {
+                        let html = '';
+                        response.notifications.forEach(function(notif) {
+                            const isRead = notif.is_read ? '' : 'bg-light';
+                            const timeAgo = new Date(notif.created_at).toLocaleString();
+                            html += `
+                                <li class="px-3 py-2 ${isRead}" data-id="${notif.id}">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <strong>${notif.title}</strong>
+                                            <p class="mb-0 small text-muted">${notif.message}</p>
+                                            <small class="text-muted">${timeAgo}</small>
+                                        </div>
+                                        ${!notif.is_read ? '<span class="badge bg-primary ms-2">New</span>' : ''}
+                                    </div>
+                                </li>
+                            `;
+                        });
+                        list.html(html);
+                        
+                        // Click to mark as read
+                        list.find('li[data-id]').on('click', function() {
+                            const id = $(this).data('id');
+                            markAsRead(id);
+                        });
+                    }
+                }
+            });
+        }
+        
+        function markAsRead(id) {
+            $.ajax({
+                url: '{{ route("admin.notifications.read", ":id") }}'.replace(':id', id),
+                method: 'POST',
+                data: { _token: '{{ csrf_token() }}' },
+                success: function() {
+                    loadNotifications();
+                }
+            });
+        }
+        
+        $('#markAllReadBtn').on('click', function(e) {
+            e.preventDefault();
+            $.ajax({
+                url: '{{ route("admin.notifications.read-all") }}',
+                method: 'POST',
+                data: { _token: '{{ csrf_token() }}' },
+                success: function() {
+                    loadNotifications();
+                }
+            });
+        });
+        
+        // Load notifications on page load
+        loadNotifications();
+        
+        // Refresh every 30 seconds
+        setInterval(loadNotifications, 30000);
+    </script>
     @stack('scripts')
 </body>
 </html>

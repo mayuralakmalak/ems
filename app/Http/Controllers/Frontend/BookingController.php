@@ -9,6 +9,8 @@ use App\Models\Exhibition;
 use App\Models\Service;
 use App\Models\BookingService;
 use App\Models\Wallet;
+use App\Models\Notification;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -277,6 +279,19 @@ class BookingController extends Controller
 
             DB::commit();
 
+            // Notify all admins about new booking
+            $admins = \App\Models\User::role('Admin')->orWhere('id', 1)->get();
+            foreach ($admins as $admin) {
+                \App\Models\Notification::create([
+                    'user_id' => $admin->id,
+                    'type' => 'booking',
+                    'title' => 'New Booking Request',
+                    'message' => $user->name . ' has submitted a new booking request for ' . $exhibition->name . ' (Booking #' . $booking->booking_number . ')',
+                    'notifiable_type' => \App\Models\Booking::class,
+                    'notifiable_id' => $booking->id,
+                ]);
+            }
+
             return redirect()->route('payments.create', $booking->id)
                 ->with('success', 'Booking captured. Please complete payment to submit your booth request to the admin.');
         } catch (\Exception $e) {
@@ -336,6 +351,23 @@ class BookingController extends Controller
         return view('frontend.bookings.show', compact('booking'));
     }
 
+    public function edit(string $id)
+    {
+        $booking = Booking::where('user_id', auth()->id())->findOrFail($id);
+        return view('frontend.bookings.edit', compact('booking'));
+    }
+
+    public function showCancel(string $id)
+    {
+        $booking = Booking::with(['booth', 'exhibition'])
+            ->where('user_id', auth()->id())
+            ->findOrFail($id);
+
+        $cancellationCharge = round($booking->total_amount * 0.15, 2);
+
+        return view('frontend.bookings.cancel', compact('booking', 'cancellationCharge'));
+    }
+
     public function update(Request $request, string $id)
     {
         $booking = Booking::where('user_id', auth()->id())->findOrFail($id);
@@ -351,7 +383,8 @@ class BookingController extends Controller
             'contact_numbers' => $request->contact_numbers ?? $booking->contact_numbers,
         ]);
 
-        return back()->with('success', 'Booking updated successfully.');
+        return redirect()->route('bookings.show', $booking->id)
+            ->with('success', 'Booking updated successfully.');
     }
 
     public function cancel(Request $request, string $id)
@@ -360,12 +393,19 @@ class BookingController extends Controller
         
         $request->validate([
             'cancellation_reason' => 'required|string|max:1000',
+            'refund_option' => 'nullable|in:full_refund,partial_refund,wallet_credit,bank_refund',
+            'account_details' => 'nullable|string|max:2000',
         ]);
+
+        $cancellationType = $request->refund_option === 'wallet_credit' ? 'wallet_credit' : 'refund';
 
         // Update booking status
         $booking->update([
             'status' => 'cancelled',
             'cancellation_reason' => $request->cancellation_reason,
+            'cancellation_type' => $cancellationType,
+            'account_details' => $request->account_details,
+            'cancellation_amount' => $booking->total_amount ? round($booking->total_amount * 0.15, 2) : null,
         ]);
 
         // Free up the booth

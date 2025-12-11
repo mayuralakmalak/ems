@@ -11,8 +11,8 @@ class Payment extends Model
 
     protected $fillable = [
         'booking_id', 'user_id', 'payment_number', 'payment_type', 'payment_method',
-        'status', 'amount', 'gateway_charge', 'transaction_id', 'receipt_file',
-        'invoice_file', 'payment_proof', 'due_date', 'paid_at', 'notes'
+        'status', 'approval_status', 'amount', 'gateway_charge', 'transaction_id', 'receipt_file',
+        'invoice_file', 'payment_proof', 'payment_proof_file', 'due_date', 'paid_at', 'notes', 'rejection_reason'
     ];
 
     protected $casts = [

@@ -44,6 +44,7 @@
                                 <td>
                                     <a href="{{ route('admin.exhibitions.edit', $exhibition->id) }}" class="text-primary me-2">Edit</a>
                                     <a href="{{ route('admin.exhibitions.show', $exhibition->id) }}" class="text-info me-2">View Details</a>
+                                    <a href="{{ route('admin.exhibitions.bookings', $exhibition->id) }}" class="text-success me-2">View Booked Booths</a>
                                     <form action="{{ route('admin.exhibitions.destroy', $exhibition->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure?');">
                                         @csrf
                                         @method('DELETE')

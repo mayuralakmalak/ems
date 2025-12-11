@@ -5,8 +5,8 @@
 
 @section('content')
 <div class="mb-4">
-    <a href="{{ route('admin.bookings.index') }}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left me-2"></i>Back to Bookings
+    <a href="{{ url()->previous() }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-2"></i>Back
     </a>
 </div>
 
@@ -122,6 +122,55 @@
             </div>
         </div>
         @endif
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-file-earmark-text me-2"></i>Documents</h5>
+            </div>
+            <div class="card-body">
+                @if($booking->documents->count() > 0)
+                    <div class="list-group">
+                        @foreach($booking->documents as $document)
+                        <div class="list-group-item d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>{{ $document->name ?? $document->type }}</strong><br>
+                                <small class="text-muted">{{ ucfirst($document->status ?? 'pending') }}</small>
+                                @if($document->rejection_reason)
+                                    <div class="text-danger small mt-1">Reason: {{ $document->rejection_reason }}</div>
+                                @endif
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <a href="{{ asset('storage/' . $document->file_path) }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-download"></i> View
+                                </a>
+                                <form action="{{ route('admin.bookings.documents.approve', $document->id) }}" method="POST">
+                                    @csrf
+                                    <button type="submit" class="btn btn-sm btn-success">
+                                        <i class="bi bi-check-circle"></i>
+                                    </button>
+                                </form>
+                                <button class="btn btn-sm btn-danger" data-bs-toggle="collapse" data-bs-target="#rejectDoc{{ $document->id }}" aria-expanded="false">
+                                    <i class="bi bi-x-circle"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="collapse border rounded p-3 mt-2" id="rejectDoc{{ $document->id }}">
+                            <form action="{{ route('admin.bookings.documents.reject', $document->id) }}" method="POST">
+                                @csrf
+                                <div class="mb-2">
+                                    <label class="form-label">Rejection Reason</label>
+                                    <textarea name="rejection_reason" class="form-control" rows="2" required placeholder="Enter reason to show the exhibitor"></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-sm btn-danger">Submit Rejection</button>
+                            </form>
+                        </div>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-muted mb-0">No documents uploaded.</p>
+                @endif
+            </div>
+        </div>
     </div>
 
     <div class="col-lg-4">

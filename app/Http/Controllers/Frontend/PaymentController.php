@@ -114,7 +114,8 @@ class PaymentController extends Controller
             'payment_number' => 'PM' . now()->format('YmdHis') . rand(100, 999),
             'payment_type' => 'initial',
             'payment_method' => $request->payment_method,
-            'status' => $request->payment_method === 'wallet' ? 'completed' : ($request->payment_method === 'online' ? 'pending' : 'pending'),
+            'status' => $request->payment_method === 'wallet' ? 'completed' : 'pending',
+            'approval_status' => $request->payment_method === 'wallet' ? 'approved' : 'pending',
             'amount' => $amount,
             'gateway_charge' => $request->payment_method === 'online' ? round($amount * 0.025, 2) : 0,
             'paid_at' => $request->payment_method === 'wallet' ? now() : null,
@@ -161,5 +162,37 @@ class PaymentController extends Controller
             ->findOrFail($paymentId);
         
         return view('frontend.payments.confirmation', compact('payment'));
+    }
+    
+    public function uploadProof(Request $request, int $paymentId)
+    {
+        $payment = Payment::where('user_id', auth()->id())
+            ->findOrFail($paymentId);
+        
+        $request->validate([
+            'payment_proof' => 'required|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:5120',
+        ]);
+        
+        $path = $request->file('payment_proof')->store('payment-proofs', 'public');
+        
+        $payment->update([
+            'payment_proof_file' => $path,
+            'approval_status' => 'pending',
+        ]);
+        
+        // Notify admins
+        $admins = \App\Models\User::role('Admin')->orWhere('id', 1)->get();
+        foreach ($admins as $admin) {
+            \App\Models\Notification::create([
+                'user_id' => $admin->id,
+                'type' => 'payment',
+                'title' => 'Payment Proof Uploaded',
+                'message' => auth()->user()->name . ' has uploaded payment proof for payment #' . $payment->payment_number,
+                'notifiable_type' => Payment::class,
+                'notifiable_id' => $payment->id,
+            ]);
+        }
+        
+        return back()->with('success', 'Payment proof uploaded successfully. Waiting for admin approval.');
     }
 }
