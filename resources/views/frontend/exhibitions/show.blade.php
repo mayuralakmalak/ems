@@ -38,13 +38,16 @@
             <div class="card">
                 <div class="card-body text-center">
                     @php
-                        $floorplanUrl = null;
-                        if (\Illuminate\Support\Facades\Route::has('floorplan.show.public')) {
-                            $floorplanUrl = route('floorplan.show.public', $exhibition->id);
-                        } elseif (\Illuminate\Support\Facades.Route::has('floorplan.show')) {
-                            $floorplanUrl = route('floorplan.show', $exhibition->id);
-                        }
-                    @endphp
+                    use Illuminate\Support\Facades\Route;
+                
+                    $floorplanUrl = null;
+                
+                    if (Route::has('floorplan.show.public')) {
+                        $floorplanUrl = route('floorplan.show.public', $exhibition->id);
+                    } elseif (Route::has('floorplan.show')) {
+                        $floorplanUrl = route('floorplan.show', $exhibition->id);
+                    }
+                @endphp
                     @if($floorplanUrl)
                         <a href="{{ $floorplanUrl }}" class="btn btn-primary w-100 mb-2">
                             <i class="bi bi-diagram-3 me-2"></i>View Interactive Floorplan
