@@ -27,4 +27,10 @@ class Document extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function category()
+    {
+        return $this->belongsTo(DocumentCategory::class, 'type', 'slug');
+    }
+
 }

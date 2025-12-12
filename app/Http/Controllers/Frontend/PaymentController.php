@@ -90,7 +90,19 @@ class PaymentController extends Controller
         $booking = Booking::where('user_id', auth()->id())->findOrFail($request->booking_id);
         $amount = (float) $request->amount;
         $user = auth()->user();
-        $boothIds = $booking->selected_booth_ids ?? [$booking->booth_id];
+        $boothIds = collect($booking->selected_booth_ids ?? [$booking->booth_id])
+            ->map(function($entry) {
+                if (is_array($entry)) {
+                    return $entry['id'] ?? null;
+                }
+                return $entry;
+            })
+            ->filter()
+            ->values()
+            ->all();
+        if (empty($boothIds)) {
+            $boothIds = [$booking->booth_id];
+        }
 
         // Handle wallet payment
         if ($request->payment_method === 'wallet') {

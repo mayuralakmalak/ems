@@ -122,6 +122,7 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     
     // Booth Requests (Approvals)
     Route::get('/booth-requests', [\App\Http\Controllers\Admin\BoothRequestController::class, 'index'])->name('booth-requests.index');
+    Route::get('/booth-requests/{id}', [\App\Http\Controllers\Admin\BoothRequestController::class, 'show'])->name('booth-requests.show');
     Route::post('/booth-requests/{id}/approve', [\App\Http\Controllers\Admin\BoothRequestController::class, 'approve'])->name('booth-requests.approve');
     Route::post('/booth-requests/{id}/reject', [\App\Http\Controllers\Admin\BoothRequestController::class, 'reject'])->name('booth-requests.reject');
     
@@ -191,6 +192,9 @@ Route::middleware('auth')->group(function () {
     
     // Documents
     Route::resource('documents', DocumentController::class);
+    
+    // Document Categories
+    Route::resource('document-categories', \App\Http\Controllers\Frontend\DocumentCategoryController::class);
     
     // Badges
     Route::resource('badges', BadgeController::class);

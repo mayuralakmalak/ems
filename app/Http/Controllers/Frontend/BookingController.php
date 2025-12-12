@@ -104,7 +104,29 @@ class BookingController extends Controller
                 ->with('error', 'Selected booths are not available. Please choose again.');
         }
 
-        $boothTotal = $booths->sum('price');
+        // Map client selection (type/sides) and recompute prices server-side
+        $selectionMeta = json_decode($request->query('booth_meta', '{}'), true) ?: [];
+        $boothSelections = [];
+        $boothTotal = 0;
+
+        foreach ($booths as $booth) {
+            $meta = $selectionMeta[$booth->id] ?? [];
+            $type = $meta['type'] ?? 'Raw';
+            $sides = isset($meta['sides']) ? (int) $meta['sides'] : ($booth->sides_open ?? 1);
+            $price = $this->calculateBoothPrice($booth, $exhibition, $type, $sides);
+
+            $boothSelections[] = [
+                'id' => $booth->id,
+                'name' => $booth->name,
+                'type' => $type,
+                'sides' => $sides,
+                'price' => $price,
+                'size_sqft' => $booth->size_sqft,
+                'category' => $booth->category,
+            ];
+
+            $boothTotal += $price;
+        }
         
         // Calculate services total
         $serviceIds = array_filter(explode(',', $request->query('services', '')));
@@ -123,6 +145,7 @@ class BookingController extends Controller
             'exhibition' => $exhibition,
             'booths' => $booths,
             'boothIds' => $boothIds,
+            'boothSelections' => $boothSelections,
             'totalAmount' => $totalAmount,
         ]);
     }
@@ -137,6 +160,9 @@ class BookingController extends Controller
             'booth_ids' => 'required_without:booth_id|array|min:1',
             'booth_ids.*' => 'exists:booths,id',
             'booth_id' => 'required_without:booth_ids|exists:booths,id',
+            'booth_selections' => 'nullable|array',
+            'booth_selections.*.type' => 'nullable|in:Raw,Orphand',
+            'booth_selections.*.sides' => 'nullable|integer|in:1,2,3,4',
             'merge_booths' => 'nullable|boolean',
             'contact_emails' => 'nullable|array|max:5',
             'contact_emails.*' => 'nullable|email',
@@ -184,22 +210,49 @@ class BookingController extends Controller
                 return back()->withInput()->with('error', 'One or more selected booths are not available. Please select different booths.');
             }
 
+            $boothSelections = [];
+
             // Handle booth merging
             if ($request->merge_booths && count($boothIds) > 1) {
                 $mergedBooth = $this->mergeBooths($booths, $exhibition);
                 $boothId = $mergedBooth->id;
                 $totalAmount = $mergedBooth->price;
+                $boothSelections = $booths->map(function($booth) {
+                    return [
+                        'id' => $booth->id,
+                        'name' => $booth->name,
+                        'type' => $booth->booth_type ?? 'Raw',
+                        'sides' => $booth->sides_open ?? 1,
+                        'price' => $booth->price,
+                        'size_sqft' => $booth->size_sqft,
+                        'category' => $booth->category,
+                    ];
+                })->toArray();
             } else {
-                // Single booth or multiple separate booths
-                if (count($boothIds) === 1) {
-                    $booth = $booths->first();
-                    $boothId = $booth->id;
-                    $totalAmount = $booth->price;
-                } else {
-                    // Multiple booths - create separate bookings for each
-                    $totalAmount = $booths->sum('price');
-                    $boothId = $booths->first()->id; // Primary booth
+                // Single booth or multiple separate booths using selected type/sides
+                $boothSelections = [];
+                $totalAmount = 0;
+
+                foreach ($booths as $booth) {
+                    $selection = $request->input("booth_selections.{$booth->id}", []);
+                    $type = $selection['type'] ?? 'Raw';
+                    $sides = isset($selection['sides']) ? (int) $selection['sides'] : ($booth->sides_open ?? 1);
+                    $price = $this->calculateBoothPrice($booth, $exhibition, $type, $sides);
+
+                    $boothSelections[] = [
+                        'id' => $booth->id,
+                        'name' => $booth->name,
+                        'type' => $type,
+                        'sides' => $sides,
+                        'price' => $price,
+                        'size_sqft' => $booth->size_sqft,
+                        'category' => $booth->category,
+                    ];
+
+                    $totalAmount += $price;
                 }
+
+                $boothId = $booths->first()->id; // Primary booth
             }
 
             // Calculate additional services total
@@ -243,7 +296,7 @@ class BookingController extends Controller
                 'exhibition_id' => $exhibition->id,
                 'user_id' => $user->id,
                 'booth_id' => $boothId,
-                'selected_booth_ids' => $boothIds,
+                'selected_booth_ids' => !empty($boothSelections) ? $boothSelections : $boothIds,
                 'booking_number' => 'BK' . now()->format('YmdHis') . rand(100, 999),
                 'status' => 'pending',
                 'approval_status' => 'pending', // Requires admin approval
@@ -353,6 +406,31 @@ class BookingController extends Controller
         ]);
 
         return $mergedBooth;
+    }
+
+    private function calculateBoothPrice(Booth $booth, Exhibition $exhibition, string $type, int $sides): float
+    {
+        $basePrice = $type === 'Raw'
+            ? ($exhibition->raw_price_per_sqft ?? 0)
+            : ($exhibition->orphand_price_per_sqft ?? 0);
+
+        $sidePercent = match ($sides) {
+            1 => $exhibition->side_1_open_percent ?? 0,
+            2 => $exhibition->side_2_open_percent ?? 0,
+            3 => $exhibition->side_3_open_percent ?? 0,
+            4 => $exhibition->side_4_open_percent ?? 0,
+            default => 0,
+        };
+
+        $price = $basePrice * ($booth->size_sqft ?? 0) * (1 + ($sidePercent / 100));
+
+        if (($booth->category ?? 'Standard') === 'Premium') {
+            $price += $exhibition->premium_price ?? 0;
+        } elseif (($booth->category ?? 'Standard') === 'Economy') {
+            $price -= $exhibition->economy_price ?? 0;
+        }
+
+        return max(0, round($price, 2));
     }
 
     public function show(string $id)

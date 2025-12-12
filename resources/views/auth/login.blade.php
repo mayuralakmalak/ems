@@ -138,7 +138,7 @@
         font-size: 1rem;
         transition: all 0.2s ease;
         background: rgba(255,255,255,0.08);
-        color: #ffffff;
+        color: #ffffff !important;
         font-weight: 500;
     }
     
@@ -287,7 +287,7 @@
                 <div class="alert alert-danger">{{ session('error') }}</div>
             @endif
             
-            <form method="POST" action="{{ route('otp.send') }}">
+            <form method="POST" action="{{ route('otp.send') }}" id="otpLoginForm" novalidate>
                 @csrf
                 
                 <div class="form-group">
@@ -309,7 +309,7 @@
             </form>
             
             @if(session('otp_sent'))
-            <form method="POST" action="{{ route('otp.verify') }}" class="mt-4">
+            <form method="POST" action="{{ route('otp.verify') }}" class="mt-4" id="verifyOtpForm" novalidate>
                 @csrf
                 <input type="hidden" name="phone" value="{{ session('phone') }}">
                 
@@ -348,7 +348,7 @@
                 </div>
             @endif
             
-            <form method="POST" action="{{ route('login') }}">
+            <form method="POST" action="{{ route('login') }}" id="emailLoginForm" novalidate>
                 @csrf
                 
                 <div class="form-group">
@@ -414,5 +414,50 @@
         document.getElementById('otpTab').classList.remove('active');
         document.getElementById('emailTab').classList.add('active');
     }
+</script>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.19.5/dist/jquery.validate.min.js"></script>
+<script src="{{ asset('js/country-state.js') }}"></script>
+<script>
+$(function() {
+    if (typeof applyCountryState === 'function') {
+        applyCountryState();
+    }
+
+    $('#otpLoginForm').validate({
+        errorElement: 'div',
+        errorClass: 'text-danger',
+        rules: {
+            phone: { required: true, minlength: 8 }
+        },
+        messages: {
+            phone: { required: 'Phone is required' }
+        }
+    });
+
+    $('#verifyOtpForm').validate({
+        errorElement: 'div',
+        errorClass: 'text-danger',
+        rules: {
+            otp: { required: true, minlength: 4, maxlength: 6 }
+        },
+        messages: {
+            otp: { required: 'OTP is required' }
+        }
+    });
+
+    $('#emailLoginForm').validate({
+        errorElement: 'div',
+        errorClass: 'text-danger',
+        rules: {
+            email: { required: true, email: true },
+            password: { required: true }
+        },
+        messages: {
+            email: { required: 'Email is required', email: 'Enter a valid email' },
+            password: { required: 'Password is required' }
+        }
+    });
+});
 </script>
 @endpush

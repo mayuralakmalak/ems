@@ -240,6 +240,28 @@
 @endpush
 
 @section('content')
+@php
+    $boothEntries = collect($booking->selected_booth_ids ?? []);
+    if ($boothEntries->isEmpty() && $booking->booth_id) {
+        $boothEntries = collect([['id' => $booking->booth_id]]);
+    }
+    $boothIds = $boothEntries->map(fn($entry) => is_array($entry) ? ($entry['id'] ?? null) : $entry)
+        ->filter()
+        ->values();
+    $booths = \App\Models\Booth::whereIn('id', $boothIds)->get()->keyBy('id');
+    $boothDisplay = $boothEntries->map(function($entry) use ($booths) {
+        $isArray = is_array($entry);
+        $id = $isArray ? ($entry['id'] ?? null) : $entry;
+        $model = $id ? ($booths[$id] ?? null) : null;
+        return [
+            'name' => $isArray ? ($entry['name'] ?? $model?->name) : ($model?->name),
+            'type' => $isArray ? ($entry['type'] ?? null) : ($model?->booth_type),
+            'sides' => $isArray ? ($entry['sides'] ?? null) : ($model?->sides_open),
+            'price' => $isArray ? ($entry['price'] ?? $model?->price ?? 0) : ($model?->price ?? 0),
+        ];
+    })->filter(fn($b) => $b['name'] || $b['price']);
+    $boothTotal = $boothDisplay->sum(fn($b) => $b['price'] ?? 0);
+@endphp
 <div class="payment-container">
     <div class="stepper mb-2">
         <span class="step-pill"><span class="badge bg-light text-dark">1</span> Select Booth</span>
@@ -263,8 +285,8 @@
                     <p class="section-description">Review your booking costs and charges.</p>
                     
                     <div class="breakdown-item">
-                        <span class="breakdown-label">Booth Rental (Basic)</span>
-                        <span class="breakdown-value">₹{{ number_format($booking->booth->price ?? 0, 2) }}</span>
+                        <span class="breakdown-label">Booth Rental</span>
+                        <span class="breakdown-value">₹{{ number_format($boothTotal, 2) }}</span>
                     </div>
                     
                     @php
@@ -459,12 +481,19 @@
                         <div class="summary-value">{{ $booking->exhibition->name }}</div>
                     </div>
                     <div class="booking-summary-item">
-                        <div class="summary-label">Booth Number</div>
-                        <div class="summary-value">{{ $booking->booth->name ?? 'N/A' }}</div>
-                    </div>
-                    <div class="booking-summary-item">
-                        <div class="summary-label">Booth Type</div>
-                        <div class="summary-value">{{ $booking->booth->booth_type ?? 'N/A' }}</div>
+                        <div class="summary-label">Booth Selection</div>
+                        <div class="summary-value">
+                            @forelse($boothDisplay as $booth)
+                                <div style="margin-bottom:6px;">
+                                    <strong>{{ $booth['name'] ?? 'N/A' }}</strong>
+                                    <div style="font-size:0.9rem; color:#475569;">
+                                        {{ $booth['type'] ?? '—' }} / {{ $booth['sides'] ?? '—' }} sides — ₹{{ number_format($booth['price'] ?? 0, 2) }}
+                                    </div>
+                                </div>
+                            @empty
+                                N/A
+                            @endforelse
+                        </div>
                     </div>
                     <div class="booking-summary-item">
                         <div class="summary-label">Booking Date</div>
