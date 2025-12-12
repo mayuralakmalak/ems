@@ -24,8 +24,9 @@ class ChecklistController extends Controller
 
         $checklistItems = $query->latest()->paginate(20);
         $exhibitions = Exhibition::all();
+        $currentExhibition = $exhibitions->firstWhere('id', $request->exhibition_id);
 
-        return view('admin.checklists.index', compact('checklistItems', 'exhibitions'));
+        return view('admin.checklists.index', compact('checklistItems', 'exhibitions', 'currentExhibition'));
     }
 
     public function store(Request $request)
@@ -34,15 +35,21 @@ class ChecklistController extends Controller
             'exhibition_id' => 'nullable|exists:exhibitions,id',
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'is_required' => 'boolean',
+            'item_type' => 'required|string|in:textbox,textarea,file,multiple_file,checkbox',
+            'is_required' => 'nullable|in:0,1,on,true,false',
             'due_date_days_before' => 'nullable|integer|min:0',
-            'visible_to_user' => 'boolean',
-            'visible_to_admin' => 'boolean',
+            'visible_to_user' => 'nullable|in:0,1,on,true,false',
+            'visible_to_admin' => 'nullable|in:0,1,on,true,false',
         ]);
 
-        $validated['is_required'] = $request->has('is_required');
-        $validated['visible_to_user'] = $request->has('visible_to_user');
-        $validated['visible_to_admin'] = $request->has('visible_to_admin');
+        // If the hidden field wasn't set, fall back to the query param
+        if (empty($validated['exhibition_id'])) {
+            $validated['exhibition_id'] = $request->query('exhibition_id');
+        }
+
+        $validated['is_required'] = $request->boolean('is_required');
+        $validated['visible_to_user'] = $request->boolean('visible_to_user', true);
+        $validated['visible_to_admin'] = $request->boolean('visible_to_admin', true);
         $validated['is_active'] = true;
 
         ChecklistItem::create($validated);
@@ -56,15 +63,20 @@ class ChecklistController extends Controller
             'exhibition_id' => 'nullable|exists:exhibitions,id',
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'is_required' => 'boolean',
+            'item_type' => 'required|string|in:textbox,textarea,file,multiple_file,checkbox',
+            'is_required' => 'nullable|in:0,1,on,true,false',
             'due_date_days_before' => 'nullable|integer|min:0',
-            'visible_to_user' => 'boolean',
-            'visible_to_admin' => 'boolean',
+            'visible_to_user' => 'nullable|in:0,1,on,true,false',
+            'visible_to_admin' => 'nullable|in:0,1,on,true,false',
         ]);
 
-        $validated['is_required'] = $request->has('is_required');
-        $validated['visible_to_user'] = $request->has('visible_to_user');
-        $validated['visible_to_admin'] = $request->has('visible_to_admin');
+        if (empty($validated['exhibition_id'])) {
+            $validated['exhibition_id'] = $request->query('exhibition_id');
+        }
+
+        $validated['is_required'] = $request->boolean('is_required');
+        $validated['visible_to_user'] = $request->boolean('visible_to_user', true);
+        $validated['visible_to_admin'] = $request->boolean('visible_to_admin', true);
 
         $item->update($validated);
         return redirect()->route('admin.checklists.index')->with('success', 'Checklist item updated successfully.');
