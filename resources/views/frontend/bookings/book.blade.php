@@ -570,11 +570,11 @@
                         <label for="statusAvailable">Available</label>
                     </div>
                     <div class="checkbox-item">
-                        <input type="checkbox" id="statusReserved">
+                        <input type="checkbox" id="statusReserved" checked>
                         <label for="statusReserved">Reserved</label>
                     </div>
                     <div class="checkbox-item">
-                        <input type="checkbox" id="statusBooked">
+                        <input type="checkbox" id="statusBooked" checked>
                         <label for="statusBooked">Booked</label>
                     </div>
                 </div>
@@ -633,10 +633,16 @@
             <div id="boothsContainer" style="position: relative; min-height: 100%; z-index: 2;">
                 @foreach($exhibition->booths as $booth)
                 @php
-                    // Hide split parent booths (they are replaced by their children)
-                    if ($booth->is_split && $booth->parent_booth_id === null) continue;
-                    // Hide merged originals (parent_booth_id not null AND not split)
-                    if ($booth->parent_booth_id !== null && !$booth->is_split) continue;
+                    // Note: The controller already filters out merged originals
+                    // Only hide split parent booths if they have children (they are replaced by their children)
+                    // But show them if they don't have split children yet
+                    if ($booth->is_split && $booth->parent_booth_id === null) {
+                        // Check if this booth has split children - if yes, hide parent
+                        $hasChildren = \App\Models\Booth::where('parent_booth_id', $booth->id)
+                            ->where('is_split', true)
+                            ->exists();
+                        if ($hasChildren) continue;
+                    }
                     
                     // Determine booth status
                     // Priority: booked > available > reserved
@@ -1147,30 +1153,55 @@ function removeBooth(boothId) {
 }
 
 // Select Booth Button
-document.getElementById('selectBoothBtn').addEventListener('click', function() {
-    if (selectedBoothId) {
-        toggleBoothSelection(selectedBoothId);
-        showBoothDetails(selectedBoothId);
-    }
-});
+const selectBoothBtn = document.getElementById('selectBoothBtn');
+if (selectBoothBtn) {
+    selectBoothBtn.addEventListener('click', function() {
+        if (selectedBoothId) {
+            toggleBoothSelection(selectedBoothId);
+            showBoothDetails(selectedBoothId);
+        }
+    });
+}
 
 // Filters
 function setupFilters() {
-    document.getElementById('filterSize').addEventListener('change', applyFilters);
-    document.getElementById('statusAvailable').addEventListener('change', applyFilters);
-    document.getElementById('statusReserved').addEventListener('change', applyFilters);
-    document.getElementById('statusBooked').addEventListener('change', applyFilters);
+    const filterSize = document.getElementById('filterSize');
+    if (filterSize) {
+        filterSize.addEventListener('change', applyFilters);
+    }
+    
+    const statusAvailable = document.getElementById('statusAvailable');
+    if (statusAvailable) {
+        statusAvailable.addEventListener('change', applyFilters);
+    }
+    
+    const statusReserved = document.getElementById('statusReserved');
+    if (statusReserved) {
+        statusReserved.addEventListener('change', applyFilters);
+    }
+    
+    const statusBooked = document.getElementById('statusBooked');
+    if (statusBooked) {
+        statusBooked.addEventListener('change', applyFilters);
+    }
+    
     document.querySelectorAll('.side-filter').forEach(checkbox => {
         checkbox.addEventListener('change', applyFilters);
     });
 }
 
 function applyFilters() {
-    const sizeFilter = document.getElementById('filterSize').value;
-    const priceMax = document.getElementById('priceRange').value;
-    const showAvailable = document.getElementById('statusAvailable').checked;
-    const showReserved = document.getElementById('statusReserved').checked;
-    const showBooked = document.getElementById('statusBooked').checked;
+    const filterSizeEl = document.getElementById('filterSize');
+    const priceRangeEl = document.getElementById('priceRange');
+    const statusAvailableEl = document.getElementById('statusAvailable');
+    const statusReservedEl = document.getElementById('statusReserved');
+    const statusBookedEl = document.getElementById('statusBooked');
+    
+    const sizeFilter = filterSizeEl ? filterSizeEl.value : 'all';
+    const priceMax = priceRangeEl ? priceRangeEl.value : 100000;
+    const showAvailable = statusAvailableEl ? statusAvailableEl.checked : true;
+    const showReserved = statusReservedEl ? statusReservedEl.checked : true; // Default to true to show reserved booths
+    const showBooked = statusBookedEl ? statusBookedEl.checked : true; // Default to true to show booked booths
     const selectedSides = Array.from(document.querySelectorAll('.side-filter:checked')).map(cb => parseInt(cb.id.replace('side', '')));
     
     document.querySelectorAll('.booth-item').forEach(booth => {
@@ -1208,34 +1239,45 @@ function setupPriceRange() {
     const range = document.getElementById('priceRange');
     const value = document.getElementById('priceRangeValue');
     
-    range.addEventListener('input', function() {
-        value.textContent = `Up to ₹${parseInt(this.value).toLocaleString()}`;
-        applyFilters();
-    });
+    if (range && value) {
+        range.addEventListener('input', function() {
+            value.textContent = `Up to ₹${parseInt(this.value).toLocaleString()}`;
+            applyFilters();
+        });
+    }
 }
 
 // Zoom
 function setupZoom() {
-    document.getElementById('zoomIn').addEventListener('click', () => {
-        currentZoom = Math.min(currentZoom + 0.1, 2);
-        applyZoom();
-    });
-    
-    document.getElementById('zoomOut').addEventListener('click', () => {
-        currentZoom = Math.max(currentZoom - 0.1, 0.5);
-        applyZoom();
-    });
-    
-    document.getElementById('resetView').addEventListener('click', () => {
-        currentZoom = 1;
-        applyZoom();
-        selectedBooths = [];
-        document.querySelectorAll('.booth-item').forEach(booth => {
-            booth.classList.remove('booth-selected');
+    const zoomIn = document.getElementById('zoomIn');
+    if (zoomIn) {
+        zoomIn.addEventListener('click', () => {
+            currentZoom = Math.min(currentZoom + 0.1, 2);
+            applyZoom();
         });
-        updateSelectedBoothsList();
-        updateProceedButton();
-    });
+    }
+    
+    const zoomOut = document.getElementById('zoomOut');
+    if (zoomOut) {
+        zoomOut.addEventListener('click', () => {
+            currentZoom = Math.max(currentZoom - 0.1, 0.5);
+            applyZoom();
+        });
+    }
+    
+    const resetView = document.getElementById('resetView');
+    if (resetView) {
+        resetView.addEventListener('click', () => {
+            currentZoom = 1;
+            applyZoom();
+            selectedBooths = [];
+            document.querySelectorAll('.booth-item').forEach(booth => {
+                booth.classList.remove('booth-selected');
+            });
+            updateSelectedBoothsList();
+            updateProceedButton();
+        });
+    }
 }
 
 function applyZoom() {
@@ -1246,21 +1288,27 @@ function applyZoom() {
 
 // Merge & Split
 function setupMergeSplit() {
-    document.getElementById('mergeBoothBtn').addEventListener('click', function() {
-        if (selectedBooths.length < 2) {
-            alert('Please select at least 2 booths to merge');
-            return;
-        }
-        requestMerge();
-    });
+    const mergeBoothBtn = document.getElementById('mergeBoothBtn');
+    if (mergeBoothBtn) {
+        mergeBoothBtn.addEventListener('click', function() {
+            if (selectedBooths.length < 2) {
+                alert('Please select at least 2 booths to merge');
+                return;
+            }
+            requestMerge();
+        });
+    }
     
-    document.getElementById('splitBoothBtn').addEventListener('click', function() {
-        if (selectedBooths.length !== 1) {
-            alert('Please select exactly 1 booth to split');
-            return;
-        }
-        requestSplit();
-    });
+    const splitBoothBtn = document.getElementById('splitBoothBtn');
+    if (splitBoothBtn) {
+        splitBoothBtn.addEventListener('click', function() {
+            if (selectedBooths.length !== 1) {
+                alert('Please select exactly 1 booth to split');
+                return;
+            }
+            requestSplit();
+        });
+    }
 }
 
 function requestMerge() {
@@ -1356,47 +1404,57 @@ function requestSplit() {
 // Proceed to Book
 function updateProceedButton() {
     const btn = document.getElementById('proceedToBookBtn');
-    btn.disabled = selectedBooths.length === 0;
+    if (btn) {
+        btn.disabled = selectedBooths.length === 0;
+    }
 }
 
-document.getElementById('proceedToBookBtn').addEventListener('click', function() {
-    if (selectedBooths.length === 0) return;
-    
-    const detailsUrl = "{{ route('bookings.details', $exhibition->id) }}";
-    const params = new URLSearchParams();
-    params.set('booths', selectedBooths.join(','));
-    if (selectedServices.length > 0) {
-        params.set('services', selectedServices.map(s => s.id).join(','));
-    }
-    window.location.href = `${detailsUrl}?${params.toString()}`;
-});
+const proceedToBookBtn = document.getElementById('proceedToBookBtn');
+if (proceedToBookBtn) {
+    proceedToBookBtn.addEventListener('click', function() {
+        if (selectedBooths.length === 0) return;
+        
+        const detailsUrl = "{{ route('bookings.details', $exhibition->id) }}";
+        const params = new URLSearchParams();
+        params.set('booths', selectedBooths.join(','));
+        if (selectedServices.length > 0) {
+            params.set('services', selectedServices.map(s => s.id).join(','));
+        }
+        window.location.href = `${detailsUrl}?${params.toString()}`;
+    });
+}
 
-// Add Additional Contacts
-document.getElementById('addContactBtn').addEventListener('click', function() {
-    if (contactCount >= 4) {
-        alert('Maximum 5 contacts allowed');
-        return;
-    }
-    
-    const container = document.getElementById('additionalContacts');
-    const row = document.createElement('div');
-    row.className = 'row mb-2';
-    row.innerHTML = `
-        <div class="col-md-6 mb-2">
-            <input type="email" class="form-control" name="contact_emails[]" placeholder="Additional Email">
-        </div>
-        <div class="col-md-5 mb-2">
-            <input type="tel" class="form-control" name="contact_numbers[]" placeholder="Additional Phone">
-        </div>
-        <div class="col-md-1 mb-2">
-            <button type="button" class="btn btn-sm btn-danger w-100" onclick="this.closest('.row').remove(); contactCount--;">
-                <i class="bi bi-trash"></i>
-            </button>
-        </div>
-    `;
-    container.appendChild(row);
-    contactCount++;
-});
+// Add Additional Contacts (only if element exists)
+const addContactBtn = document.getElementById('addContactBtn');
+if (addContactBtn) {
+    addContactBtn.addEventListener('click', function() {
+        if (contactCount >= 4) {
+            alert('Maximum 5 contacts allowed');
+            return;
+        }
+        
+        const container = document.getElementById('additionalContacts');
+        if (container) {
+            const row = document.createElement('div');
+            row.className = 'row mb-2';
+            row.innerHTML = `
+                <div class="col-md-6 mb-2">
+                    <input type="email" class="form-control" name="contact_emails[]" placeholder="Additional Email">
+                </div>
+                <div class="col-md-5 mb-2">
+                    <input type="tel" class="form-control" name="contact_numbers[]" placeholder="Additional Phone">
+                </div>
+                <div class="col-md-1 mb-2">
+                    <button type="button" class="btn btn-sm btn-danger w-100" onclick="this.closest('.row').remove(); contactCount--;">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            `;
+            container.appendChild(row);
+            contactCount++;
+        }
+    });
+}
 </script>
 @endpush
 @endsection

@@ -198,9 +198,41 @@ class FloorplanController extends Controller
         $exhibition = Exhibition::findOrFail($exhibitionId);
         $path = "floorplans/exhibition_{$exhibition->id}.json";
 
+        // Get actual booth statuses from database
+        $dbBooths = Booth::where('exhibition_id', $exhibitionId)
+            ->get(['id', 'name', 'is_booked', 'is_available'])
+            ->keyBy('name'); // Key by name for matching
+
         if (Storage::disk('local')->exists($path)) {
             $json = Storage::disk('local')->get($path);
-            return response($json, 200)->header('Content-Type', 'application/json');
+            $config = json_decode($json, true);
+            
+            // Sync booth statuses with database
+            if (isset($config['booths']) && is_array($config['booths'])) {
+                foreach ($config['booths'] as &$booth) {
+                    // Try to match by booth ID (name) - JSON booths use 'id' field which is the booth name
+                    $boothName = $booth['id'] ?? $booth['name'] ?? null;
+                    if ($boothName && isset($dbBooths[$boothName])) {
+                        $dbBooth = $dbBooths[$boothName];
+                        // Update status based on database values
+                        // Priority: booked > available > reserved
+                        if ($dbBooth->is_booked) {
+                            $booth['status'] = 'booked';
+                        } elseif ($dbBooth->is_available) {
+                            $booth['status'] = 'available';
+                        } else {
+                            $booth['status'] = 'reserved';
+                        }
+                    } elseif ($boothName) {
+                        // Booth exists in JSON but not in database - default to available
+                        if (!isset($booth['status'])) {
+                            $booth['status'] = 'available';
+                        }
+                    }
+                }
+            }
+            
+            return response()->json($config, 200)->header('Content-Type', 'application/json');
         }
 
         // Default empty structure

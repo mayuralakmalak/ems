@@ -65,8 +65,8 @@ class AdminFloorplanManager {
             this.updateGrid();
         }, 100);
 
-        // Optional: load saved config if available
-        await this.loadConfiguration();
+        // Optional: load saved config if available (silently, without alerts)
+        await this.loadConfigurationSilently();
     }
 
     // Draw hall outline - aligned to grid
@@ -613,10 +613,11 @@ class AdminFloorplanManager {
                         status: 'available',
                         size: this.getSizeCategory(width, height),
                         area: Math.round((width * height) / (this.gridConfig.size * this.gridConfig.size) * 100), // Approximate sq ft
-                        price: 10000,
-                        openSides: 2,
+                        // Pricing and inclusions are managed elsewhere (size config)
+                        price: 0,
+                        openSides: 0,
                         category: 'Standard',
-                        includedItems: ['Table', '2 Chairs', 'Power Outlet']
+                        includedItems: []
                     };
 
                     this.addBooth(booth);
@@ -745,7 +746,9 @@ class AdminFloorplanManager {
         rect.setAttribute('y', booth.y);
         rect.setAttribute('width', booth.width);
         rect.setAttribute('height', booth.height);
-        rect.setAttribute('class', `booth-admin ${booth.status}`);
+        // Ensure status is always valid, default to 'available' if not set
+        const status = booth.status || 'available';
+        rect.setAttribute('class', `booth-admin ${status}`);
         rect.setAttribute('rx', '4');
 
         const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
@@ -770,7 +773,9 @@ class AdminFloorplanManager {
             rect.setAttribute('y', booth.y);
             rect.setAttribute('width', booth.width);
             rect.setAttribute('height', booth.height);
-            rect.setAttribute('class', `booth-admin ${booth.status}`);
+            // Ensure status is always valid, default to 'available' if not set
+            const status = booth.status || 'available';
+            rect.setAttribute('class', `booth-admin ${status}`);
 
             label.setAttribute('x', booth.x + booth.width / 2);
             label.setAttribute('y', booth.y + booth.height / 2);
@@ -863,10 +868,7 @@ class AdminFloorplanManager {
         document.getElementById('boothStatus').value = booth.status;
         document.getElementById('boothSize').value = booth.size;
         document.getElementById('boothArea').value = booth.area;
-        document.getElementById('boothPrice').value = booth.price;
-        document.getElementById('boothOpenSides').value = booth.openSides;
         document.getElementById('boothCategory').value = booth.category;
-        document.getElementById('boothItems').value = booth.includedItems.join(', ');
     }
 
     // Update booth from properties
@@ -883,10 +885,8 @@ class AdminFloorplanManager {
             booth.status = document.getElementById('boothStatus').value;
             booth.size = document.getElementById('boothSize').value;
             booth.area = parseInt(document.getElementById('boothArea').value);
-            booth.price = parseInt(document.getElementById('boothPrice').value);
-            booth.openSides = parseInt(document.getElementById('boothOpenSides').value);
             booth.category = document.getElementById('boothCategory').value;
-            booth.includedItems = document.getElementById('boothItems').value.split(',').map(s => s.trim());
+            // Keep price/openSides/includedItems as-is (managed by size configuration)
 
             // Update size category based on dimensions
             booth.size = this.getSizeCategory(booth.width, booth.height);
@@ -938,10 +938,11 @@ class AdminFloorplanManager {
                 status: document.getElementById('boothStatus').value,
                 size: this.getSizeCategory(width, height),
                 area: Math.round((width * height) / (this.gridConfig.size * this.gridConfig.size) * 100),
-                price: parseInt(document.getElementById('boothPrice').value) || 10000,
-                openSides: parseInt(document.getElementById('boothOpenSides').value) || 2,
+                // Pricing/open sides/items are driven by size configuration; keep neutral defaults
+                price: 0,
+                openSides: 0,
                 category: document.getElementById('boothCategory').value,
-                includedItems: document.getElementById('boothItems').value.split(',').map(s => s.trim())
+                includedItems: []
             };
 
             this.addBooth(booth);
@@ -1168,10 +1169,13 @@ class AdminFloorplanManager {
             status: booth1.status, // Keep first booth's status
             size: this.getSizeCategory(mergedWidth, mergedHeight),
             area: Math.round((mergedWidth * mergedHeight) / (this.gridConfig.size * this.gridConfig.size) * 100),
-            price: booth1.price + booth2.price, // Combine prices
-            openSides: Math.max(booth1.openSides, booth2.openSides),
+            price: (Number(booth1.price) || 0) + (Number(booth2.price) || 0), // Combine prices if provided
+            openSides: Math.max(Number(booth1.openSides) || 0, Number(booth2.openSides) || 0),
             category: booth1.category === booth2.category ? booth1.category : 'Premium',
-            includedItems: [...new Set([...booth1.includedItems, ...booth2.includedItems])] // Combine unique items
+            includedItems: [...new Set([
+                    ...(Array.isArray(booth1.includedItems) ? booth1.includedItems : []),
+                    ...(Array.isArray(booth2.includedItems) ? booth2.includedItems : [])
+                ])] // Combine unique items safely
         };
 
         // Delete original booths
@@ -1318,10 +1322,11 @@ class AdminFloorplanManager {
                     status: 'available',
                     size: this.getSizeCategory(boothWidth, boothHeight),
                     area: Math.round((boothWidth * boothHeight) / (gridSize * gridSize) * 100), // Approximate sq ft based on grid
-                    price: 5000 + Math.floor(Math.random() * 15000),
-                    openSides: 2,
+                    // Pricing and inclusions handled by size configuration
+                    price: 0,
+                    openSides: 0,
                     category: 'Standard',
-                    includedItems: ['Table', '2 Chairs', 'Power Outlet']
+                    includedItems: []
                 };
 
                 this.addBooth(booth);
@@ -1428,7 +1433,78 @@ class AdminFloorplanManager {
         }
     }
 
-    // Load configuration from JSON file
+    // Load configuration silently (for automatic loading on page load)
+    async loadConfigurationSilently() {
+        if (!this.exhibitionId) return;
+
+        try {
+            const response = await fetch(`/admin/exhibitions/${this.exhibitionId}/floorplan/config`, {
+                headers: { 'Accept': 'application/json' }
+            });
+            const config = await response.json();
+
+            // Load if there are booths OR if there's a hall config (more lenient check)
+            const hasBooths = config.booths && Array.isArray(config.booths) && config.booths.length > 0;
+            const hasHall = config.hall && typeof config.hall === 'object';
+
+            if (hasBooths || hasHall) {
+                if (config.hall) {
+                    this.hallConfig = config.hall;
+                }
+                if (config.grid) {
+                    this.gridConfig = config.grid;
+                }
+                this.booths = config.booths || [];
+
+                // Normalize booth statuses - ensure all booths have valid status and optional fields are safe
+                this.booths.forEach(booth => {
+                    // Preserve existing values, only normalize if missing
+                    if (booth.price === undefined || booth.price === null) {
+                        booth.price = 0;
+                    } else {
+                        booth.price = Number(booth.price) || 0;
+                    }
+                    if (booth.openSides === undefined || booth.openSides === null) {
+                        booth.openSides = 0;
+                    } else {
+                        booth.openSides = Number(booth.openSides) || 0;
+                    }
+                    if (!Array.isArray(booth.includedItems)) {
+                        booth.includedItems = [];
+                    }
+                    if (!booth.status || !['available', 'reserved', 'booked'].includes(booth.status)) {
+                        booth.status = 'available';
+                    }
+                });
+
+                // Update UI
+                this.svg.setAttribute('viewBox', `0 0 ${this.hallConfig.width} ${this.hallConfig.height}`);
+                this.updateGrid();
+                this.drawHall();
+
+                // Clear and redraw booths
+                this.boothsGroup.innerHTML = '';
+                this.booths.forEach(booth => this.drawBooth(booth));
+
+                // Update grid settings UI
+                const gridSizeEl = document.getElementById('gridSize');
+                const showGridEl = document.getElementById('showGrid');
+                const snapEnabledEl = document.getElementById('snapEnabled');
+
+                if (gridSizeEl) gridSizeEl.value = this.gridConfig.size;
+                if (showGridEl) showGridEl.checked = this.gridConfig.show;
+                if (snapEnabledEl) snapEnabledEl.checked = this.gridConfig.snap;
+
+                this.updateBoothsList();
+                this.updateCounts();
+            }
+        } catch (error) {
+            console.error('Error loading configuration silently:', error);
+            // Silently fail on initialization
+        }
+    }
+
+    // Load configuration from JSON file (with alerts for manual loading)
     async loadConfiguration() {
         if (!this.exhibitionId) return;
         if (!confirm('Load floor plan from server? This will replace current setup.')) return;
@@ -1446,6 +1522,27 @@ class AdminFloorplanManager {
                 this.gridConfig = config.grid;
             }
             this.booths = config.booths || [];
+
+            // Normalize booth statuses - ensure all booths have valid status and optional fields are safe
+            this.booths.forEach(booth => {
+                // Preserve existing values, only normalize if missing
+                if (booth.price === undefined || booth.price === null) {
+                    booth.price = 0;
+                } else {
+                    booth.price = Number(booth.price) || 0;
+                }
+                if (booth.openSides === undefined || booth.openSides === null) {
+                    booth.openSides = 0;
+                } else {
+                    booth.openSides = Number(booth.openSides) || 0;
+                }
+                if (!Array.isArray(booth.includedItems)) {
+                    booth.includedItems = Array.isArray(booth.includedItems) ? booth.includedItems : [];
+                }
+                if (!booth.status || !['available', 'reserved', 'booked'].includes(booth.status)) {
+                    booth.status = 'available';
+                }
+            });
 
             // Update UI
             this.svg.setAttribute('viewBox', `0 0 ${this.hallConfig.width} ${this.hallConfig.height}`);

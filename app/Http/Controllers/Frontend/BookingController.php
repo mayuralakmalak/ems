@@ -65,24 +65,106 @@ class BookingController extends Controller
 
     public function book($exhibitionId)
     {
-        // Load exhibition with booth visibility rules:
-        //  - Show main booths (parent_booth_id null) that are NOT split parents
-        //  - Show split children (parent_booth_id not null AND is_split true)
-        //  - Hide merged originals (parent_booth_id not null AND is_split false)
+        // Load exhibition with all booths - show all booths regardless of status
+        // Only hide merged originals (parent_booth_id not null AND is_split false)
+        // Show all main booths (parent_booth_id is null) and split children
         $exhibition = Exhibition::with(['booths' => function($query) {
             $query->where(function($q) {
-                // Main booths (including merged booth itself) but not split parents
-                $q->whereNull('parent_booth_id')
-                  ->where('is_split', false);
+                // Show all main booths (parent_booth_id is null) - including split parents
+                $q->whereNull('parent_booth_id');
             })->orWhere(function($q) {
-                // Split children
+                // Show split children (parent_booth_id not null AND is_split true)
+                $q->whereNotNull('parent_booth_id')
+                  ->where('is_split', true);
+            })
+            // This excludes merged originals (parent_booth_id not null AND is_split false)
+            ->orderBy('name', 'asc');
+        }, 'services', 'stallSchemes'])->findOrFail($exhibitionId);
+        
+        // Sync booths from JSON floorplan if they don't exist in database
+        $this->syncBoothsFromJson($exhibition);
+        
+        // Reload exhibition with booths after sync
+        $exhibition->load(['booths' => function($query) {
+            $query->where(function($q) {
+                $q->whereNull('parent_booth_id');
+            })->orWhere(function($q) {
                 $q->whereNotNull('parent_booth_id')
                   ->where('is_split', true);
             })
             ->orderBy('name', 'asc');
-        }, 'services', 'stallSchemes'])->findOrFail($exhibitionId);
+        }]);
         
         return view('frontend.bookings.book', compact('exhibition'));
+    }
+    
+    /**
+     * Sync booths from JSON floorplan file to database
+     */
+    private function syncBoothsFromJson($exhibition)
+    {
+        // Try both possible paths
+        $path1 = "floorplans/exhibition_{$exhibition->id}.json";
+        $path2 = "private/floorplans/exhibition_{$exhibition->id}.json";
+        
+        $path = null;
+        if (\Illuminate\Support\Facades\Storage::disk('local')->exists($path1)) {
+            $path = $path1;
+        } elseif (\Illuminate\Support\Facades\Storage::disk('local')->exists($path2)) {
+            $path = $path2;
+        }
+        
+        if (!$path) {
+            return; // No JSON file exists
+        }
+        
+        $json = \Illuminate\Support\Facades\Storage::disk('local')->get($path);
+        $config = json_decode($json, true);
+        
+        if (!isset($config['booths']) || !is_array($config['booths'])) {
+            return; // No booths in JSON
+        }
+        
+        // Get existing booths by name
+        $existingBooths = \App\Models\Booth::where('exhibition_id', $exhibition->id)
+            ->pluck('name')
+            ->toArray();
+        
+        foreach ($config['booths'] as $boothData) {
+            $boothName = $boothData['id'] ?? $boothData['name'] ?? null;
+            
+            if (!$boothName || in_array($boothName, $existingBooths)) {
+                continue; // Skip if no name or already exists
+            }
+            
+            // Map JSON booth data to database fields
+            $status = $boothData['status'] ?? 'available';
+            $area = $boothData['area'] ?? 100; // sq ft
+            $price = $boothData['price'] ?? 0;
+            $category = $boothData['category'] ?? 'Standard';
+            $openSides = $boothData['openSides'] ?? 2;
+            
+            // Determine booth type (default to Raw)
+            $boothType = 'Raw';
+            
+            // Create booth in database
+            \App\Models\Booth::create([
+                'exhibition_id' => $exhibition->id,
+                'name' => $boothName,
+                'category' => $category,
+                'booth_type' => $boothType,
+                'size_sqft' => $area,
+                'sides_open' => $openSides,
+                'price' => $price,
+                'position_x' => $boothData['x'] ?? null,
+                'position_y' => $boothData['y'] ?? null,
+                'width' => $boothData['width'] ?? 100,
+                'height' => $boothData['height'] ?? 100,
+                'is_available' => ($status === 'available'),
+                'is_booked' => ($status === 'booked'),
+                'is_free' => false,
+            ]);
+        }
     }
 
     public function details(Request $request, $exhibitionId)

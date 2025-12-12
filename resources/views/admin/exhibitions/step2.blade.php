@@ -129,29 +129,12 @@
                                     <input type="number" id="boothArea" value="100" min="10" max="1000">
                                 </div>
                                 <div class="form-group">
-                                    <label>Price ($):</label>
-                                    <input type="number" id="boothPrice" value="10000" min="0" step="100">
-                                </div>
-                                <div class="form-group">
-                                    <label>Open Sides:</label>
-                                    <select id="boothOpenSides">
-                                        <option value="1">1 Side</option>
-                                        <option value="2">2 Sides</option>
-                                        <option value="3">3 Sides</option>
-                                        <option value="4">4 Sides</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
                                     <label>Category:</label>
                                     <select id="boothCategory">
                                         <option value="Standard">Standard</option>
                                         <option value="Premium">Premium</option>
                                         <option value="VIP">VIP</option>
                                     </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>Included Items (comma-separated):</label>
-                                    <input type="text" id="boothItems" placeholder="Table, 2 Chairs, Power">
                                 </div>
                                 <div class="button-group">
                                 <button type="button" id="saveBooth" class="btn-primary">Save Booth</button>
