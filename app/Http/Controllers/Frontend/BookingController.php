@@ -410,10 +410,22 @@ class BookingController extends Controller
 
     private function calculateBoothPrice(Booth $booth, Exhibition $exhibition, string $type, int $sides): float
     {
-        $basePrice = $type === 'Raw'
+        $size = $booth->size_sqft ?? 0;
+        
+        // Base price from exhibition (not multiplied by size)
+        $basePrice = $exhibition->price_per_sqft ?? 0;
+        
+        // Add Raw/Orphand price per sqft * size to base price
+        $rawOrphandPricePerSqft = $type === 'Raw'
             ? ($exhibition->raw_price_per_sqft ?? 0)
             : ($exhibition->orphand_price_per_sqft ?? 0);
+        
+        $rawOrphandAddition = $rawOrphandPricePerSqft * $size;
+        
+        // Start with base price + Raw/Orphand addition
+        $price = $basePrice + $rawOrphandAddition;
 
+        // Add side percentage amount (not multiplied, but added)
         $sidePercent = match ($sides) {
             1 => $exhibition->side_1_open_percent ?? 0,
             2 => $exhibition->side_2_open_percent ?? 0,
@@ -422,8 +434,9 @@ class BookingController extends Controller
             default => 0,
         };
 
-        $price = $basePrice * ($booth->size_sqft ?? 0) * (1 + ($sidePercent / 100));
+        $price = $price + $sidePercent;
 
+        // Add/subtract category premium/economy price
         if (($booth->category ?? 'Standard') === 'Premium') {
             $price += $exhibition->premium_price ?? 0;
         } elseif (($booth->category ?? 'Standard') === 'Economy') {

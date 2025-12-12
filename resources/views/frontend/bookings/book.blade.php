@@ -772,46 +772,6 @@
                 </button>
             </div>
         </div>
-        
-        <!-- Additional Services (shown after booth selection) -->
-        @if($exhibition->services && $exhibition->services->where('is_active', true)->count() > 0)
-        <div class="panel-card services-card" id="servicesCard" style="display: none;">
-            <h5 class="panel-title">Additional Services</h5>
-            <div class="services-list">
-                @foreach($exhibition->services->where('is_active', true)->groupBy('category') as $category => $categoryServices)
-                    @if($category)
-                    <div style="margin-bottom: 15px;">
-                        <h6 style="font-size: 0.9rem; color: #64748b; margin-bottom: 10px; font-weight: 600;">{{ $category }}</h6>
-                    </div>
-                    @endif
-                    @foreach($categoryServices as $service)
-                    <div class="service-item">
-                        <div style="display: flex; justify-content: space-between; align-items: start; gap: 10px;">
-                            <div style="flex: 1;">
-                                <div class="service-name" style="margin-bottom: 5px;">{{ $service->name }}</div>
-                                <div class="service-price" style="margin-bottom: 5px;">₹{{ number_format($service->price, 2) }}</div>
-                                @if($service->image)
-                                <button type="button" class="btn-view-image" onclick="openImageGallery({{ $service->id }}, '{{ asset('storage/' . $service->image) }}', '{{ $service->name }}')" style="padding: 4px 12px; background: #6366f1; color: white; border: none; border-radius: 4px; font-size: 0.75rem; cursor: pointer; margin-top: 5px;">
-                                    <i class="bi bi-image me-1"></i>View Image
-                                </button>
-                                @endif
-                            </div>
-                            <div>
-                                <input type="checkbox" class="service-checkbox" data-service-id="{{ $service->id }}" data-service-price="{{ $service->price }}" data-service-name="{{ $service->name }}" onchange="updateServiceSelection()">
-                            </div>
-                        </div>
-                    </div>
-                    @endforeach
-                @endforeach
-            </div>
-            <div id="servicesTotal" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 0.9rem; color: #64748b;">Services Total:</span>
-                    <span style="font-weight: 600; color: #6366f1;" id="servicesTotalAmount">₹0</span>
-                </div>
-            </div>
-        </div>
-        @endif
 
         <!-- Selected Booths -->
         <div class="panel-card">
@@ -831,12 +791,15 @@
             </button>
         </div>
 
-        <!-- Additional Services (shown after booth selection) -->
-        @if($exhibition->services && $exhibition->services->where('is_active', true)->count() > 0)
-        <div class="panel-card services-card" id="servicesCard" style="display: none;">
+        <!-- Additional Services -->
+        @php
+            $activeServices = $exhibition->services ? $exhibition->services->where('is_active', true) : collect();
+        @endphp
+        @if($activeServices->count() > 0)
+        <div class="panel-card services-card" id="servicesCard">
             <h5 class="panel-title">Additional Services</h5>
             <div class="services-list">
-                @foreach($exhibition->services->where('is_active', true)->groupBy('category') as $category => $categoryServices)
+                @foreach($activeServices->groupBy('category') as $category => $categoryServices)
                     @if($category)
                     <div style="margin-bottom: 15px;">
                         <h6 style="font-size: 0.9rem; color: #64748b; margin-bottom: 10px; font-weight: 600;">{{ $category }}</h6>
@@ -847,6 +810,9 @@
                         <div style="display: flex; justify-content: space-between; align-items: start; gap: 10px;">
                             <div style="flex: 1;">
                                 <div class="service-name" style="margin-bottom: 5px;">{{ $service->name }}</div>
+                                @if($service->description)
+                                <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 5px;">{{ $service->description }}</div>
+                                @endif
                                 <div class="service-price" style="margin-bottom: 5px;">₹{{ number_format($service->price, 2) }}</div>
                                 @if($service->image)
                                 <button type="button" class="btn-view-image" onclick="openImageGallery({{ $service->id }}, '{{ asset('storage/' . $service->image) }}', '{{ $service->name }}')" style="padding: 4px 12px; background: #6366f1; color: white; border: none; border-radius: 4px; font-size: 0.75rem; cursor: pointer; margin-top: 5px;">
@@ -898,6 +864,7 @@ let contactCount = 0;
 let boothSelections = {};
 
 const pricingConfig = {
+    basePricePerSqft: {{ $exhibition->price_per_sqft ?? 0 }},
     rawPricePerSqft: {{ $exhibition->raw_price_per_sqft ?? 0 }},
     orphanPricePerSqft: {{ $exhibition->orphand_price_per_sqft ?? 0 }},
     sidePercents: {
@@ -1011,12 +978,25 @@ function renderBoothSelectionControls(boothId) {
 
 function computeBoothPrice(booth, selection) {
     if (!booth) return 0;
+    
     const size = parseFloat(booth.getAttribute('data-booth-size')) || 0;
     const category = booth.getAttribute('data-booth-category') || 'Standard';
-    const basePrice = selection.type === 'Raw' ? pricingConfig.rawPricePerSqft : pricingConfig.orphanPricePerSqft;
+    
+    // Base price from exhibition (not multiplied by size)
+    const basePrice = pricingConfig.basePricePerSqft;
+    
+    // Add Raw/Orphand price per sqft * size to base price
+    const rawOrphandPricePerSqft = selection.type === 'Raw' ? pricingConfig.rawPricePerSqft : pricingConfig.orphanPricePerSqft;
+    const rawOrphandAddition = rawOrphandPricePerSqft * size;
+    
+    // Start with base price + Raw/Orphand addition
+    let price = basePrice + rawOrphandAddition;
+    
+    // Add side percentage amount (not multiplied, but added)
     const sidePercent = pricingConfig.sidePercents[selection.sides] || 0;
-    let price = basePrice * size * (1 + sidePercent / 100);
+    price = price + sidePercent;
 
+    // Add/subtract category premium/economy price
     if (category === 'Premium') {
         price += pricingConfig.premiumPrice;
     } else if (category === 'Economy') {
@@ -1032,7 +1012,7 @@ function applyBoothSelection(boothId) {
     const selection = boothSelections[boothId];
     const price = computeBoothPrice(booth, selection);
     booth.setAttribute('data-booth-price', price.toFixed(2));
-    updateBoothPriceDisplay(price);
+    updateBoothPriceDisplay(price, selection, booth);
     if (selectedBooths.includes(boothId)) {
         updateSelectedBoothsList();
     }
@@ -1043,14 +1023,26 @@ function syncBoothSelectionDisplay(boothId) {
     const selection = boothSelections[boothId];
     const booth = document.querySelector(`[data-booth-id="${boothId}"]`);
     const price = computeBoothPrice(booth, selection);
-    updateBoothPriceDisplay(price, selection);
+    updateBoothPriceDisplay(price, selection, booth);
+    
+    // Update selected booths list if this booth is selected
+    if (selectedBooths.includes(boothId)) {
+        updateSelectedBoothsList();
+    }
 }
 
-function updateBoothPriceDisplay(price = 0, selection = null) {
+function updateBoothPriceDisplay(price = 0, selection = null, booth = null) {
     const priceEl = document.getElementById('boothDetailPrice');
     const calcPriceEl = document.getElementById('boothCalculatedPrice');
     if (priceEl) priceEl.textContent = `₹${Number(price).toLocaleString()}`;
     if (calcPriceEl) calcPriceEl.textContent = `₹${Number(price).toLocaleString()}`;
+
+    // Update base price display
+    if (booth) {
+        const basePrice = pricingConfig.basePricePerSqft;
+        const basePriceEl = document.getElementById('boothBasePrice');
+        if (basePriceEl) basePriceEl.textContent = `₹${Number(basePrice).toLocaleString()}`;
+    }
 
     if (selection) {
         const typeEl = document.getElementById('boothDetailType');
@@ -1100,7 +1092,11 @@ function showBoothDetails(boothId) {
             <span class="detail-value">${booth.getAttribute('data-booth-size')} sq ft</span>
         </div>
         <div class="detail-row">
-            <span class="detail-label">Price</span>
+            <span class="detail-label">Base Price</span>
+            <span class="detail-value" id="boothBasePrice">₹0</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Final Price</span>
             <span class="detail-value price" id="boothDetailPrice">₹0</span>
         </div>
         <div class="detail-row">
@@ -1122,6 +1118,9 @@ function showBoothDetails(boothId) {
     `;
     
     renderBoothSelectionControls(boothId);
+    
+    // Calculate and display initial price
+    syncBoothSelectionDisplay(boothId);
 
     panel.style.display = 'block';
     
@@ -1283,16 +1282,8 @@ function updateTotalAmount() {
 function toggleServicesCard() {
     const servicesCard = document.getElementById('servicesCard');
     if (!servicesCard) return;
-    const shouldShow = selectedBooths.length > 0;
-    servicesCard.style.display = shouldShow ? 'block' : 'none';
-
-    if (!shouldShow) {
-        // Clear service selections when hidden so totals stay accurate
-        document.querySelectorAll('.service-checkbox').forEach(cb => cb.checked = false);
-        selectedServices = [];
-        document.getElementById('servicesTotal').style.display = 'none';
-        updateTotalAmount();
-    }
+    // Always show services card if it exists (services are available)
+    servicesCard.style.display = 'block';
 }
 
 function openImageGallery(serviceId, imageUrl, serviceName) {
@@ -1537,31 +1528,36 @@ document.getElementById('proceedToBookBtn').addEventListener('click', function()
 });
 
 // Add Additional Contacts
-document.getElementById('addContactBtn').addEventListener('click', function() {
-    if (contactCount >= 4) {
-        alert('Maximum 5 contacts allowed');
-        return;
-    }
-    
-    const container = document.getElementById('additionalContacts');
-    const row = document.createElement('div');
-    row.className = 'row mb-2';
-    row.innerHTML = `
-        <div class="col-md-6 mb-2">
-            <input type="email" class="form-control" name="contact_emails[]" placeholder="Additional Email">
-        </div>
-        <div class="col-md-5 mb-2">
-            <input type="tel" class="form-control" name="contact_numbers[]" placeholder="Additional Phone">
-        </div>
-        <div class="col-md-1 mb-2">
-            <button type="button" class="btn btn-sm btn-danger w-100" onclick="this.closest('.row').remove(); contactCount--;">
-                <i class="bi bi-trash"></i>
-            </button>
-        </div>
-    `;
-    container.appendChild(row);
-    contactCount++;
-});
+const addContactBtn = document.getElementById('addContactBtn');
+if (addContactBtn) {
+    addContactBtn.addEventListener('click', function() {
+        if (contactCount >= 4) {
+            alert('Maximum 5 contacts allowed');
+            return;
+        }
+        
+        const container = document.getElementById('additionalContacts');
+        if (!container) return;
+        
+        const row = document.createElement('div');
+        row.className = 'row mb-2';
+        row.innerHTML = `
+            <div class="col-md-6 mb-2">
+                <input type="email" class="form-control" name="contact_emails[]" placeholder="Additional Email">
+            </div>
+            <div class="col-md-5 mb-2">
+                <input type="tel" class="form-control" name="contact_numbers[]" placeholder="Additional Phone">
+            </div>
+            <div class="col-md-1 mb-2">
+                <button type="button" class="btn btn-sm btn-danger w-100" onclick="this.closest('.row').remove(); contactCount--;">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        `;
+        container.appendChild(row);
+        contactCount++;
+    });
+}
 </script>
 @endpush
 @endsection
