@@ -137,12 +137,27 @@
 @php
     $booking = $payment->booking;
     $exhibition = $booking->exhibition ?? null;
-    $boothIds = collect($booking->selected_booth_ids ?? []);
-    if ($boothIds->isEmpty() && $booking->booth_id) {
-        $boothIds = collect([$booking->booth_id]);
+    $boothEntries = collect($booking->selected_booth_ids ?? []);
+    if ($boothEntries->isEmpty() && $booking->booth_id) {
+        $boothEntries = collect([['id' => $booking->booth_id]]);
     }
-    $booths = \App\Models\Booth::whereIn('id', $boothIds)->get();
-    $boothTotal = $booths->sum('price');
+    $boothIds = $boothEntries->map(fn($entry) => is_array($entry) ? ($entry['id'] ?? null) : $entry)
+        ->filter()
+        ->values();
+    $booths = \App\Models\Booth::whereIn('id', $boothIds)->get()->keyBy('id');
+    $boothDisplay = $boothEntries->map(function($entry) use ($booths) {
+        $isArray = is_array($entry);
+        $id = $isArray ? ($entry['id'] ?? null) : $entry;
+        $model = $id ? ($booths[$id] ?? null) : null;
+        return [
+            'name' => $isArray ? ($entry['name'] ?? $model?->name) : ($model?->name),
+            'size_sqft' => $isArray ? ($entry['size_sqft'] ?? $model?->size_sqft) : ($model?->size_sqft),
+            'type' => $isArray ? ($entry['type'] ?? null) : ($model?->booth_type),
+            'sides' => $isArray ? ($entry['sides'] ?? null) : ($model?->sides_open),
+            'price' => $isArray ? ($entry['price'] ?? $model?->price ?? 0) : ($model?->price ?? 0),
+        ];
+    })->filter(fn($b) => $b['name'] || $b['price']);
+    $boothTotal = $boothDisplay->sum(fn($b) => $b['price'] ?? 0);
     $services = $booking->bookingServices()->with('service')->get();
     $servicesTotal = $services->sum('total_price');
     $gateway = $payment->gateway_charge ?? 0;
@@ -213,20 +228,22 @@
                 <tr>
                     <th>Booth</th>
                     <th>Size (sq ft)</th>
+                    <th>Sides Open</th>
                     <th>Type</th>
                     <th>Price (₹)</th>
                 </tr>
             </thead>
             <tbody>
-                @forelse($booths as $booth)
+                @forelse($boothDisplay as $booth)
                 <tr>
-                    <td>{{ $booth->name }}</td>
-                    <td>{{ $booth->size_sqft ?? '—' }}</td>
-                    <td>{{ $booth->booth_type ?? '—' }}</td>
-                    <td>{{ number_format($booth->price, 2) }}</td>
+                    <td>{{ $booth['name'] ?? '—' }}</td>
+                    <td>{{ $booth['size_sqft'] ?? '—' }}</td>
+                    <td>{{ $booth['sides'] ?? '—' }}</td>
+                    <td>{{ $booth['type'] ?? '—' }}</td>
+                    <td>{{ number_format($booth['price'] ?? 0, 2) }}</td>
                 </tr>
                 @empty
-                <tr><td colspan="4">No booth information available.</td></tr>
+                <tr><td colspan="5">No booth information available.</td></tr>
                 @endforelse
             </tbody>
         </table>

@@ -170,11 +170,10 @@
             </div>
         </div>
         
-        @if($payment->payment_method !== 'wallet' && $payment->payment_method !== 'online' && $payment->approval_status === 'pending')
         <div class="card mt-4" style="background: #fef3c7; border: 2px solid #f59e0b;">
             <div class="card-body">
                 <h6 class="card-title"><i class="bi bi-upload me-2"></i>Upload Payment Proof</h6>
-                <p class="card-text text-muted mb-3">Please upload proof of payment (PDF, Image, or DOC) for admin approval.</p>
+                <p class="card-text text-muted mb-3">Please upload proof of payment (PDF, Image, or DOC) for admin review.</p>
                 <form method="POST" action="{{ route('payments.upload-proof', $payment->id) }}" enctype="multipart/form-data">
                     @csrf
                     <div class="mb-3">
@@ -195,7 +194,6 @@
                 @endif
             </div>
         </div>
-        @endif
         
         <div class="action-buttons">
             <a href="{{ route('dashboard') }}" class="btn-action btn-dashboard">

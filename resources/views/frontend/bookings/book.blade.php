@@ -294,6 +294,46 @@
         padding: 20px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.05);
     }
+
+.selection-group {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.selection-group h6 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 10px;
+}
+
+.radio-inline,
+.checkbox-inline {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.radio-inline label,
+.checkbox-inline label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    cursor: pointer;
+    background: #f8fafc;
+    font-size: 0.9rem;
+    color: #334155;
+}
+
+.radio-inline input,
+.checkbox-inline input {
+    width: 16px;
+    height: 16px;
+}
     
     .panel-title {
         font-size: 1.1rem;
@@ -580,27 +620,6 @@
                 </div>
             </div>
             
-            <div class="filter-group">
-                <label>Open Sides</label>
-                <div class="checkbox-group">
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="side1" class="side-filter">
-                        <label for="side1">1 Side</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="side2" class="side-filter">
-                        <label for="side2">2 Sides</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="side3" class="side-filter">
-                        <label for="side3">3 Sides</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="side4" class="side-filter">
-                        <label for="side4">4 Sides</label>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
     
@@ -724,6 +743,22 @@
             <h5 class="panel-title">Booth Details</h5>
             <div class="booth-details" id="boothDetails">
                 <!-- Will be populated by JavaScript -->
+            </div>
+            <div class="selection-group" id="boothSelectionControls" style="display: none;">
+                <h6>Choose Booth Type</h6>
+                <div class="radio-inline" id="boothTypeOptions">
+                    <!-- Radios injected via JS -->
+                </div>
+
+                <h6 style="margin-top: 12px;">Choose Open Sides</h6>
+                <div class="checkbox-inline" id="boothSideOptions">
+                    <!-- Checkboxes injected via JS -->
+                </div>
+
+                <div class="detail-row" style="margin-top: 12px;">
+                    <span class="detail-label">Calculated Price</span>
+                    <span class="detail-value price" id="boothCalculatedPrice">₹0</span>
+                </div>
             </div>
             <div class="action-buttons">
                 <button class="btn-action btn-select" id="selectBoothBtn">
@@ -860,6 +895,20 @@ let selectedServices = [];
 let currentZoom = 1;
 let selectedBoothId = null;
 let contactCount = 0;
+let boothSelections = {};
+
+const pricingConfig = {
+    rawPricePerSqft: {{ $exhibition->raw_price_per_sqft ?? 0 }},
+    orphanPricePerSqft: {{ $exhibition->orphand_price_per_sqft ?? 0 }},
+    sidePercents: {
+        1: {{ $exhibition->side_1_open_percent ?? 0 }},
+        2: {{ $exhibition->side_2_open_percent ?? 0 }},
+        3: {{ $exhibition->side_3_open_percent ?? 0 }},
+        4: {{ $exhibition->side_4_open_percent ?? 0 }},
+    },
+    premiumPrice: {{ $exhibition->premium_price ?? 0 }},
+    economyPrice: {{ $exhibition->economy_price ?? 0 }},
+};
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
@@ -897,6 +946,7 @@ function setupBoothSelection() {
                 return;
             }
 
+            ensureBoothSelection(boothId);
             // Single click toggles selection (supports multi-select)
             toggleBoothSelection(boothId);
             showBoothDetails(boothId);
@@ -904,11 +954,119 @@ function setupBoothSelection() {
     });
 }
 
+function ensureBoothSelection(boothId) {
+    if (!boothSelections[boothId]) {
+        const booth = document.querySelector(`[data-booth-id="${boothId}"]`);
+        const defaultSides = parseInt(booth?.getAttribute('data-booth-sides')) || 1;
+        boothSelections[boothId] = { type: 'Raw', sides: defaultSides };
+        applyBoothSelection(boothId);
+    }
+}
+
+function renderBoothSelectionControls(boothId) {
+    const selection = boothSelections[boothId];
+    const typeContainer = document.getElementById('boothTypeOptions');
+    const sideContainer = document.getElementById('boothSideOptions');
+    const controls = document.getElementById('boothSelectionControls');
+
+    if (!typeContainer || !sideContainer || !controls) return;
+
+    typeContainer.innerHTML = `
+        <label><input type="radio" name="boothType-${boothId}" value="Raw"> Raw</label>
+        <label><input type="radio" name="boothType-${boothId}" value="Orphand"> Orphand</label>
+    `;
+
+    sideContainer.innerHTML = [1,2,3,4].map(side => `
+        <label>
+            <input type="checkbox" class="side-choice" data-booth="${boothId}" value="${side}"> ${side} Side${side > 1 ? 's' : ''}
+        </label>
+    `).join('');
+
+    controls.style.display = 'block';
+
+    // Set defaults
+    const typeInputs = document.querySelectorAll(`input[name="boothType-${boothId}"]`);
+    typeInputs.forEach(input => {
+        input.checked = input.value === selection.type;
+        input.addEventListener('change', () => {
+            boothSelections[boothId].type = input.value;
+            syncBoothSelectionDisplay(boothId);
+        });
+    });
+
+    const sideInputs = document.querySelectorAll(`.side-choice[data-booth="${boothId}"]`);
+    sideInputs.forEach(input => {
+        input.checked = parseInt(input.value) === selection.sides;
+        input.addEventListener('change', () => {
+            sideInputs.forEach(cb => {
+                if (cb !== input) cb.checked = false;
+            });
+            boothSelections[boothId].sides = parseInt(input.value);
+            syncBoothSelectionDisplay(boothId);
+        });
+    });
+
+    syncBoothSelectionDisplay(boothId);
+}
+
+function computeBoothPrice(booth, selection) {
+    if (!booth) return 0;
+    const size = parseFloat(booth.getAttribute('data-booth-size')) || 0;
+    const category = booth.getAttribute('data-booth-category') || 'Standard';
+    const basePrice = selection.type === 'Raw' ? pricingConfig.rawPricePerSqft : pricingConfig.orphanPricePerSqft;
+    const sidePercent = pricingConfig.sidePercents[selection.sides] || 0;
+    let price = basePrice * size * (1 + sidePercent / 100);
+
+    if (category === 'Premium') {
+        price += pricingConfig.premiumPrice;
+    } else if (category === 'Economy') {
+        price -= pricingConfig.economyPrice;
+    }
+
+    return Math.max(0, price);
+}
+
+function applyBoothSelection(boothId) {
+    const booth = document.querySelector(`[data-booth-id="${boothId}"]`);
+    if (!booth) return;
+    const selection = boothSelections[boothId];
+    const price = computeBoothPrice(booth, selection);
+    booth.setAttribute('data-booth-price', price.toFixed(2));
+    updateBoothPriceDisplay(price);
+    if (selectedBooths.includes(boothId)) {
+        updateSelectedBoothsList();
+    }
+}
+
+function syncBoothSelectionDisplay(boothId) {
+    applyBoothSelection(boothId);
+    const selection = boothSelections[boothId];
+    const booth = document.querySelector(`[data-booth-id="${boothId}"]`);
+    const price = computeBoothPrice(booth, selection);
+    updateBoothPriceDisplay(price, selection);
+}
+
+function updateBoothPriceDisplay(price = 0, selection = null) {
+    const priceEl = document.getElementById('boothDetailPrice');
+    const calcPriceEl = document.getElementById('boothCalculatedPrice');
+    if (priceEl) priceEl.textContent = `₹${Number(price).toLocaleString()}`;
+    if (calcPriceEl) calcPriceEl.textContent = `₹${Number(price).toLocaleString()}`;
+
+    if (selection) {
+        const typeEl = document.getElementById('boothDetailType');
+        const sideEl = document.getElementById('boothDetailSides');
+        if (typeEl) typeEl.textContent = selection.type;
+        if (sideEl) sideEl.textContent = selection.sides;
+    }
+}
+
 function showBoothDetails(boothId) {
     selectedBoothId = boothId;
     const booth = document.querySelector(`[data-booth-id="${boothId}"]`);
     if (!booth) return;
     
+    ensureBoothSelection(boothId);
+    const selection = boothSelections[boothId];
     const panel = document.getElementById('boothDetailsPanel');
     const details = document.getElementById('boothDetails');
     
@@ -943,11 +1101,11 @@ function showBoothDetails(boothId) {
         </div>
         <div class="detail-row">
             <span class="detail-label">Price</span>
-            <span class="detail-value price">₹${parseFloat(booth.getAttribute('data-booth-price')).toLocaleString()}</span>
+            <span class="detail-value price" id="boothDetailPrice">₹0</span>
         </div>
         <div class="detail-row">
             <span class="detail-label">Open Sides</span>
-            <span class="detail-value">${booth.getAttribute('data-booth-sides')}</span>
+            <span class="detail-value" id="boothDetailSides">${selection.sides}</span>
         </div>
         <div class="detail-row">
             <span class="detail-label">Category</span>
@@ -955,7 +1113,7 @@ function showBoothDetails(boothId) {
         </div>
         <div class="detail-row">
             <span class="detail-label">Type</span>
-            <span class="detail-value">${booth.getAttribute('data-booth-type') || 'N/A'}</span>
+            <span class="detail-value" id="boothDetailType">${selection.type}</span>
         </div>
         <div class="detail-row">
             <span class="detail-label">Included</span>
@@ -963,6 +1121,8 @@ function showBoothDetails(boothId) {
         </div>
     `;
     
+    renderBoothSelectionControls(boothId);
+
     panel.style.display = 'block';
     
     // Update button states
@@ -1019,6 +1179,7 @@ function toggleBoothSelection(boothId) {
         selectedBooths.splice(index, 1);
         booth.classList.remove('booth-selected');
     } else {
+        ensureBoothSelection(boothId);
         selectedBooths.push(boothId);
         booth.classList.add('booth-selected');
     }
@@ -1160,9 +1321,6 @@ function setupFilters() {
     document.getElementById('statusAvailable').addEventListener('change', applyFilters);
     document.getElementById('statusReserved').addEventListener('change', applyFilters);
     document.getElementById('statusBooked').addEventListener('change', applyFilters);
-    document.querySelectorAll('.side-filter').forEach(checkbox => {
-        checkbox.addEventListener('change', applyFilters);
-    });
 }
 
 function applyFilters() {
@@ -1171,13 +1329,11 @@ function applyFilters() {
     const showAvailable = document.getElementById('statusAvailable').checked;
     const showReserved = document.getElementById('statusReserved').checked;
     const showBooked = document.getElementById('statusBooked').checked;
-    const selectedSides = Array.from(document.querySelectorAll('.side-filter:checked')).map(cb => parseInt(cb.id.replace('side', '')));
     
     document.querySelectorAll('.booth-item').forEach(booth => {
         const size = parseFloat(booth.getAttribute('data-booth-size'));
         const price = parseFloat(booth.getAttribute('data-booth-price'));
         const status = booth.getAttribute('data-booth-status');
-        const sides = parseInt(booth.getAttribute('data-booth-sides'));
         
         let show = true;
         
@@ -1195,9 +1351,6 @@ function applyFilters() {
         if (status === 'available' && !showAvailable) show = false;
         if (status === 'reserved' && !showReserved) show = false;
         if (status === 'booked' && !showBooked) show = false;
-        
-        // Sides filter
-        if (selectedSides.length > 0 && !selectedSides.includes(sides)) show = false;
         
         booth.style.display = show ? 'flex' : 'none';
     });
@@ -1365,6 +1518,18 @@ document.getElementById('proceedToBookBtn').addEventListener('click', function()
     const detailsUrl = "{{ route('bookings.details', $exhibition->id) }}";
     const params = new URLSearchParams();
     params.set('booths', selectedBooths.join(','));
+    const meta = {};
+    selectedBooths.forEach(id => {
+        if (boothSelections[id]) {
+            meta[id] = {
+                type: boothSelections[id].type,
+                sides: boothSelections[id].sides
+            };
+        }
+    });
+    if (Object.keys(meta).length > 0) {
+        params.set('booth_meta', JSON.stringify(meta));
+    }
     if (selectedServices.length > 0) {
         params.set('services', selectedServices.map(s => s.id).join(','));
     }

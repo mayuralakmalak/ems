@@ -74,6 +74,12 @@
                         @foreach($boothIds as $boothId)
                             <input type="hidden" name="booth_ids[]" value="{{ $boothId }}">
                         @endforeach
+                        @if(!empty($boothSelections))
+                            @foreach($boothSelections as $selection)
+                                <input type="hidden" name="booth_selections[{{ $selection['id'] }}][type]" value="{{ $selection['type'] }}">
+                                <input type="hidden" name="booth_selections[{{ $selection['id'] }}][sides]" value="{{ $selection['sides'] }}">
+                            @endforeach
+                        @endif
                         @php
                             $serviceIds = array_filter(explode(',', request()->query('services', '')));
                         @endphp
@@ -181,10 +187,23 @@
                 </div>
                 <div class="summary-row">
                     <span class="summary-label">Selected Booths</span>
-                    <span class="summary-value">{{ implode(', ', $booths->pluck('name')->toArray()) }}</span>
+                    <span class="summary-value">
+                        @if(!empty($boothSelections))
+                            @foreach($boothSelections as $selection)
+                                <div style="font-size: 0.95rem; margin-bottom:4px;">
+                                    {{ $selection['name'] }} — {{ $selection['type'] }} / {{ $selection['sides'] }} sides
+                                    <span style="color:#6366f1; font-weight:600;">₹{{ number_format($selection['price'], 2) }}</span>
+                                </div>
+                            @endforeach
+                        @else
+                            {{ implode(', ', $booths->pluck('name')->toArray()) }}
+                        @endif
+                    </span>
                 </div>
                 @php
-                    $boothTotal = $booths->sum('price');
+                    $boothTotal = !empty($boothSelections)
+                        ? collect($boothSelections)->sum('price')
+                        : $booths->sum('price');
                     $serviceIds = array_filter(explode(',', request()->query('services', '')));
                     $selectedServices = [];
                     $servicesTotal = 0;

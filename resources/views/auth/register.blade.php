@@ -110,7 +110,10 @@
         font-size: 1rem;
         transition: all 0.2s ease;
         background: rgba(255,255,255,0.04);
-        color: #f8fafc;
+        color: #ffffff !important;
+    }
+    .form-select option {
+        color: #0f172a;
     }
     
     .form-control::placeholder, .form-select::placeholder {
@@ -245,7 +248,7 @@
         </div>
     @endif
     
-    <form method="POST" action="{{ route('register') }}">
+    <form method="POST" action="{{ route('register') }}" id="registerForm" novalidate>
         @csrf
         
         <!-- Company Details Section -->
@@ -552,3 +555,59 @@
     </form>
 </div>
 @endsection
+
+@push('scripts')
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.19.5/dist/jquery.validate.min.js"></script>
+<script src="{{ asset('js/country-state.js') }}"></script>
+<script>
+$(function() {
+    if (typeof applyCountryState === 'function') {
+        applyCountryState();
+    }
+
+    $('#registerForm').validate({
+        ignore: [],
+        errorElement: 'div',
+        errorClass: 'text-danger',
+        rules: {
+            company_name: { required: true, minlength: 2 },
+            name: { required: true, minlength: 2 },
+            email: { required: true, email: true },
+            mobile_number: { required: true, minlength: 8 },
+            phone_number: { minlength: 6 },
+            password: { required: true, minlength: 6 },
+            password_confirmation: { required: true, equalTo: '#password' },
+            company_address: { required: true },
+            city: { required: true },
+            country: { required: true },
+            state: { required: true },
+            zip_code: { required: true },
+            industry_category: { required: true },
+            terms: { required: true }
+        },
+        messages: {
+            company_name: { required: 'Company name is required' },
+            name: { required: 'Full name is required' },
+            email: { required: 'Email is required', email: 'Enter a valid email' },
+            mobile_number: { required: 'Mobile number is required' },
+            password: { required: 'Password is required', minlength: 'Minimum 6 characters' },
+            password_confirmation: { equalTo: 'Passwords must match' },
+            company_address: { required: 'Company address is required' },
+            city: { required: 'City is required' },
+            country: { required: 'Select a country' },
+            state: { required: 'Select a state' },
+            zip_code: { required: 'Zip code is required' },
+            industry_category: { required: 'Select an industry category' },
+            terms: { required: 'You must agree to the terms' }
+        },
+        highlight: function(element) {
+            $(element).addClass('is-invalid');
+        },
+        unhighlight: function(element) {
+            $(element).removeClass('is-invalid');
+        }
+    });
+});
+</script>
+@endpush

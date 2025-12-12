@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
 use App\Models\Document;
+use App\Models\DocumentCategory;
 use App\Models\Booking;
 use App\Models\Notification;
 use App\Models\User;
@@ -29,7 +30,18 @@ class DocumentController extends Controller
         }
         
         $documents = $query->latest()->get();
-        return view('frontend.documents.index', compact('documents'));
+        
+        // Get bookings for upload form
+        $bookings = Booking::where('user_id', auth()->id())
+            ->where('status', '!=', 'cancelled')
+            ->with('exhibition')
+            ->orderBy('created_at', 'desc')
+            ->get();
+        
+        // Get active document categories
+        $categories = DocumentCategory::active()->ordered()->get();
+        
+        return view('frontend.documents.index', compact('documents', 'bookings', 'categories'));
     }
 
     public function create()
@@ -39,18 +51,27 @@ class DocumentController extends Controller
             ->with('exhibition')
             ->orderBy('created_at', 'desc')
             ->get();
-        return view('frontend.documents.create', compact('bookings'));
+        
+        // Get active document categories
+        $categories = DocumentCategory::active()->ordered()->get();
+        
+        return view('frontend.documents.create', compact('bookings', 'categories'));
     }
 
     public function store(Request $request)
     {
         try {
+            // Get valid category slugs
+            $validCategories = DocumentCategory::active()->pluck('slug')->toArray();
+            
             $request->validate([
                 'booking_id' => 'required|exists:bookings,id',
-                'type' => 'required|string|max:255',
+                'category' => 'required|string|in:' . implode(',', $validCategories),
                 'files' => 'required|array|min:1',
                 'files.*' => 'required|file|max:' . self::MAX_FILE_SIZE . '|mimes:pdf,doc,docx,jpg,jpeg,png',
             ], [
+                'category.required' => 'Please select a category.',
+                'category.in' => 'Invalid category selected.',
                 'files.required' => 'Please select at least one file to upload.',
                 'files.array' => 'Invalid file format.',
                 'files.min' => 'Please select at least one file to upload.',
@@ -65,6 +86,7 @@ class DocumentController extends Controller
 
             // Get files array
             $files = $request->file('files');
+            $category = $request->input('category');
             
             // Check if files array is empty
             if (empty($files) || !is_array($files)) {
@@ -91,10 +113,11 @@ class DocumentController extends Controller
             $uploadedCount = 0;
             $errors = [];
 
-            foreach ($files as $index => $file) {
+            // For each file, create a document with the selected category
+            foreach ($files as $fileIndex => $file) {
                 try {
                     if (!$file->isValid()) {
-                        $errors[] = 'File ' . ($index + 1) . ' is not valid.';
+                        $errors[] = 'File ' . ($fileIndex + 1) . ' is not valid.';
                         continue;
                     }
 
@@ -107,7 +130,7 @@ class DocumentController extends Controller
                         'booking_id' => $booking->id,
                         'user_id' => auth()->id(),
                         'name' => $fileName,
-                        'type' => $request->type,
+                        'type' => $category,
                         'file_path' => $path,
                         'file_size' => $file->getSize(),
                         'status' => 'pending',
@@ -122,13 +145,13 @@ class DocumentController extends Controller
                             'user_id' => $admin->id,
                             'type' => 'document',
                             'title' => 'New Document Uploaded',
-                            'message' => auth()->user()->name . ' has uploaded a new document: ' . $fileName . ' for booking #' . $booking->booking_number,
+                            'message' => auth()->user()->name . ' has uploaded a new document: ' . $fileName . ' (' . ucfirst($category) . ') for booking #' . $booking->booking_number,
                             'notifiable_type' => Document::class,
                             'notifiable_id' => $document->id,
                         ]);
                     }
                 } catch (\Exception $e) {
-                    $errors[] = 'Failed to upload file ' . ($index + 1) . ': ' . $e->getMessage();
+                    $errors[] = 'Failed to upload file ' . ($fileIndex + 1) . ': ' . $e->getMessage();
                 }
             }
 
@@ -174,37 +197,111 @@ class DocumentController extends Controller
     {
         $document = Document::where('user_id', auth()->id())->findOrFail($id);
         $bookings = Booking::where('user_id', auth()->id())->get();
-        return view('frontend.documents.edit', compact('document', 'bookings'));
+        
+        // Get active document categories
+        $categories = DocumentCategory::active()->ordered()->get();
+        
+        return view('frontend.documents.edit', compact('document', 'bookings', 'categories'));
     }
 
     public function update(Request $request, string $id)
     {
         $document = Document::where('user_id', auth()->id())->findOrFail($id);
 
+        // Get valid category slugs
+        $validCategories = DocumentCategory::active()->pluck('slug')->toArray();
+
         $request->validate([
             'name' => 'required|string|max:255',
-            'type' => 'required|string|max:255',
-            'file' => 'nullable|file|max:' . self::MAX_FILE_SIZE . '|mimes:pdf,doc,docx,jpg,jpeg,png',
+            'category' => 'required|string|in:' . implode(',', $validCategories),
+            'files' => 'nullable|array|min:1',
+            'files.*' => 'required|file|max:' . self::MAX_FILE_SIZE . '|mimes:pdf,doc,docx,jpg,jpeg,png',
+        ], [
+            'category.required' => 'Please select a category.',
+            'category.in' => 'Invalid category selected.',
         ]);
 
-        $updateData = [
-            'name' => $request->name,
-            'type' => $request->type,
-            'status' => 'pending', // Always re-verify after any edit
-        ];
-
-        if ($request->hasFile('file')) {
-            // Delete old file
-            if ($document->file_path && \Storage::disk('public')->exists($document->file_path)) {
-                \Storage::disk('public')->delete($document->file_path);
-            }
-            $updateData['file_path'] = $request->file('file')->store('documents', 'public');
-            $updateData['file_size'] = $request->file('file')->getSize();
+        $category = $request->input('category');
+        $files = $request->hasFile('files') ? $request->file('files') : [];
+        
+        // If files are uploaded, process them
+        if (!empty($files) && is_array($files)) {
+            $files = array_filter($files, function($file) {
+                return $file !== null && $file->isValid();
+            });
         }
 
-        $document->update($updateData);
+        // If no files uploaded, just update category for existing document
+        if (empty($files)) {
+            $document->update([
+            'name' => $request->name,
+                'type' => $category,
+            'status' => 'pending', // Always re-verify after any edit
+            ]);
 
-        return redirect()->route('documents.index')->with('success', 'Document updated successfully.');
+            return redirect()->route('documents.index')->with('success', 'Document updated successfully.');
+        }
+
+        // If files are uploaded, update existing document and create new ones for additional files
+        $uploadedCount = 0;
+        $errors = [];
+
+        foreach ($files as $fileIndex => $file) {
+            try {
+                if (!$file->isValid()) {
+                    $errors[] = 'File ' . ($fileIndex + 1) . ' is not valid.';
+                    continue;
+                }
+
+                $path = $file->store('documents', 'public');
+                $fileName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+
+                if ($fileIndex === 0) {
+                    // Update existing document
+                    // Delete old file if it exists and is different
+                    if ($document->file_path && \Storage::disk('public')->exists($document->file_path) && $document->file_path !== $path) {
+                \Storage::disk('public')->delete($document->file_path);
+            }
+                    
+                    $document->update([
+                        'name' => $fileName ?: $request->name,
+                        'type' => $category,
+                        'file_path' => $path,
+                        'file_size' => $file->getSize(),
+                        'status' => 'pending',
+                    ]);
+                    $uploadedCount++;
+                } else {
+                    // Create new document for additional files
+                    Document::create([
+                        'booking_id' => $document->booking_id,
+                        'user_id' => auth()->id(),
+                        'name' => $fileName ?: $request->name,
+                        'type' => $category,
+                        'file_path' => $path,
+                        'file_size' => $file->getSize(),
+                        'status' => 'pending',
+                    ]);
+                    $uploadedCount++;
+                }
+            } catch (\Exception $e) {
+                $errors[] = 'Failed to upload file ' . ($fileIndex + 1) . ': ' . $e->getMessage();
+        }
+        }
+
+        if ($uploadedCount === 0 && !empty($errors)) {
+            return back()->withInput()->with('error', 'Failed to update documents: ' . implode(' ', $errors));
+        }
+
+        $message = $uploadedCount === 1 
+            ? 'Document updated successfully.' 
+            : $uploadedCount . ' documents updated successfully.';
+
+        if (!empty($errors)) {
+            $message .= ' However, some files failed: ' . implode(' ', $errors);
+        }
+
+        return redirect()->route('documents.index')->with('success', $message);
     }
 
     public function destroy(string $id)

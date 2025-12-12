@@ -332,6 +332,42 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    @php
+        $countryStateData = \Illuminate\Support\Facades\Cache::remember('country_state_data', 86400, function () {
+            return \App\Models\Country::active()
+                ->ordered()
+                ->with(['states' => function ($q) {
+                    $q->active()->ordered()->select('id', 'country_id', 'name', 'code');
+                }])
+                ->get(['id', 'name', 'code'])
+                ->map(function ($country) {
+                    return [
+                        'id' => $country->id,
+                        'name' => $country->name,
+                        'code' => $country->code,
+                        'states' => $country->states->map(function ($state) {
+                            return [
+                                'id' => $state->id,
+                                'name' => $state->name,
+                                'code' => $state->code,
+                            ];
+                        })->values(),
+                    ];
+                })
+                ->values();
+        });
+    @endphp
+    <script>
+        window.countryStateData = @json($countryStateData);
+    </script>
+    <script src="{{ asset('js/country-state.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            if (typeof applyCountryState === 'function') {
+                applyCountryState();
+            }
+        });
+    </script>
     <script>
         // Mobile sidebar toggle
         document.getElementById('sidebarToggle')?.addEventListener('click', function() {

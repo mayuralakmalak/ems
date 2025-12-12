@@ -17,8 +17,36 @@ class BoothRequestController extends Controller
             ->where('status', 'pending')
             ->latest()
             ->paginate(20);
+
+        // Attach related booking details (latest matching booking) for quick view
+        $requests->getCollection()->transform(function ($request) {
+            $request->booking = Booking::where('user_id', $request->user_id)
+                ->where('exhibition_id', $request->exhibition_id)
+                ->when($request->booth_ids, function ($query) use ($request) {
+                    $query->whereIn('booth_id', $request->booth_ids);
+                })
+                ->latest()
+                ->first();
+            return $request;
+        });
         
         return view('admin.booth-requests.index', compact('requests'));
+    }
+
+    public function show($id)
+    {
+        $boothRequest = BoothRequest::with(['exhibition', 'user'])->findOrFail($id);
+
+        $booking = Booking::with(['exhibition', 'user', 'booth', 'payments', 'documents', 'bookingServices'])
+            ->where('user_id', $boothRequest->user_id)
+            ->where('exhibition_id', $boothRequest->exhibition_id)
+            ->when($boothRequest->booth_ids, function ($query) use ($boothRequest) {
+                $query->whereIn('booth_id', $boothRequest->booth_ids);
+            })
+            ->latest()
+            ->first();
+
+        return view('admin.booth-requests.show', compact('boothRequest', 'booking'));
     }
 
     public function approve($id)
