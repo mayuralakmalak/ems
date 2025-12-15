@@ -67,7 +67,20 @@ class ServiceConfigController extends Controller
         
         // Return JSON if requested via AJAX
         if (request()->wantsJson() || request()->ajax()) {
-            return response()->json($service);
+            return response()->json([
+                'id' => $service->id,
+                'exhibition_id' => $service->exhibition_id,
+                'name' => $service->name,
+                'description' => $service->description,
+                'type' => $service->type,
+                'category' => $service->category,
+                'price' => $service->price,
+                'price_unit' => $service->price_unit,
+                'available_from' => $service->available_from ? $service->available_from->format('Y-m-d') : null,
+                'available_to' => $service->available_to ? $service->available_to->format('Y-m-d') : null,
+                'image' => $service->image,
+                'is_active' => $service->is_active,
+            ]);
         }
         
         return back()->with('info', 'Service details');

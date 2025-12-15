@@ -282,6 +282,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.services.config*') ? 'active' : '' }}" href="{{ route('admin.services.config') }}">
+                                <i class="bi bi-gear me-2"></i> Service Configuration
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('admin.categories.*') ? 'active' : '' }}" href="{{ route('admin.categories.index') }}">
                                 <i class="bi bi-tags me-2"></i> Categories
                             </a>
@@ -410,29 +415,8 @@
     <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     @php
-        $countryStateData = \Illuminate\Support\Facades\Cache::remember('country_state_data', 86400, function () {
-            return \App\Models\Country::active()
-                ->ordered()
-                ->with(['states' => function ($q) {
-                    $q->active()->ordered()->select('id', 'country_id', 'name', 'code');
-                }])
-                ->get(['id', 'name', 'code'])
-                ->map(function ($country) {
-                    return [
-                        'id' => $country->id,
-                        'name' => $country->name,
-                        'code' => $country->code,
-                        'states' => $country->states->map(function ($state) {
-                            return [
-                                'id' => $state->id,
-                                'name' => $state->name,
-                                'code' => $state->code,
-                            ];
-                        })->values(),
-                    ];
-                })
-                ->values();
-        });
+        // Skip country/state preload to avoid dependency on those tables
+        $countryStateData = [];
     @endphp
     <script>
         window.countryStateData = @json($countryStateData);
