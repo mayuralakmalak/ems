@@ -220,45 +220,39 @@
                         <i class="bi bi-cloud-upload"></i> or drag and drop them here
                     </p>
                     <small id="variation_files" class="text-muted"></small>
+                    <div id="stallVariationsPreview" class="d-flex flex-wrap gap-3 mt-3"></div>
                 </div>
             </div>
 
-            <!-- Stall Type Display -->
-            <div class="mb-3">
-                <label class="form-label">Stall Type A - 1 Side Open</label>
-                <div class="row">
-                    <div class="col-md-4 mb-2">
-                        <div class="border rounded p-2 text-center" style="min-height: 150px; background-color: #f8f9fa;">
-                            <small class="text-muted">Front View</small>
-                            @php
-                                $variation = $exhibition->stallVariations->where('stall_type', 'A - 1 Side Open')->first();
-                            @endphp
-                            @if($variation && $variation->front_view)
-                                <img src="{{ asset('storage/' . $variation->front_view) }}" class="img-fluid mt-2" alt="Front View">
-                            @endif
-                        </div>
-                    </div>
-                    <div class="col-md-4 mb-2">
-                        <div class="border rounded p-2 text-center" style="min-height: 150px; background-color: #f8f9fa;">
-                            <small class="text-muted">Side View (Left)</small>
-                            @php
-                                $leftView = $exhibition->stallVariations->where('stall_type', 'A')->where('view_type', 'Left')->first();
-                            @endphp
-                            @if($leftView)
-                                <img src="{{ asset('storage/' . $leftView->image_path) }}" class="img-fluid mt-2" alt="Left View">
-                            @endif
-                        </div>
-                    </div>
-                    <div class="col-md-4 mb-2">
-                        <div class="border rounded p-2 text-center" style="min-height: 150px; background-color: #f8f9fa;">
-                            <small class="text-muted">Side View (Right)</small>
-                            @if($variation && $variation->side_view_right)
-                                <img src="{{ asset('storage/' . $variation->side_view_right) }}" class="img-fluid mt-2" alt="Right View">
-                            @endif
-                        </div>
+            <!-- Existing Stall Variation Thumbnails -->
+            @php
+                $variation = $exhibition->stallVariations->first();
+            @endphp
+            @if($variation && ($variation->front_view || $variation->side_view_left || $variation->side_view_right))
+                <div class="mb-3">
+                    <label class="form-label">Existing Stall Variation Images</label>
+                    <div class="d-flex flex-wrap gap-3">
+                        @if($variation->front_view)
+                            <div class="border rounded p-2 text-center" style="width: 140px; background-color: #f8f9fa;">
+                                <img src="{{ asset('storage/' . $variation->front_view) }}" class="img-fluid mb-1" alt="Front View">
+                                <small class="text-muted d-block text-truncate">Front View</small>
+                            </div>
+                        @endif
+                        @if($variation->side_view_left)
+                            <div class="border rounded p-2 text-center" style="width: 140px; background-color: #f8f9fa;">
+                                <img src="{{ asset('storage/' . $variation->side_view_left) }}" class="img-fluid mb-1" alt="Left View">
+                                <small class="text-muted d-block text-truncate">Side View (Left)</small>
+                            </div>
+                        @endif
+                        @if($variation->side_view_right)
+                            <div class="border rounded p-2 text-center" style="width: 140px; background-color: #f8f9fa;">
+                                <img src="{{ asset('storage/' . $variation->side_view_right) }}" class="img-fluid mb-1" alt="Right View">
+                                <small class="text-muted d-block text-truncate">Side View (Right)</small>
+                            </div>
+                        @endif
                     </div>
                 </div>
-            </div>
+            @endif
             <button type="button" class="btn btn-secondary" onclick="previewVariations()">Preview in Viewer</button>
         </div>
     </div>
@@ -277,8 +271,42 @@ function updateFileName(input) {
 }
 
 function updateVariationFiles(input) {
-    const fileCount = input.files.length;
-    document.getElementById('variation_files').textContent = fileCount > 0 ? `${fileCount} file(s) selected` : '';
+    const files = Array.from(input.files || []);
+    const fileCount = files.length;
+    const infoEl = document.getElementById('variation_files');
+    const previewContainer = document.getElementById('stallVariationsPreview');
+
+    if (infoEl) {
+        infoEl.textContent = fileCount > 0 ? `${fileCount} file(s) selected` : '';
+    }
+
+    if (!previewContainer) {
+        return;
+    }
+
+    // Clear existing previews
+    previewContainer.innerHTML = '';
+
+    if (!fileCount) {
+        return;
+    }
+
+    files.forEach((file) => {
+        if (!file.type.startsWith('image/')) return;
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'border rounded p-2 text-center';
+            wrapper.style.width = '120px';
+            wrapper.innerHTML = `
+                <img src="${e.target.result}" alt="${file.name}" style="width: 100%; height: 80px; object-fit: cover; border-radius: 4px;">
+                <div class="small mt-1 text-truncate" title="${file.name}">${file.name}</div>
+            `;
+            previewContainer.appendChild(wrapper);
+        };
+        reader.readAsDataURL(file);
+    });
 }
 
 function previewPDF() {

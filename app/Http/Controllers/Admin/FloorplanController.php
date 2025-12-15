@@ -209,6 +209,11 @@ class FloorplanController extends Controller
             $json = Storage::disk('local')->get($primaryPath);
             $payload = json_decode($json, true) ?: [];
             $this->syncBoothsFromPayload($payload, $exhibitionId);
+            // Ensure booth size IDs from DB are reflected in the payload so UI can preselect correctly
+            $payload = $this->applySizeIdsFromDatabase($payload, $exhibitionId);
+            $json = json_encode($payload, JSON_PRETTY_PRINT);
+            // Persist updated payload (with sizeId) for future loads
+            Storage::disk('local')->put($primaryPath, $json);
             return response($json, 200)->header('Content-Type', 'application/json');
         }
 
@@ -218,6 +223,11 @@ class FloorplanController extends Controller
             Storage::disk('local')->put($primaryPath, $json);
             $payload = json_decode($json, true) ?: [];
             $this->syncBoothsFromPayload($payload, $exhibitionId);
+            // Ensure booth size IDs from DB are reflected in the payload so UI can preselect correctly
+            $payload = $this->applySizeIdsFromDatabase($payload, $exhibitionId);
+            $json = json_encode($payload, JSON_PRETTY_PRINT);
+            // Persist updated payload (with sizeId) for future loads
+            Storage::disk('local')->put($primaryPath, $json);
             return response($json, 200)->header('Content-Type', 'application/json');
         }
 
@@ -253,10 +263,11 @@ class FloorplanController extends Controller
             ->get()
             ->keyBy('name');
 
-        // Valid size IDs for this exhibition to avoid FK errors
+        // Valid size IDs for this exhibition to avoid FK errors and to provide sensible defaults
         $validSizeIds = DB::table('exhibition_booth_sizes')
             ->where('exhibition_id', $exhibitionId)
             ->pluck('id')
+            ->values()
             ->toArray();
 
         foreach ($boothsData as $boothData) {
@@ -284,10 +295,57 @@ class FloorplanController extends Controller
             $booth->width = $boothData['width'] ?? $booth->width;
             $booth->height = $boothData['height'] ?? $booth->height;
 
+            // Determine size ID:
+            // 1) Use explicit sizeId from payload if valid
+            // 2) Otherwise, default to the first available exhibition booth size (if any)
             $sizeId = $boothData['sizeId'] ?? null;
+            if (($sizeId === null || !in_array($sizeId, $validSizeIds)) && !empty($validSizeIds)) {
+                $sizeId = $validSizeIds[0];
+            }
             $booth->exhibition_booth_size_id = ($sizeId && in_array($sizeId, $validSizeIds)) ? $sizeId : null;
 
             $booth->save();
         }
+    }
+
+    /**
+     * Ensure each booth payload entry has the correct sizeId from DB so that
+     * the admin UI can show the already-selected size (if any).
+     */
+    private function applySizeIdsFromDatabase(array $payload, int $exhibitionId): array
+    {
+        if (empty($payload['booths']) || !is_array($payload['booths'])) {
+            return $payload;
+        }
+
+        $boothNames = collect($payload['booths'])
+            ->pluck('id')
+            ->filter()
+            ->values()
+            ->all();
+
+        if (empty($boothNames)) {
+            return $payload;
+        }
+
+        $dbBooths = Booth::where('exhibition_id', $exhibitionId)
+            ->whereIn('name', $boothNames)
+            ->get()
+            ->keyBy('name');
+
+        foreach ($payload['booths'] as &$boothData) {
+            $name = $boothData['id'] ?? null;
+            if (!$name || !isset($dbBooths[$name])) {
+                continue;
+            }
+
+            $dbBooth = $dbBooths[$name];
+            if (!empty($dbBooth->exhibition_booth_size_id)) {
+                $boothData['sizeId'] = $dbBooth->exhibition_booth_size_id;
+            }
+        }
+        unset($boothData);
+
+        return $payload;
     }
 }

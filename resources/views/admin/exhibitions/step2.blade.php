@@ -69,19 +69,52 @@
                                         @php $items = $boothSize->items ?? collect(); @endphp
                                         @forelse($items as $itemIndex => $item)
                                         <div class="row g-2 align-items-end item-row" data-item-index="{{ $itemIndex }}">
-                                            <div class="col-md-5">
+                                            <div class="col-md-4">
                                                 <label class="form-label">Item name</label>
                                                 <input type="text" name="booth_sizes[{{ $sizeIndex }}][items][{{ $itemIndex }}][name]" class="form-control" value="{{ $item->item_name }}">
                                             </div>
-                                            <div class="col-md-3">
+                                            <div class="col-md-2">
                                                 <label class="form-label">Quantity</label>
                                                 <input type="number" name="booth_sizes[{{ $sizeIndex }}][items][{{ $itemIndex }}][quantity]" class="form-control" value="{{ $item->quantity }}">
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
+                                                <label class="form-label">Price (per extra unit)</label>
+                                                <input type="number" step="0.01" name="booth_sizes[{{ $sizeIndex }}][items][{{ $itemIndex }}][price]" class="form-control" value="{{ $item->price }}">
+                                            </div>
+                                            <div class="col-md-3">
                                                 <label class="form-label">Images</label>
                                                 <input type="file" name="booth_sizes[{{ $sizeIndex }}][items][{{ $itemIndex }}][images][]" class="form-control" multiple>
                                                 @if(!empty($item->images))
-                                                    <small class="text-muted">Existing: {{ collect($item->images)->map(function($img){ return basename($img); })->implode(', ') }}</small>
+                                                    <div class="mt-1 small">
+                                                        <span class="text-muted d-block mb-1">Existing images:</span>
+                                                        @foreach((array) $item->images as $imgPath)
+                                                            <div class="form-check">
+                                                                <input
+                                                                    class="form-check-input"
+                                                                    type="checkbox"
+                                                                    name="booth_sizes[{{ $sizeIndex }}][items][{{ $itemIndex }}][remove_existing_images][]"
+                                                                    value="{{ $imgPath }}"
+                                                                    id="remove_img_{{ $sizeIndex }}_{{ $itemIndex }}_{{ md5($imgPath) }}"
+                                                                >
+                                                                <label class="form-check-label" for="remove_img_{{ $sizeIndex }}_{{ $itemIndex }}_{{ md5($imgPath) }}">
+                                                                    <span class="d-inline-flex align-items-center gap-2">
+                                                                        <img
+                                                                            src="{{ asset('storage/' . ltrim($imgPath, '/')) }}"
+                                                                            alt="{{ basename($imgPath) }}"
+                                                                            style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #dee2e6;"
+                                                                        >
+                                                                        <span>{{ basename($imgPath) }}</span>
+                                                                        <span class="text-danger ms-1">(Remove)</span>
+                                                                    </span>
+                                                                </label>
+                                                                <input
+                                                                    type="hidden"
+                                                                    name="booth_sizes[{{ $sizeIndex }}][items][{{ $itemIndex }}][existing_images][]"
+                                                                    value="{{ $imgPath }}"
+                                                                >
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
                                                 @endif
                                             </div>
                                             <div class="col-12 text-end">
@@ -90,15 +123,19 @@
                                         </div>
                                         @empty
                                         <div class="row g-2 align-items-end item-row" data-item-index="0">
-                                            <div class="col-md-5">
+                                            <div class="col-md-4">
                                                 <label class="form-label">Item name</label>
                                                 <input type="text" name="booth_sizes[{{ $sizeIndex }}][items][0][name]" class="form-control" placeholder="Item name">
                                             </div>
-                                            <div class="col-md-3">
+                                            <div class="col-md-2">
                                                 <label class="form-label">Quantity</label>
                                                 <input type="number" name="booth_sizes[{{ $sizeIndex }}][items][0][quantity]" class="form-control" placeholder="0">
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
+                                                <label class="form-label">Price (per extra unit)</label>
+                                                <input type="number" step="0.01" name="booth_sizes[{{ $sizeIndex }}][items][0][price]" class="form-control" placeholder="0.00">
+                                            </div>
+                                            <div class="col-md-3">
                                                 <label class="form-label">Images</label>
                                                 <input type="file" name="booth_sizes[{{ $sizeIndex }}][items][0][images][]" class="form-control" multiple>
                                             </div>
@@ -146,15 +183,19 @@
                                     </div>
                                     <div class="items-container">
                                         <div class="row g-2 align-items-end item-row" data-item-index="0">
-                                            <div class="col-md-5">
+                                            <div class="col-md-4">
                                                 <label class="form-label">Item name</label>
                                                 <input type="text" name="booth_sizes[0][items][0][name]" class="form-control" placeholder="Item name">
                                             </div>
-                                            <div class="col-md-3">
+                                            <div class="col-md-2">
                                                 <label class="form-label">Quantity</label>
                                                 <input type="number" name="booth_sizes[0][items][0][quantity]" class="form-control" placeholder="0">
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
+                                                <label class="form-label">Price (per extra unit)</label>
+                                                <input type="number" step="0.01" name="booth_sizes[0][items][0][price]" class="form-control" placeholder="0.00">
+                                            </div>
+                                            <div class="col-md-3">
                                                 <label class="form-label">Images</label>
                                                 <input type="file" name="booth_sizes[0][items][0][images][]" class="form-control" multiple>
                                             </div>
@@ -280,15 +321,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const itemTemplate = (sizeIndex, itemIndex) => `
         <div class="row g-2 align-items-end item-row" data-item-index="${itemIndex}">
-            <div class="col-md-5">
+            <div class="col-md-4">
                 <label class="form-label">Item name</label>
                 <input type="text" name="booth_sizes[${sizeIndex}][items][${itemIndex}][name]" class="form-control" placeholder="Item name">
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label class="form-label">Quantity</label>
                 <input type="number" name="booth_sizes[${sizeIndex}][items][${itemIndex}][quantity]" class="form-control" placeholder="0">
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
+                <label class="form-label">Price (per extra unit)</label>
+                <input type="number" step="0.01" name="booth_sizes[${sizeIndex}][items][${itemIndex}][price]" class="form-control" placeholder="0.00">
+            </div>
+            <div class="col-md-3">
                 <label class="form-label">Images</label>
                 <input type="file" name="booth_sizes[${sizeIndex}][items][${itemIndex}][images][]" class="form-control" multiple>
             </div>

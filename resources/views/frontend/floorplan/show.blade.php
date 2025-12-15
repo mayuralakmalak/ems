@@ -382,8 +382,14 @@
         </div>
         
         <div class="floorplan-canvas" id="floorplanCanvas">
-            @if($exhibition->floorplan_image)
-            <img src="{{ asset('storage/' . $exhibition->floorplan_image) }}" id="floorplanImage" class="floorplan-image" alt="Floorplan">
+            @php
+                $floorplanImages = is_array($exhibition->floorplan_images ?? null)
+                    ? $exhibition->floorplan_images
+                    : (array) ($exhibition->floorplan_image ? [$exhibition->floorplan_image] : []);
+                $primaryFloorplanImage = $floorplanImages[0] ?? null;
+            @endphp
+            @if($primaryFloorplanImage)
+            <img src="{{ asset('storage/' . $primaryFloorplanImage) }}" id="floorplanImage" class="floorplan-image" alt="Floorplan">
             @endif
             <div id="boothsContainer" style="position: relative; min-height: 100%; z-index: 2;">
                 @foreach($exhibition->booths as $booth)

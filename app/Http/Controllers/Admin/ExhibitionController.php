@@ -11,6 +11,7 @@ use App\Models\StallVariation;
 use App\Models\ExhibitionAddonService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 
 class ExhibitionController extends Controller
 {
@@ -92,6 +93,7 @@ class ExhibitionController extends Controller
             'booth_sizes.*.items' => 'nullable|array',
             'booth_sizes.*.items.*.name' => 'nullable|string|max:255',
             'booth_sizes.*.items.*.quantity' => 'nullable|integer|min:0',
+            'booth_sizes.*.items.*.price' => 'nullable|numeric|min:0',
             'booth_sizes.*.items.*.images' => 'nullable|array',
             'booth_sizes.*.items.*.images.*' => 'nullable|image|max:10240',
             'addon_services' => 'nullable|array',
@@ -143,23 +145,48 @@ class ExhibitionController extends Controller
             foreach ($items as $itemIndex => $itemData) {
                 $name = $itemData['name'] ?? null;
                 $quantity = $itemData['quantity'] ?? null;
-                $itemFiles = $request->file("booth_sizes.$sizeIndex.items.$itemIndex.images") ?? [];
+                $price = $itemData['price'] ?? null;
 
-                if (empty($name) && is_null($quantity) && empty($itemFiles)) {
-                    continue;
+                // Existing images coming from the edit form
+                $existingImages = $itemData['existing_images'] ?? [];
+                $removeImages = $itemData['remove_existing_images'] ?? [];
+
+                if (!is_array($existingImages)) {
+                    $existingImages = [];
+                }
+                if (!is_array($removeImages)) {
+                    $removeImages = [];
                 }
 
-                $storedImages = [];
+                // Compute which existing images should be kept
+                $keptImages = array_values(array_diff($existingImages, $removeImages));
+
+                // Physically delete any removed images
+                if (!empty($removeImages)) {
+                    Storage::disk('public')->delete($removeImages);
+                }
+
+                // New uploads for this item
+                $itemFiles = $request->file("booth_sizes.$sizeIndex.items.$itemIndex.images") ?? [];
+                $uploadedImages = [];
                 foreach ($itemFiles as $imageFile) {
                     if ($imageFile) {
-                        $storedImages[] = $imageFile->store('booth-size-items', 'public');
+                        $uploadedImages[] = $imageFile->store('booth-size-items', 'public');
                     }
+                }
+
+                $finalImages = array_merge($keptImages, $uploadedImages);
+
+                // Skip completely empty items (no name/qty/price and no images)
+                if (empty($name) && is_null($quantity) && is_null($price) && empty($finalImages)) {
+                    continue;
                 }
 
                 $boothSize->items()->create([
                     'item_name' => $name,
                     'quantity' => $quantity ?? 0,
-                    'images' => $storedImages,
+                    'price' => $price ?? null,
+                    'images' => $finalImages,
                 ]);
             }
         }
@@ -230,7 +257,8 @@ class ExhibitionController extends Controller
             'parts.*.due_date' => 'required|date',
             'addon_services_cutoff_date' => 'nullable|date',
             'document_upload_deadline' => 'nullable|date',
-            'floorplan_image' => 'nullable|image|max:10240',
+            'floorplan_images' => 'nullable|array',
+            'floorplan_images.*' => 'nullable|image|max:10240',
         ]);
 
         // Delete existing schedules
@@ -252,9 +280,42 @@ class ExhibitionController extends Controller
             'document_upload_deadline' => $request->document_upload_deadline,
         ];
 
-        // Optional floorplan image (carried over from step 2)
-        if ($request->hasFile('floorplan_image')) {
-            $updateData['floorplan_image'] = $request->file('floorplan_image')->store('floorplans', 'public');
+        // Handle multiple floorplan images (admin can upload, preview, and remove)
+        $existingImages = $request->input('existing_floorplan_images', []);
+        $removeImages = $request->input('remove_floorplan_images', []);
+
+        if (!is_array($existingImages)) {
+            $existingImages = [];
+        }
+        if (!is_array($removeImages)) {
+            $removeImages = [];
+        }
+
+        // Keep only those existing images that are not marked for removal
+        $keptImages = array_values(array_diff($existingImages, $removeImages));
+
+        // Physically delete removed images from storage
+        if (!empty($removeImages)) {
+            Storage::disk('public')->delete($removeImages);
+        }
+
+        // Handle newly uploaded images
+        $newImages = [];
+        if ($request->hasFile('floorplan_images')) {
+            foreach ($request->file('floorplan_images') as $imageFile) {
+                if ($imageFile) {
+                    $newImages[] = $imageFile->store('floorplans', 'public');
+                }
+            }
+        }
+
+        // Merge kept existing and new images
+        $finalFloorplanImages = array_merge($keptImages, $newImages);
+        $updateData['floorplan_images'] = $finalFloorplanImages;
+
+        // For backward compatibility, keep single floorplan_image as the first image (if any)
+        if (!empty($finalFloorplanImages)) {
+            $updateData['floorplan_image'] = $finalFloorplanImages[0];
         }
 
         $exhibition->update($updateData);

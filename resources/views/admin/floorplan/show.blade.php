@@ -234,10 +234,16 @@
             </div>
             
             <!-- Floor Plan Canvas -->
-            <div class="floorplan-canvas">
-                <div class="floorplan-grid" id="floorplanGrid" style="position: relative; min-height: 600px; width: 100%;">
-                    @if($exhibition->floorplan_image)
-                    <img src="{{ asset('storage/' . $exhibition->floorplan_image) }}" 
+                <div class="floorplan-canvas">
+                    <div class="floorplan-grid" id="floorplanGrid" style="position: relative; min-height: 600px; width: 100%;">
+                    @php
+                        $floorplanImages = is_array($exhibition->floorplan_images ?? null)
+                            ? $exhibition->floorplan_images
+                            : (array) ($exhibition->floorplan_image ? [$exhibition->floorplan_image] : []);
+                        $primaryFloorplanImage = $floorplanImages[0] ?? null;
+                    @endphp
+                    @if($primaryFloorplanImage)
+                    <img src="{{ asset('storage/' . $primaryFloorplanImage) }}" 
                          style="position: absolute; top: 0; left: 0; max-width: 100%; height: auto; z-index: 1; opacity: 0.3;">
                     @endif
                     

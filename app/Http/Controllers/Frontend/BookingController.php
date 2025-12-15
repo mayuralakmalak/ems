@@ -83,7 +83,7 @@ class BookingController extends Controller
                   ->where('is_split', true);
             })
             ->orderBy('name', 'asc');
-        }, 'services', 'stallSchemes'])->findOrFail($exhibitionId);
+        }, 'services', 'stallSchemes', 'boothSizes', 'stallVariations'])->findOrFail($exhibitionId);
 
         // If no booths in DB, try to hydrate from saved floorplan JSON
         if ($exhibition->booths->isEmpty()) {
@@ -173,7 +173,7 @@ class BookingController extends Controller
 
     public function details(Request $request, $exhibitionId)
     {
-        $exhibition = Exhibition::with(['booths', 'services', 'stallSchemes'])->findOrFail($exhibitionId);
+        $exhibition = Exhibition::with(['booths', 'services', 'stallSchemes', 'boothSizes'])->findOrFail($exhibitionId);
         $boothIds = array_filter(explode(',', $request->query('booths', '')));
         
         if (empty($boothIds)) {
@@ -224,14 +224,64 @@ class BookingController extends Controller
                 ->get();
             $servicesTotal = $services->sum('price');
         }
+
+        // Included item extras (from booth size items)
+        $includedItemsRaw = json_decode($request->query('included_items', '[]'), true) ?: [];
+        $includedExtras = [];
+        $extrasTotal = 0;
+
+        if (!empty($includedItemsRaw) && is_array($includedItemsRaw)) {
+            $itemIds = collect($includedItemsRaw)
+                ->pluck('item_id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
+            if (!empty($itemIds)) {
+                $items = \App\Models\ExhibitionBoothSizeItem::whereIn('id', $itemIds)->get()->keyBy('id');
+
+                foreach ($includedItemsRaw as $row) {
+                    $itemId = (int) ($row['item_id'] ?? 0);
+                    if (!$itemId || !isset($items[$itemId])) {
+                        continue;
+                    }
+
+                    $item = $items[$itemId];
+                    $qty = max(0, (int) ($row['quantity'] ?? 0));
+                    $unitPrice = isset($row['unit_price'])
+                        ? (float) $row['unit_price']
+                        : ((float) $item->price ?? 0);
+
+                    if ($qty <= 0 || $unitPrice <= 0) {
+                        continue;
+                    }
+
+                    $lineTotal = $qty * $unitPrice;
+                    $extrasTotal += $lineTotal;
+
+                    $includedExtras[] = [
+                        'item_id' => $itemId,
+                        'name' => $item->item_name,
+                        'quantity' => $qty,
+                        'unit_price' => $unitPrice,
+                        'total_price' => $lineTotal,
+                    ];
+                }
+            }
+        }
         
-        $totalAmount = $boothTotal + $servicesTotal;
+        $totalAmount = $boothTotal + $servicesTotal + $extrasTotal;
 
         return view('frontend.bookings.details', [
             'exhibition' => $exhibition,
             'booths' => $booths,
             'boothIds' => $boothIds,
             'boothSelections' => $boothSelections,
+            'includedExtras' => $includedExtras,
+            'extrasTotal' => $extrasTotal,
+            'boothTotal' => $boothTotal,
+            'servicesTotal' => $servicesTotal,
             'totalAmount' => $totalAmount,
         ]);
     }
@@ -257,6 +307,10 @@ class BookingController extends Controller
             'services' => 'nullable|array',
             'services.*.service_id' => 'exists:services,id',
             'services.*.quantity' => 'integer|min:1',
+            'included_item_extras' => 'nullable|array',
+            'included_item_extras.*.item_id' => 'required_with:included_item_extras|exists:exhibition_booth_size_items,id',
+            'included_item_extras.*.quantity' => 'required_with:included_item_extras|integer|min:1',
+            'included_item_extras.*.unit_price' => 'required_with:included_item_extras|numeric|min:0',
             'logo' => 'nullable|image|max:5120', // 5MB
             'brochures' => 'nullable|array|max:3',
             'brochures.*' => 'file|mimes:pdf|max:5120', // 5MB each
@@ -264,7 +318,7 @@ class BookingController extends Controller
         ]);
 
         $user = Auth::user();
-        $exhibition = Exhibition::findOrFail($request->exhibition_id);
+        $exhibition = Exhibition::with('boothSizes')->findOrFail($request->exhibition_id);
         
         // Normalize booth IDs
         if (empty($boothIds) && $request->booth_id) {
@@ -353,7 +407,29 @@ class BookingController extends Controller
                 }
             }
 
-            $totalAmount += $servicesTotal;
+            // Included item extras total
+            $extrasTotal = 0;
+            $includedItemExtras = [];
+            if ($request->included_item_extras) {
+                foreach ($request->included_item_extras as $extraData) {
+                    $itemId = (int) ($extraData['item_id'] ?? 0);
+                    $qty = max(0, (int) ($extraData['quantity'] ?? 0));
+                    $unitPrice = (float) ($extraData['unit_price'] ?? 0);
+
+                    if ($itemId && $qty > 0 && $unitPrice > 0) {
+                        $lineTotal = $qty * $unitPrice;
+                        $extrasTotal += $lineTotal;
+                        $includedItemExtras[] = [
+                            'item_id' => $itemId,
+                            'quantity' => $qty,
+                            'unit_price' => $unitPrice,
+                            'total_price' => $lineTotal,
+                        ];
+                    }
+                }
+            }
+
+            $totalAmount += $servicesTotal + $extrasTotal;
 
             // Handle logo upload
             $logoPath = null;
@@ -390,6 +466,7 @@ class BookingController extends Controller
                 'paid_amount' => 0,
                 'contact_emails' => array_values($contactEmails),
                 'contact_numbers' => array_values($contactNumbers),
+                'included_item_extras' => !empty($includedItemExtras) ? $includedItemExtras : null,
                 'logo' => $logoPath,
             ]);
             
@@ -496,22 +573,10 @@ class BookingController extends Controller
 
     private function calculateBoothPrice(Booth $booth, Exhibition $exhibition, string $type, int $sides): float
     {
-        $size = $booth->size_sqft ?? 0;
-        
-        // Base price from exhibition (not multiplied by size)
-        $basePrice = $exhibition->price_per_sqft ?? 0;
-        
-        // Add Raw/Orphand price per sqft * size to base price
-        $rawOrphandPricePerSqft = $type === 'Raw'
-            ? ($exhibition->raw_price_per_sqft ?? 0)
-            : ($exhibition->orphand_price_per_sqft ?? 0);
-        
-        $rawOrphandAddition = $rawOrphandPricePerSqft * $size;
-        
-        // Start with base price + Raw/Orphand addition
-        $price = $basePrice + $rawOrphandAddition;
+        // Booth price comes strictly from selected size (row/orphan), no base price involved
+        $boothPrice = $this->getSizePriceForType($exhibition, $booth, $type);
 
-        // Add side percentage amount (not multiplied, but added)
+        // Side-open surcharge is a percentage of booth price
         $sidePercent = match ($sides) {
             1 => $exhibition->side_1_open_percent ?? 0,
             2 => $exhibition->side_2_open_percent ?? 0,
@@ -520,16 +585,38 @@ class BookingController extends Controller
             default => 0,
         };
 
-        $price = $price + $sidePercent;
+        $extra = $boothPrice * ($sidePercent / 100);
 
-        // Add/subtract category premium/economy price
-        if (($booth->category ?? 'Standard') === 'Premium') {
-            $price += $exhibition->premium_price ?? 0;
-        } elseif (($booth->category ?? 'Standard') === 'Economy') {
-            $price -= $exhibition->economy_price ?? 0;
+        return max(0, round($boothPrice + $extra, 2));
+    }
+
+    /**
+     * Resolve booth price from the exhibition booth size record for the chosen type.
+     */
+    private function getSizePriceForType(Exhibition $exhibition, Booth $booth, string $type): float
+    {
+        $exhibition->loadMissing('boothSizes');
+        $sizeId = $booth->exhibition_booth_size_id;
+        $size = $sizeId
+            ? $exhibition->boothSizes->firstWhere('id', $sizeId)
+            : $exhibition->boothSizes->firstWhere('size_sqft', $booth->size_sqft);
+
+        // If no direct match by id or sqft, fall back to the first defined size configuration
+        if (!$size) {
+            $size = $exhibition->boothSizes->first();
         }
 
-        return max(0, round($price, 2));
+        if (!$size) {
+            // Final fallback: use stored booth price so price is never 0
+            return (float) ($booth->price ?? 0);
+        }
+
+        $rowPrice = (float) ($size->row_price ?? 0);
+        $orphanPrice = (float) ($size->orphan_price ?? 0);
+
+        return $type === 'Orphand'
+            ? ($orphanPrice > 0 ? $orphanPrice : $rowPrice)
+            : ($rowPrice > 0 ? $rowPrice : $orphanPrice);
     }
 
     public function show(string $id)

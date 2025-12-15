@@ -10,16 +10,33 @@ class Booking extends Model
     use HasFactory;
 
     protected $fillable = [
-        'exhibition_id', 'user_id', 'booth_id', 'selected_booth_ids', 'booking_number', 'status',
-        'total_amount', 'paid_amount', 'discount_percent',
-        'contact_emails', 'contact_numbers', 'logo',
-        'possession_letter_issued', 'cancellation_reason',
-        'cancellation_type', 'cancellation_amount', 'account_details',
-        'approval_status', 'approved_by', 'approved_at', 'rejection_reason'
+        'exhibition_id',
+        'user_id',
+        'booth_id',
+        'selected_booth_ids',
+        'included_item_extras',
+        'booking_number',
+        'status',
+        'total_amount',
+        'paid_amount',
+        'discount_percent',
+        'contact_emails',
+        'contact_numbers',
+        'logo',
+        'possession_letter_issued',
+        'cancellation_reason',
+        'cancellation_type',
+        'cancellation_amount',
+        'account_details',
+        'approval_status',
+        'approved_by',
+        'approved_at',
+        'rejection_reason',
     ];
 
     protected $casts = [
         'selected_booth_ids' => 'array',
+        'included_item_extras' => 'array',
         'contact_emails' => 'array',
         'contact_numbers' => 'array',
         'possession_letter_issued' => 'boolean',

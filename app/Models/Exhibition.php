@@ -12,7 +12,7 @@ class Exhibition extends Model
     protected $fillable = [
         'name', 'description', 'venue', 'city', 'state', 'country',
         'start_date', 'end_date', 'start_time', 'end_time',
-        'floorplan_image', 'price_per_sqft', 'raw_price_per_sqft', 'orphand_price_per_sqft',
+        'floorplan_image', 'floorplan_images', 'price_per_sqft', 'raw_price_per_sqft', 'orphand_price_per_sqft',
         'side_1_open_percent', 'side_2_open_percent', 'side_3_open_percent', 'side_4_open_percent',
         'premium_price', 'standard_price', 'economy_price',
         'addon_services_cutoff_date', 'document_upload_deadline',
@@ -24,6 +24,7 @@ class Exhibition extends Model
         'end_date' => 'date',
         'addon_services_cutoff_date' => 'date',
         'document_upload_deadline' => 'date',
+        'floorplan_images' => 'array',
     ];
 
     public function booths()

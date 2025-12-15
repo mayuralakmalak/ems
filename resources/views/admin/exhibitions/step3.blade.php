@@ -33,10 +33,42 @@
         </div>
         <div class="card-body" style="padding: 0;">
             <div class="p-3">
-                <label class="form-label mb-2">Upload Floorplan Background Image (Optional)</label>
-                <input type="file" name="floorplan_image" class="form-control" accept="image/*">
-                @if($exhibition->floorplan_image)
-                    <small class="text-muted d-block mt-1">Current: {{ basename($exhibition->floorplan_image) }}</small>
+                <label class="form-label mb-2">Upload Floorplan Background Images (Optional)</label>
+                <input type="file" name="floorplan_images[]" class="form-control" accept="image/*" multiple id="floorplanImagesInput">
+                <div id="floorplanNewPreview" class="d-flex flex-wrap gap-3 mt-2"></div>
+                @php
+                    $floorplanImages = is_array($exhibition->floorplan_images ?? null)
+                        ? $exhibition->floorplan_images
+                        : (array) ($exhibition->floorplan_image ? [$exhibition->floorplan_image] : []);
+                @endphp
+                @if(!empty($floorplanImages))
+                    <div class="mt-2">
+                        <span class="text-muted d-block mb-1">Existing images:</span>
+                        <div class="d-flex flex-wrap gap-3">
+                            @foreach($floorplanImages as $imgPath)
+                                <div class="border rounded p-2 text-center" style="width: 120px;">
+                                    <img
+                                        src="{{ asset('storage/' . ltrim($imgPath, '/')) }}"
+                                        alt="Floorplan"
+                                        style="width: 100%; height: 80px; object-fit: cover; border-radius: 4px;"
+                                    >
+                                    <div class="form-check mt-1">
+                                        <input
+                                            class="form-check-input"
+                                            type="checkbox"
+                                            name="remove_floorplan_images[]"
+                                            value="{{ $imgPath }}"
+                                            id="remove_floorplan_{{ md5($imgPath) }}"
+                                        >
+                                        <label class="form-check-label small" for="remove_floorplan_{{ md5($imgPath) }}">
+                                            Remove
+                                        </label>
+                                    </div>
+                                    <input type="hidden" name="existing_floorplan_images[]" value="{{ $imgPath }}">
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
                 @endif
             </div>
 
@@ -350,5 +382,39 @@
 
 @push('scripts')
 <script src="{{ asset('js/admin-floorplan-step2.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const input = document.getElementById('floorplanImagesInput');
+    const previewContainer = document.getElementById('floorplanNewPreview');
+
+    if (!input || !previewContainer) return;
+
+    input.addEventListener('change', function (event) {
+        const files = Array.from(event.target.files || []);
+        previewContainer.innerHTML = '';
+
+        if (!files.length) {
+            return;
+        }
+
+        files.forEach((file) => {
+            if (!file.type.startsWith('image/')) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'border rounded p-2 text-center';
+                wrapper.style.width = '120px';
+                wrapper.innerHTML = `
+                    <img src="${e.target.result}" alt="${file.name}" style="width: 100%; height: 80px; object-fit: cover; border-radius: 4px;">
+                    <div class="small mt-1 text-truncate" title="${file.name}">${file.name}</div>
+                `;
+                previewContainer.appendChild(wrapper);
+            };
+            reader.readAsDataURL(file);
+        });
+    });
+});
+</script>
 @endpush
 @endsection

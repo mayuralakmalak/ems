@@ -16,8 +16,14 @@
         <div class="col-md-4">
             <div class="card h-100 shadow-sm border-0">
                 <div class="card-img-top" style="height: 180px; background: linear-gradient(135deg, #6366f1, #8b5cf6); display:flex; align-items:center; justify-content:center; color:#fff;">
-                    @if($exhibition->floorplan_image)
-                        <img src="{{ asset('storage/' . $exhibition->floorplan_image) }}" alt="{{ $exhibition->name }}" style="width: 100%; height: 100%; object-fit: cover;">
+                    @php
+                        $floorplanImages = is_array($exhibition->floorplan_images ?? null)
+                            ? $exhibition->floorplan_images
+                            : (array) ($exhibition->floorplan_image ? [$exhibition->floorplan_image] : []);
+                        $primaryFloorplanImage = $floorplanImages[0] ?? null;
+                    @endphp
+                    @if($primaryFloorplanImage)
+                        <img src="{{ asset('storage/' . $primaryFloorplanImage) }}" alt="{{ $exhibition->name }}" style="width: 100%; height: 100%; object-fit: cover;">
                     @else
                         <i class="bi bi-calendar-event" style="font-size: 2.5rem;"></i>
                     @endif

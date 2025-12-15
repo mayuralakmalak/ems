@@ -275,8 +275,14 @@
         <div class="col-md-4">
             <div class="exhibition-card">
                 <div class="exhibition-card-img">
-                    @if($exhibition->floorplan_image)
-                        <img src="{{ asset('storage/' . $exhibition->floorplan_image) }}" alt="{{ $exhibition->name }}" style="width: 100%; height: 100%; object-fit: cover;">
+                    @php
+                        $floorplanImages = is_array($exhibition->floorplan_images ?? null)
+                            ? $exhibition->floorplan_images
+                            : (array) ($exhibition->floorplan_image ? [$exhibition->floorplan_image] : []);
+                        $primaryFloorplanImage = $floorplanImages[0] ?? null;
+                    @endphp
+                    @if($primaryFloorplanImage)
+                        <img src="{{ asset('storage/' . $primaryFloorplanImage) }}" alt="{{ $exhibition->name }}" style="width: 100%; height: 100%; object-fit: cover;">
                     @else
                         <i class="bi bi-calendar-event"></i>
                     @endif
@@ -316,8 +322,14 @@
         <div class="col-md-4">
             <div class="exhibition-card">
                 <div class="exhibition-card-img">
-                    @if($exhibition->floorplan_image)
-                        <img src="{{ asset('storage/' . $exhibition->floorplan_image) }}" alt="{{ $exhibition->name }}" style="width: 100%; height: 100%; object-fit: cover;">
+                    @php
+                        $floorplanImages = is_array($exhibition->floorplan_images ?? null)
+                            ? $exhibition->floorplan_images
+                            : (array) ($exhibition->floorplan_image ? [$exhibition->floorplan_image] : []);
+                        $primaryFloorplanImage = $floorplanImages[0] ?? null;
+                    @endphp
+                    @if($primaryFloorplanImage)
+                        <img src="{{ asset('storage/' . $primaryFloorplanImage) }}" alt="{{ $exhibition->name }}" style="width: 100%; height: 100%; object-fit: cover;">
                     @else
                         <i class="bi bi-calendar-event"></i>
                     @endif

@@ -13,10 +13,12 @@ class ExhibitionBoothSizeItem extends Model
         'exhibition_booth_size_id',
         'item_name',
         'quantity',
+        'price',
         'images',
     ];
 
     protected $casts = [
+        'price' => 'float',
         'images' => 'array',
     ];
 

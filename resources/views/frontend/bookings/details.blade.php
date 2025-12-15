@@ -89,6 +89,13 @@
                                 <input type="hidden" name="services[{{ $loop->index }}][quantity]" value="1">
                             @endforeach
                         @endif
+                        @if(!empty($includedExtras ?? []))
+                            @foreach($includedExtras as $index => $extra)
+                                <input type="hidden" name="included_item_extras[{{ $index }}][item_id]" value="{{ $extra['item_id'] }}">
+                                <input type="hidden" name="included_item_extras[{{ $index }}][quantity]" value="{{ $extra['quantity'] }}">
+                                <input type="hidden" name="included_item_extras[{{ $index }}][unit_price]" value="{{ $extra['unit_price'] }}">
+                            @endforeach
+                        @endif
 
                         <div class="alert alert-info">
                             <i class="bi bi-info-circle me-2"></i>Your booking will be submitted and payment is required on the next step.
@@ -201,20 +208,26 @@
                     </span>
                 </div>
                 @php
-                    $boothTotal = !empty($boothSelections)
+                    $boothTotal = $boothTotal ?? (!empty($boothSelections)
                         ? collect($boothSelections)->sum('price')
-                        : $booths->sum('price');
+                        : $booths->sum('price'));
                     $serviceIds = array_filter(explode(',', request()->query('services', '')));
                     $selectedServices = [];
-                    $servicesTotal = 0;
-                    if (!empty($serviceIds)) {
+                    $servicesTotal = $servicesTotal ?? 0;
+                    if ($servicesTotal === 0 && !empty($serviceIds)) {
                         $selectedServices = \App\Models\Service::whereIn('id', $serviceIds)
                             ->where('exhibition_id', $exhibition->id)
                             ->where('is_active', true)
                             ->get();
                         $servicesTotal = $selectedServices->sum('price');
+                    } elseif (!empty($serviceIds) && empty($selectedServices)) {
+                        $selectedServices = \App\Models\Service::whereIn('id', $serviceIds)
+                            ->where('exhibition_id', $exhibition->id)
+                            ->where('is_active', true)
+                            ->get();
                     }
-                    $grandTotal = $boothTotal + $servicesTotal;
+                    $extrasTotal = $extrasTotal ?? 0;
+                    $grandTotal = $totalAmount ?? ($boothTotal + $servicesTotal + $extrasTotal);
                 @endphp
                 @if($selectedServices && $selectedServices->count() > 0)
                 <div class="summary-row">
@@ -235,6 +248,22 @@
                 <div class="summary-row">
                     <span class="summary-label">Services Total</span>
                     <span class="summary-value">₹{{ number_format($servicesTotal, 2) }}</span>
+                </div>
+                @endif
+                @if(!empty($includedExtras ?? []))
+                <div class="summary-row">
+                    <span class="summary-label">Included Item Extras</span>
+                    <span class="summary-value">
+                        @foreach($includedExtras as $extra)
+                            <div style="font-size: 0.85rem; margin-bottom: 3px;">
+                                {{ $extra['name'] }} (x{{ $extra['quantity'] }}) - ₹{{ number_format($extra['total_price'], 2) }}
+                            </div>
+                        @endforeach
+                    </span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Extras Total</span>
+                    <span class="summary-value">₹{{ number_format($extrasTotal, 2) }}</span>
                 </div>
                 @endif
                 <div class="summary-row" style="border-top: 2px solid #e2e8f0; padding-top: 10px; margin-top: 10px;">

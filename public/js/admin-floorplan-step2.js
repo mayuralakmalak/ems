@@ -865,7 +865,22 @@ class AdminFloorplanManager {
         document.getElementById('boothArea').value = booth.area;
         const sizeSqftSelect = document.getElementById('boothSizeSqft');
         if (sizeSqftSelect) {
-            sizeSqftSelect.value = booth.sizeId !== null ? booth.sizeId : (sizeSqftSelect.options.length ? sizeSqftSelect.options[0].value : '');
+            // Prefer existing explicit sizeId; otherwise default to first non-empty option
+            let selectedValue = null;
+            if (typeof booth.sizeId !== 'undefined' && booth.sizeId !== null) {
+                selectedValue = booth.sizeId;
+            } else {
+                const firstRealOption = Array.from(sizeSqftSelect.options).find(opt => opt.value);
+                if (firstRealOption) {
+                    selectedValue = firstRealOption.value;
+                }
+            }
+
+            if (selectedValue !== null) {
+                sizeSqftSelect.value = selectedValue;
+                // Keep booth object in sync so it gets persisted in JSON/DB
+                booth.sizeId = parseInt(selectedValue) || null;
+            }
         }
         // Category fixed to default; no UI control.
     }
@@ -886,7 +901,15 @@ class AdminFloorplanManager {
             booth.area = parseInt(document.getElementById('boothArea').value);
             const sizeSqftSelect = document.getElementById('boothSizeSqft');
             if (sizeSqftSelect) {
-                const rawValue = sizeSqftSelect.value || (sizeSqftSelect.options.length ? sizeSqftSelect.options[0].value : null);
+                // If nothing selected, default to first non-empty option
+                let rawValue = sizeSqftSelect.value;
+                if (!rawValue) {
+                    const firstRealOption = Array.from(sizeSqftSelect.options).find(opt => opt.value);
+                    rawValue = firstRealOption ? firstRealOption.value : null;
+                    if (rawValue) {
+                        sizeSqftSelect.value = rawValue;
+                    }
+                }
                 booth.sizeId = rawValue ? parseInt(rawValue) || null : null;
             } else {
                 booth.sizeId = null;

@@ -85,8 +85,14 @@
                     <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Exhibition Hall Floorplan - {{ $exhibition->name }}</h5>
                 </div>
                 <div class="card-body p-0" style="position: relative; overflow: auto; height: 600px; background: #f8f9fa;">
-                    @if($exhibition->floorplan_image)
-                    <img src="{{ asset('storage/' . $exhibition->floorplan_image) }}" id="floorplanImage" style="position: absolute; top: 0; left: 0; max-width: 100%; height: auto; z-index: 1;">
+                    @php
+                        $floorplanImages = is_array($exhibition->floorplan_images ?? null)
+                            ? $exhibition->floorplan_images
+                            : (array) ($exhibition->floorplan_image ? [$exhibition->floorplan_image] : []);
+                        $primaryFloorplanImage = $floorplanImages[0] ?? null;
+                    @endphp
+                    @if($primaryFloorplanImage)
+                    <img src="{{ asset('storage/' . $primaryFloorplanImage) }}" id="floorplanImage" style="position: absolute; top: 0; left: 0; max-width: 100%; height: auto; z-index: 1;">
                     @endif
                     <div id="floorplanCanvas" style="position: relative; min-height: 100%; z-index: 2;">
                         @foreach($exhibition->booths as $booth)

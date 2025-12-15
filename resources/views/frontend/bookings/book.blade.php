@@ -7,7 +7,8 @@
     .booking-container {
         display: flex;
         gap: 20px;
-        height: calc(100vh - 150px);
+        /* Allow page to grow with content instead of fixing to viewport height */
+        min-height: calc(100vh - 150px);
         margin-top: 20px;
     }
     
@@ -574,6 +575,148 @@
         margin-bottom: 15px;
         opacity: 0.5;
     }
+
+    /* Included items list inside booth details */
+    .included-items-list {
+        list-style: disc;
+        margin: 4px 0 0 18px;
+        padding: 0;
+        font-size: 0.85rem;
+        color: #475569;
+    text-align: left;
+}
+
+.included-items-panel {
+    margin-top: 15px;
+}
+
+.included-items-header {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 8px;
+}
+
+.included-items-subtitle {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin-bottom: 10px;
+}
+
+.included-items-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.included-item-thumb {
+    width: 70px;
+    height: 70px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    cursor: pointer;
+    background: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.included-item-thumb img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: cover;
+}
+
+.included-item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.included-item-main {
+    flex: 1;
+}
+
+.included-item-label {
+    font-size: 0.9rem;
+    color: #334155;
+}
+
+.included-item-price {
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.included-item-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    min-width: 160px;
+}
+
+.included-item-qty {
+    width: 70px;
+    padding: 4px 6px;
+    font-size: 0.85rem;
+}
+
+    .included-item-line-total {
+        font-size: 0.85rem;
+        color: #6366f1;
+        font-weight: 600;
+    }
+
+    /* Floorplan images + stall variations gallery */
+    .floorplan-images-section {
+        margin-top: 16px;
+        background: #f8fafc;
+        border-radius: 10px;
+        padding: 14px 16px;
+        border: 1px solid #e2e8f0;
+    }
+
+    .floorplan-images-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 8px;
+    }
+
+    .floorplan-images-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .floorplan-image-thumb {
+        width: 120px;
+        height: 80px;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+        cursor: pointer;
+        background: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: box-shadow 0.2s ease, transform 0.2s ease;
+    }
+
+    .floorplan-image-thumb img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: cover;
+    }
+
+    .floorplan-image-thumb:hover {
+        box-shadow: 0 4px 10px rgba(15,23,42,0.15);
+        transform: translateY(-1px);
+    }
 </style>
 @endpush
 
@@ -643,12 +786,6 @@
         </div>
         
         <div class="floorplan-canvas" id="floorplanCanvas">
-            @if($exhibition->floorplan_image)
-            <img src="{{ asset('storage/' . $exhibition->floorplan_image) }}" 
-                 id="floorplanImage" 
-                 class="floorplan-image" 
-                 alt="Floorplan">
-            @endif
             <div id="boothsContainer" style="position: relative; min-height: 100%; z-index: 2;">
                 @foreach($exhibition->booths as $booth)
                 @php
@@ -684,12 +821,31 @@
                         $originalBooths = \App\Models\Booth::whereIn('id', $booth->merged_booths)->pluck('name')->toArray();
                         $mergedNames = implode(', ', $originalBooths);
                     }
+
+                    // Resolve row/orphan prices for this booth from configured sizes
+                    $sizeConfig = null;
+                    if ($booth->exhibition_booth_size_id) {
+                        $sizeConfig = $exhibition->boothSizes->firstWhere('id', $booth->exhibition_booth_size_id);
+                    }
+                    if (!$sizeConfig && $booth->size_sqft) {
+                        $sizeConfig = $exhibition->boothSizes->firstWhere('size_sqft', $booth->size_sqft);
+                    }
+                    // If still not found, fall back to the first configured size block
+                    if (!$sizeConfig) {
+                        $sizeConfig = $exhibition->boothSizes->first();
+                    }
+
+                    $rowPriceForBooth = (float) ($sizeConfig->row_price ?? 0);
+                    $orphanPriceForBooth = (float) ($sizeConfig->orphan_price ?? 0);
                 @endphp
                 <div class="booth-item {{ $statusClass }}" 
                      data-booth-id="{{ $booth->id }}"
                      data-booth-name="{{ $booth->name }}"
                      data-booth-size="{{ $booth->size_sqft }}"
+                     data-booth-size-id="{{ $booth->exhibition_booth_size_id }}"
                      data-booth-price="{{ $booth->price }}"
+                     data-row-price="{{ $rowPriceForBooth }}"
+                     data-orphan-price="{{ $orphanPriceForBooth }}"
                      data-booth-category="{{ $booth->category }}"
                      data-booth-type="{{ $booth->booth_type }}"
                      data-booth-sides="{{ $booth->sides_open }}"
@@ -733,6 +889,77 @@
             <div class="legend-color merged"></div>
             <span>Merged</span>
         </div>
+        </div>
+        
+        {{-- Floorplan images gallery (below canvas, not as background) --}}
+        @php
+            $allFloorplanImages = collect([]);
+            if ($exhibition->floorplan_image) {
+                $allFloorplanImages->push($exhibition->floorplan_image);
+            }
+            if (is_array($exhibition->floorplan_images)) {
+                $allFloorplanImages = $allFloorplanImages->merge($exhibition->floorplan_images);
+            }
+            $allFloorplanImages = $allFloorplanImages->filter()->unique()->values();
+        @endphp
+        @if($allFloorplanImages->count() > 0)
+        <div class="floorplan-images-section">
+            <div class="floorplan-images-title">Floorplan images</div>
+            <div class="floorplan-images-grid">
+                @foreach($allFloorplanImages as $idx => $fpImage)
+                    @php
+                        $src = \Illuminate\Support\Str::startsWith($fpImage, ['http://', 'https://'])
+                            ? $fpImage
+                            : asset('storage/' . ltrim($fpImage, '/'));
+                    @endphp
+                    <div class="floorplan-image-thumb"
+                         onclick="openImageGallery(null, '{{ $src }}', 'Floorplan image {{ $idx + 1 }}')">
+                        <img src="{{ $src }}" alt="Floorplan image {{ $idx + 1 }}">
+                    </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+        @if($exhibition->stallVariations && $exhibition->stallVariations->count() > 0)
+        <div class="floorplan-images-section">
+            <div class="floorplan-images-title">Stall variations</div>
+            <div class="floorplan-images-grid">
+                @foreach($exhibition->stallVariations as $variation)
+                    @php
+                        $views = [
+                            'Front view' => $variation->front_view,
+                            'Left side' => $variation->side_view_left,
+                            'Right side' => $variation->side_view_right,
+                            'Back view' => $variation->back_view,
+                        ];
+                    @endphp
+                    @foreach($views as $label => $path)
+                        @if($path)
+                            @php
+                                $src = \Illuminate\Support\Str::startsWith($path, ['http://', 'https://'])
+                                    ? $path
+                                    : asset('storage/' . ltrim($path, '/'));
+                            @endphp
+                            <div class="floorplan-image-thumb"
+                                 onclick="openImageGallery(null, '{{ $src }}', '{{ $variation->stall_type }} - {{ $label }}')">
+                                <img src="{{ $src }}" alt="{{ $variation->stall_type }} - {{ $label }}">
+                            </div>
+                        @endif
+                    @endforeach
+                @endforeach
+            </div>
+        </div>
+        @endif
+        
+        <!-- Included Items for Selected Size -->
+        <div class="panel-card included-items-panel" id="includedItemsPanel" style="display: none;">
+            <div class="included-items-header">Included items for this booth size</div>
+            <div class="included-items-subtitle" id="includedItemsSubtitle">
+                Select a booth from the floorplan to see what is included for that size.
+            </div>
+            <div id="includedItemsText"></div>
+            <div class="included-items-images" id="includedItemsImages"></div>
         </div>
     </div>
     
@@ -858,6 +1085,7 @@
 <script>
 let selectedBooths = [];
 let selectedServices = [];
+let includedItemsSelection = {};
 let currentZoom = 1;
 let selectedBoothId = null;
 let contactCount = 0;
@@ -877,8 +1105,13 @@ const pricingConfig = {
     economyPrice: {{ $exhibition->economy_price ?? 0 }},
 };
 
+// Booth size configurations with included items (from DB)
+const boothSizes = @json($exhibition->boothSizes->load('items'));
+const storageBaseUrl = "{{ asset('storage') }}/";
+
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
+    initializeBoothPrices();
     setupBoothSelection();
     setupFilters();
     setupZoom();
@@ -925,7 +1158,8 @@ function ensureBoothSelection(boothId) {
     if (!boothSelections[boothId]) {
         const booth = document.querySelector(`[data-booth-id="${boothId}"]`);
         const defaultSides = parseInt(booth?.getAttribute('data-booth-sides')) || 1;
-        boothSelections[boothId] = { type: 'Raw', sides: defaultSides };
+        const defaultType = booth?.getAttribute('data-booth-type') || 'Raw';
+        boothSelections[boothId] = { type: defaultType, sides: defaultSides };
         applyBoothSelection(boothId);
     }
 }
@@ -944,7 +1178,12 @@ function renderBoothSelectionControls(boothId) {
     `;
 
     if (sideContainer) {
-        sideContainer.innerHTML = '';
+        sideContainer.innerHTML = `
+            <label><input type="radio" name="boothSides-${boothId}" value="1"> 1 Side</label>
+            <label><input type="radio" name="boothSides-${boothId}" value="2"> 2 Sides</label>
+            <label><input type="radio" name="boothSides-${boothId}" value="3"> 3 Sides</label>
+            <label><input type="radio" name="boothSides-${boothId}" value="4"> 4 Sides</label>
+        `;
     }
 
     controls.style.display = 'block';
@@ -958,37 +1197,30 @@ function renderBoothSelectionControls(boothId) {
         });
     });
 
+    const sideInputs = document.querySelectorAll(`input[name="boothSides-${boothId}"]`);
+    sideInputs.forEach(input => {
+        input.checked = parseInt(input.value) === selection.sides;
+        input.addEventListener('change', () => {
+            boothSelections[boothId].sides = parseInt(input.value);
+            syncBoothSelectionDisplay(boothId);
+        });
+    });
+
     syncBoothSelectionDisplay(boothId);
 }
 
 function computeBoothPrice(booth, selection) {
     if (!booth) return 0;
-    
-    const size = parseFloat(booth.getAttribute('data-booth-size')) || 0;
-    const category = booth.getAttribute('data-booth-category') || 'Standard';
-    
-    // Base price from exhibition (not multiplied by size)
-    const basePrice = pricingConfig.basePricePerSqft;
-    
-    // Add Raw/Orphand price per sqft * size to base price
-    const rawOrphandPricePerSqft = selection.type === 'Raw' ? pricingConfig.rawPricePerSqft : pricingConfig.orphanPricePerSqft;
-    const rawOrphandAddition = rawOrphandPricePerSqft * size;
-    
-    // Start with base price + Raw/Orphand addition
-    let price = basePrice + rawOrphandAddition;
-    
-    // Add side percentage amount (not multiplied, but added)
+
+    const rowPrice = parseFloat(booth.getAttribute('data-row-price')) || 0;
+    const orphanPrice = parseFloat(booth.getAttribute('data-orphan-price')) || 0;
+    const boothPrice = selection.type === 'Orphand' ? orphanPrice : rowPrice;
+
+    // Side-open surcharge is a percentage of booth price
     const sidePercent = pricingConfig.sidePercents[selection.sides] || 0;
-    price = price + sidePercent;
+    const extra = boothPrice * (sidePercent / 100);
 
-    // Add/subtract category premium/economy price
-    if (category === 'Premium') {
-        price += pricingConfig.premiumPrice;
-    } else if (category === 'Economy') {
-        price -= pricingConfig.economyPrice;
-    }
-
-    return Math.max(0, price);
+    return Math.max(0, boothPrice + extra);
 }
 
 function applyBoothSelection(boothId) {
@@ -1024,7 +1256,7 @@ function updateBoothPriceDisplay(price = 0, selection = null, booth = null) {
 
     // Update base price display
     if (booth) {
-        const basePrice = pricingConfig.basePricePerSqft;
+        const basePrice = getBoothBasePrice(booth, selection || { type: booth.getAttribute('data-booth-type') || 'Raw' });
         const basePriceEl = document.getElementById('boothBasePrice');
         if (basePriceEl) basePriceEl.textContent = `₹${Number(basePrice).toLocaleString()}`;
     }
@@ -1050,13 +1282,12 @@ function showBoothDetails(boothId) {
     const status = booth.getAttribute('data-booth-status');
     const isMerged = booth.getAttribute('data-booth-merged') === 'true';
     const originals = booth.getAttribute('data-merged-originals');
-    const included = getBoothIncluded(booth.getAttribute('data-booth-size'));
     
     let statusText = status.toUpperCase();
     if (isMerged && status === 'available') {
         statusText = 'AVAILABLE (MERGED)';
     }
-    
+
     details.innerHTML = `
         <div class="detail-row">
             <span class="detail-label">Booth ID</span>
@@ -1087,6 +1318,7 @@ function showBoothDetails(boothId) {
     `;
     
     renderBoothSelectionControls(boothId);
+    renderIncludedItemsSection(booth);
     
     // Calculate and display initial price
     syncBoothSelectionDisplay(boothId);
@@ -1100,35 +1332,164 @@ function showBoothDetails(boothId) {
     document.getElementById('splitBoothBtn').disabled = selectedBooths.length !== 1;
 }
 
-function getBoothIncluded(boothSize) {
-    // Get included items from stall schemes based on booth size
-    const stallSchemes = @json($exhibition->stallSchemes ?? []);
-    if (!stallSchemes || stallSchemes.length === 0) {
-        return 'Table, 2 Chairs, Power Outlet';
+function getBoothIncluded(boothSizeSqft, boothSizeId) {
+    // Prefer matching by explicit booth size ID, then by closest size_sqft
+    const sizes = boothSizes || [];
+    if (!sizes.length) {
+        return {
+            items: ['Table', '2 Chairs', 'Power Outlet'],
+            images: [],
+        };
     }
-    
-    // Convert sqft to sqm (approximate: 1 sqm ≈ 10.764 sqft)
-    const sizeSqm = parseFloat(boothSize) / 10.764;
-    
-    // Find matching stall scheme (closest match)
-    let matchedScheme = null;
-    let minDiff = Infinity;
-    
-    stallSchemes.forEach(scheme => {
-        const diff = Math.abs(scheme.size_sqm - sizeSqm);
-        if (diff < minDiff) {
-            minDiff = diff;
-            matchedScheme = scheme;
+
+    let matched = null;
+
+    // 1) Try exact match by exhibition_booth_size_id
+    if (boothSizeId) {
+        matched = sizes.find(s => String(s.id) === String(boothSizeId));
+    }
+
+    // 2) Fallback: closest match by size_sqft
+    if (!matched && boothSizeSqft) {
+        const size = parseFloat(boothSizeSqft);
+        if (!isNaN(size)) {
+            let minDiff = Infinity;
+            sizes.forEach(s => {
+                const sSize = parseFloat(s.size_sqft || 0);
+                const diff = Math.abs(sSize - size);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    matched = s;
+                }
+            });
         }
-    });
-    
-    if (matchedScheme && matchedScheme.items && matchedScheme.items.length > 0) {
-        return matchedScheme.items.map(item => 
-            `${item.quantity || 1} ${item.name || 'Item'}`
-        ).join(', ');
     }
-    
-    return 'Table, 2 Chairs, Power Outlet';
+
+    if (matched && matched.items && matched.items.length > 0) {
+        const items = matched.items.map((item) => ({
+            key: item.id,
+            label: `${item.quantity || 1} ${item.item_name || 'Item'}`,
+            includedQuantity: item.quantity || 0,
+            unitPrice: parseFloat(item.price || 0),
+            images: Array.isArray(item.images) ? item.images : [],
+        }));
+
+        return { items, images: [] };
+    }
+
+    return {
+        items: ['Table', '2 Chairs', 'Power Outlet'],
+        images: [],
+    };
+}
+
+function renderIncludedItemsSection(booth) {
+    const panel = document.getElementById('includedItemsPanel');
+    const textContainer = document.getElementById('includedItemsText');
+    const subtitle = document.getElementById('includedItemsSubtitle');
+
+    if (!panel || !textContainer || !subtitle) return;
+
+    if (!booth) {
+        panel.style.display = 'none';
+        return;
+    }
+
+    const included = getBoothIncluded(
+        booth.getAttribute('data-booth-size'),
+        booth.getAttribute('data-booth-size-id')
+    );
+
+    const items = (included && included.items) ? included.items : [];
+
+    if (!items.length) {
+        panel.style.display = 'none';
+        return;
+    }
+
+    // Build list with quantity input and View image button
+    const itemsHtml = items.map(item => {
+        const inputId = `included-item-qty-${item.key}`;
+        const currentQty = includedItemsSelection[item.key]?.quantity || 0;
+        const unitPrice = item.unitPrice || 0;
+        const lineTotal = currentQty * unitPrice;
+        const hasImages = item.images && item.images.length > 0;
+        let imgSrc = '';
+        if (hasImages) {
+            const first = String(item.images[0]).replace(/^\/+/, '');
+            imgSrc = first.startsWith('http') ? first : storageBaseUrl + first;
+        }
+
+        return `
+            <li>
+                <div class="included-item-row">
+                    <div class="included-item-main">
+                        <div class="included-item-label">${item.label}</div>
+                        ${unitPrice > 0 ? `<div class="included-item-price">₹${unitPrice.toLocaleString()} per extra</div>` : ''}
+                    </div>
+                    <div class="included-item-actions">
+                        <input
+                            type="number"
+                            min="0"
+                            value="${currentQty}"
+                            class="included-item-qty"
+                            id="${inputId}"
+                            data-extra-key="${item.key}"
+                            data-unit-price="${unitPrice}"
+                        />
+                        ${hasImages ? `
+                            <button
+                                type="button"
+                                class="btn-view-image"
+                                style="padding: 4px 12px; background: #6366f1; color: white; border: none; border-radius: 4px; font-size: 0.75rem; cursor: pointer;"
+                                onclick="openImageGallery(null, '${imgSrc}', '${item.label.replace(/'/g, "\\'")}')"
+                            >
+                                <i class="bi bi-image me-1"></i>View Image
+                            </button>
+                        ` : ''}
+                        <div class="included-item-line-total" id="${inputId}-total">
+                            ${lineTotal > 0 ? `₹${lineTotal.toLocaleString()}` : ''}
+                        </div>
+                    </div>
+                </div>
+            </li>
+        `;
+    }).join('');
+
+    textContainer.innerHTML = `<ul class="included-items-list">${itemsHtml}</ul>`;
+    subtitle.textContent = 'These items are included for the selected booth size:';
+
+    // Attach listeners for quantity changes
+    textContainer.querySelectorAll('.included-item-qty').forEach(input => {
+        input.addEventListener('input', handleIncludedItemQtyChange);
+    });
+
+    panel.style.display = 'block';
+}
+
+function handleIncludedItemQtyChange(e) {
+    const input = e.target;
+    const key = input.getAttribute('data-extra-key');
+    const unitPrice = parseFloat(input.getAttribute('data-unit-price')) || 0;
+    let qty = parseInt(input.value, 10);
+    if (isNaN(qty) || qty < 0) {
+        qty = 0;
+        input.value = '0';
+    }
+
+    if (!includedItemsSelection[key]) {
+        includedItemsSelection[key] = { quantity: 0, unitPrice };
+    }
+    includedItemsSelection[key].quantity = qty;
+    includedItemsSelection[key].unitPrice = unitPrice;
+
+    const lineTotalEl = document.getElementById(`${input.id}-total`);
+    if (lineTotalEl) {
+        const lineTotal = qty * unitPrice;
+        lineTotalEl.textContent = lineTotal > 0 ? `₹${lineTotal.toLocaleString()}` : '';
+    }
+
+    updateTotalAmount();
 }
 
 function toggleBoothSelection(boothId) {
@@ -1243,8 +1604,19 @@ function updateTotalAmount() {
     selectedServices.forEach(service => {
         servicesTotal += service.price;
     });
-    
-    const grandTotal = boothTotal + servicesTotal;
+
+    // Included items extras total
+    let includedTotal = 0;
+    Object.values(includedItemsSelection).forEach(sel => {
+        if (!sel) return;
+        const qty = sel.quantity || 0;
+        const unit = sel.unitPrice || 0;
+        if (qty > 0 && unit > 0) {
+            includedTotal += qty * unit;
+        }
+    });
+
+    const grandTotal = boothTotal + servicesTotal + includedTotal;
     document.getElementById('totalAmount').textContent = `₹${grandTotal.toLocaleString()}`;
 }
 
@@ -1355,6 +1727,21 @@ function applyZoom() {
     const container = document.getElementById('boothsContainer');
     container.style.transform = `scale(${currentZoom})`;
     container.style.transformOrigin = 'top left';
+}
+
+// Helpers
+function getBoothBasePrice(booth, selection) {
+    if (!booth) return 0;
+    const rowPrice = parseFloat(booth.getAttribute('data-row-price')) || 0;
+    const orphanPrice = parseFloat(booth.getAttribute('data-orphan-price')) || 0;
+    return selection.type === 'Orphand' ? orphanPrice : rowPrice;
+}
+
+function initializeBoothPrices() {
+    document.querySelectorAll('.booth-item').forEach(booth => {
+        const boothId = booth.getAttribute('data-booth-id');
+        ensureBoothSelection(boothId);
+    });
 }
 
 // Merge & Split
@@ -1492,6 +1879,23 @@ document.getElementById('proceedToBookBtn').addEventListener('click', function()
     }
     if (selectedServices.length > 0) {
         params.set('services', selectedServices.map(s => s.id).join(','));
+    }
+    // Included item extras (only those with quantity > 0)
+    const extrasPayload = [];
+    Object.entries(includedItemsSelection).forEach(([key, sel]) => {
+        if (!sel) return;
+        const qty = sel.quantity || 0;
+        const unit = sel.unitPrice || 0;
+        if (qty > 0 && unit > 0) {
+            extrasPayload.push({
+                item_id: parseInt(key, 10),
+                quantity: qty,
+                unit_price: unit,
+            });
+        }
+    });
+    if (extrasPayload.length > 0) {
+        params.set('included_items', JSON.stringify(extrasPayload));
     }
     window.location.href = `${detailsUrl}?${params.toString()}`;
 });
