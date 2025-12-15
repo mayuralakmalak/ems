@@ -936,39 +936,24 @@ function renderBoothSelectionControls(boothId) {
     const sideContainer = document.getElementById('boothSideOptions');
     const controls = document.getElementById('boothSelectionControls');
 
-    if (!typeContainer || !sideContainer || !controls) return;
+    if (!typeContainer || !controls) return;
 
     typeContainer.innerHTML = `
         <label><input type="radio" name="boothType-${boothId}" value="Raw"> Raw</label>
         <label><input type="radio" name="boothType-${boothId}" value="Orphand"> Orphand</label>
     `;
 
-    sideContainer.innerHTML = [1,2,3,4].map(side => `
-        <label>
-            <input type="checkbox" class="side-choice" data-booth="${boothId}" value="${side}"> ${side} Side${side > 1 ? 's' : ''}
-        </label>
-    `).join('');
+    if (sideContainer) {
+        sideContainer.innerHTML = '';
+    }
 
     controls.style.display = 'block';
 
-    // Set defaults
     const typeInputs = document.querySelectorAll(`input[name="boothType-${boothId}"]`);
     typeInputs.forEach(input => {
         input.checked = input.value === selection.type;
         input.addEventListener('change', () => {
             boothSelections[boothId].type = input.value;
-            syncBoothSelectionDisplay(boothId);
-        });
-    });
-
-    const sideInputs = document.querySelectorAll(`.side-choice[data-booth="${boothId}"]`);
-    sideInputs.forEach(input => {
-        input.checked = parseInt(input.value) === selection.sides;
-        input.addEventListener('change', () => {
-            sideInputs.forEach(cb => {
-                if (cb !== input) cb.checked = false;
-            });
-            boothSelections[boothId].sides = parseInt(input.value);
             syncBoothSelectionDisplay(boothId);
         });
     });
@@ -1092,28 +1077,12 @@ function showBoothDetails(boothId) {
             <span class="detail-value">${booth.getAttribute('data-booth-size')} sq ft</span>
         </div>
         <div class="detail-row">
-            <span class="detail-label">Base Price</span>
-            <span class="detail-value" id="boothBasePrice">₹0</span>
-        </div>
-        <div class="detail-row">
-            <span class="detail-label">Final Price</span>
-            <span class="detail-value price" id="boothDetailPrice">₹0</span>
-        </div>
-        <div class="detail-row">
-            <span class="detail-label">Open Sides</span>
-            <span class="detail-value" id="boothDetailSides">${selection.sides}</span>
-        </div>
-        <div class="detail-row">
             <span class="detail-label">Category</span>
             <span class="detail-value">${booth.getAttribute('data-booth-category') || 'Standard'}</span>
         </div>
         <div class="detail-row">
             <span class="detail-label">Type</span>
             <span class="detail-value" id="boothDetailType">${selection.type}</span>
-        </div>
-        <div class="detail-row">
-            <span class="detail-label">Included</span>
-            <span class="detail-value">${included}</span>
         </div>
     `;
     

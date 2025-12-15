@@ -293,7 +293,7 @@ class AdminFloorplanManager {
 
         // Property inputs - update booth on change
         ['boothWidth', 'boothHeight', 'boothX', 'boothY', 'boothStatus', 'boothSize',
-            'boothArea', 'boothPrice', 'boothOpenSides', 'boothCategory', 'boothItems'
+            'boothArea', 'boothSizeSqft'
         ].forEach(id => {
             const input = document.getElementById(id);
             if (input) {
@@ -863,10 +863,11 @@ class AdminFloorplanManager {
         document.getElementById('boothStatus').value = booth.status;
         document.getElementById('boothSize').value = booth.size;
         document.getElementById('boothArea').value = booth.area;
-        document.getElementById('boothPrice').value = booth.price;
-        document.getElementById('boothOpenSides').value = booth.openSides;
-        document.getElementById('boothCategory').value = booth.category;
-        document.getElementById('boothItems').value = booth.includedItems.join(', ');
+        const sizeSqftSelect = document.getElementById('boothSizeSqft');
+        if (sizeSqftSelect) {
+            sizeSqftSelect.value = booth.sizeId !== null ? booth.sizeId : (sizeSqftSelect.options.length ? sizeSqftSelect.options[0].value : '');
+        }
+        // Category fixed to default; no UI control.
     }
 
     // Update booth from properties
@@ -883,10 +884,14 @@ class AdminFloorplanManager {
             booth.status = document.getElementById('boothStatus').value;
             booth.size = document.getElementById('boothSize').value;
             booth.area = parseInt(document.getElementById('boothArea').value);
-            booth.price = parseInt(document.getElementById('boothPrice').value);
-            booth.openSides = parseInt(document.getElementById('boothOpenSides').value);
-            booth.category = document.getElementById('boothCategory').value;
-            booth.includedItems = document.getElementById('boothItems').value.split(',').map(s => s.trim());
+            const sizeSqftSelect = document.getElementById('boothSizeSqft');
+            if (sizeSqftSelect) {
+                const rawValue = sizeSqftSelect.value || (sizeSqftSelect.options.length ? sizeSqftSelect.options[0].value : null);
+                booth.sizeId = rawValue ? parseInt(rawValue) || null : null;
+            } else {
+                booth.sizeId = null;
+            }
+            booth.category = booth.category || 'Standard';
 
             // Update size category based on dimensions
             booth.size = this.getSizeCategory(booth.width, booth.height);
@@ -938,10 +943,14 @@ class AdminFloorplanManager {
                 status: document.getElementById('boothStatus').value,
                 size: this.getSizeCategory(width, height),
                 area: Math.round((width * height) / (this.gridConfig.size * this.gridConfig.size) * 100),
-                price: parseInt(document.getElementById('boothPrice').value) || 10000,
-                openSides: parseInt(document.getElementById('boothOpenSides').value) || 2,
-                category: document.getElementById('boothCategory').value,
-                includedItems: document.getElementById('boothItems').value.split(',').map(s => s.trim())
+                sizeId: (() => {
+                    const sizeSelect = document.getElementById('boothSizeSqft');
+                    return sizeSelect ? (parseInt(sizeSelect.value) || null) : null;
+                })(),
+                price: 0,
+                openSides: 0,
+                category: 'Standard',
+                includedItems: []
             };
 
             this.addBooth(booth);
@@ -1225,25 +1234,38 @@ class AdminFloorplanManager {
 
     // Show generate modal
     showGenerateModal() {
+        const widthInput = document.getElementById('gridBoothWidth');
+        const heightInput = document.getElementById('gridBoothHeight');
+        const spacingInput = document.getElementById('gridSpacing');
+        const startXInput = document.getElementById('gridStartX');
+        const startYInput = document.getElementById('gridStartY');
+        const modal = document.getElementById('generateModal');
+
+        // If required modal fields are missing, just return quietly
+        if (!widthInput || !heightInput || !spacingInput || !startXInput || !startYInput || !modal) {
+            // Keep previous fallback of inline modal missing; ensure button doesn't break other flows
+            return;
+        }
+
         // Set default values in grid units
         const gridSize = this.gridConfig.size;
-        document.getElementById('gridBoothWidth').value = 2;
-        document.getElementById('gridBoothHeight').value = 2;
-        document.getElementById('gridSpacing').value = 0;
+        widthInput.value = 2;
+        heightInput.value = 2;
+        spacingInput.value = 0;
 
         // Calculate start position in grid units (inside hall, with some margin)
         if (this.hallBounds) {
             const startXGrid = Math.ceil(this.hallBounds.x / gridSize) + 1;
             const startYGrid = Math.ceil(this.hallBounds.y / gridSize) + 1;
-            document.getElementById('gridStartX').value = startXGrid;
-            document.getElementById('gridStartY').value = startYGrid;
+            startXInput.value = startXGrid;
+            startYInput.value = startYGrid;
         } else {
-            document.getElementById('gridStartX').value = 2;
-            document.getElementById('gridStartY').value = 3;
+            startXInput.value = 2;
+            startYInput.value = 3;
         }
 
         this.updateGridUnitDisplays();
-        document.getElementById('generateModal').classList.remove('hidden');
+        modal.classList.remove('hidden');
     }
 
     // Update grid unit display values

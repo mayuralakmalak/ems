@@ -12,13 +12,16 @@ use App\Models\Wallet;
 use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class BookingController extends Controller
 {
     public function index(Request $request)
     {
-        $user = auth()->user();
+        $user = Auth::user();
         $query = Booking::with(['exhibition', 'booth'])
             ->where('user_id', $user->id);
         
@@ -81,8 +84,91 @@ class BookingController extends Controller
             })
             ->orderBy('name', 'asc');
         }, 'services', 'stallSchemes'])->findOrFail($exhibitionId);
+
+        // If no booths in DB, try to hydrate from saved floorplan JSON
+        if ($exhibition->booths->isEmpty()) {
+            $this->syncBoothsFromFloorplan($exhibition);
+            // Reload with booths after sync
+            $exhibition->load(['booths' => function($query) {
+                $query->where(function($q) {
+                    $q->whereNull('parent_booth_id')->where('is_split', false);
+                })->orWhere(function($q) {
+                    $q->whereNotNull('parent_booth_id')->where('is_split', true);
+                })
+                ->orderBy('name', 'asc');
+            }]);
+        }
         
         return view('frontend.bookings.book', compact('exhibition'));
+    }
+
+    /**
+     * Hydrate booths for an exhibition from stored floorplan JSON if present.
+     */
+    private function syncBoothsFromFloorplan(Exhibition $exhibition): void
+    {
+        $pathPrimary = "floorplans/exhibition_{$exhibition->id}.json";
+        $pathFallback = "private/floorplans/exhibition_{$exhibition->id}.json";
+
+        $json = null;
+        if (Storage::disk('local')->exists($pathPrimary)) {
+            $json = Storage::disk('local')->get($pathPrimary);
+        } elseif (Storage::disk('local')->exists($pathFallback)) {
+            $json = Storage::disk('local')->get($pathFallback);
+        }
+
+        if (!$json) {
+            return;
+        }
+
+        $payload = json_decode($json, true);
+        if (!$payload || empty($payload['booths'])) {
+            return;
+        }
+
+        $boothsData = collect($payload['booths']);
+
+        // Valid size IDs for this exhibition to avoid FK errors
+        $validSizeIds = \DB::table('exhibition_booth_sizes')
+            ->where('exhibition_id', $exhibition->id)
+            ->pluck('id')
+            ->toArray();
+
+        $existing = Booth::where('exhibition_id', $exhibition->id)
+            ->whereIn('name', $boothsData->pluck('id')->filter())
+            ->get()
+            ->keyBy('name');
+
+        foreach ($boothsData as $boothData) {
+            $boothName = $boothData['id'] ?? null;
+            if (!$boothName) {
+                continue;
+            }
+
+            $booth = $existing[$boothName] ?? new Booth([
+                'exhibition_id' => $exhibition->id,
+                'name' => $boothName,
+            ]);
+
+            $booth->category = $boothData['category'] ?? $booth->category ?? 'Standard';
+            $booth->booth_type = $booth->booth_type ?? 'Raw';
+            $booth->size_sqft = $boothData['area'] ?? $booth->size_sqft ?? 0;
+            $booth->sides_open = $boothData['openSides'] ?? $booth->sides_open ?? 1;
+            $booth->price = $boothData['price'] ?? $booth->price ?? 0;
+            $booth->is_free = $booth->is_free ?? false;
+            $booth->is_available = true;
+            $booth->is_booked = false;
+            $booth->merged_booths = $boothData['merged_booths'] ?? $booth->merged_booths ?? null;
+            $booth->position_x = $boothData['x'] ?? $booth->position_x;
+            $booth->position_y = $boothData['y'] ?? $booth->position_y;
+            $booth->width = $boothData['width'] ?? $booth->width;
+            $booth->height = $boothData['height'] ?? $booth->height;
+
+            $sizeId = $boothData['sizeId'] ?? null;
+            $booth->exhibition_booth_size_id = ($sizeId && in_array($sizeId, $validSizeIds)) ? $sizeId : null;
+
+            $booth->save();
+        }
     }
 
     public function details(Request $request, $exhibitionId)
@@ -177,7 +263,7 @@ class BookingController extends Controller
             'terms' => 'required|accepted',
         ]);
 
-        $user = auth()->user();
+        $user = Auth::user();
         $exhibition = Exhibition::findOrFail($request->exhibition_id);
         
         // Normalize booth IDs
@@ -285,10 +371,10 @@ class BookingController extends Controller
             
             // Ensure at least one contact email and number
             if (empty($contactEmails)) {
-                $contactEmails = [auth()->user()->email];
+                $contactEmails = [Auth::user()->email];
             }
             if (empty($contactNumbers)) {
-                $contactNumbers = [auth()->user()->phone ?? ''];
+                $contactNumbers = [Auth::user()->phone ?? ''];
             }
             
             // Create booking with approval status

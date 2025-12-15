@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Exhibition;
 use App\Models\Booth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -184,8 +185,11 @@ class FloorplanController extends Controller
         $payload = $request->all();
         $payload['lastUpdated'] = now()->toDateTimeString();
 
+        // Persist JSON where frontend and admin both expect it (original path)
         $path = "floorplans/exhibition_{$exhibition->id}.json";
         Storage::disk('local')->put($path, json_encode($payload, JSON_PRETTY_PRINT));
+
+        $this->syncBoothsFromPayload($payload, $exhibitionId);
 
         return response()->json(['success' => true]);
     }
@@ -196,10 +200,24 @@ class FloorplanController extends Controller
     public function loadConfig($exhibitionId)
     {
         $exhibition = Exhibition::findOrFail($exhibitionId);
-        $path = "floorplans/exhibition_{$exhibition->id}.json";
+        // Primary (original) path
+        $primaryPath = "floorplans/exhibition_{$exhibition->id}.json";
+        // Legacy/fallback path (in case existing data was saved to private/)
+        $fallbackPath = "private/floorplans/exhibition_{$exhibition->id}.json";
 
-        if (Storage::disk('local')->exists($path)) {
-            $json = Storage::disk('local')->get($path);
+        if (Storage::disk('local')->exists($primaryPath)) {
+            $json = Storage::disk('local')->get($primaryPath);
+            $payload = json_decode($json, true) ?: [];
+            $this->syncBoothsFromPayload($payload, $exhibitionId);
+            return response($json, 200)->header('Content-Type', 'application/json');
+        }
+
+        if (Storage::disk('local')->exists($fallbackPath)) {
+            // Optionally promote fallback file to primary location for future loads
+            $json = Storage::disk('local')->get($fallbackPath);
+            Storage::disk('local')->put($primaryPath, $json);
+            $payload = json_decode($json, true) ?: [];
+            $this->syncBoothsFromPayload($payload, $exhibitionId);
             return response($json, 200)->header('Content-Type', 'application/json');
         }
 
@@ -218,5 +236,58 @@ class FloorplanController extends Controller
             'booths' => [],
             'lastUpdated' => null,
         ]);
+    }
+
+    /**
+     * Sync booth payload into DB for frontend consumption.
+     */
+    private function syncBoothsFromPayload(array $payload, int $exhibitionId): void
+    {
+        $boothsData = collect($payload['booths'] ?? []);
+        if ($boothsData->isEmpty()) {
+            return;
+        }
+
+        $existingBooths = Booth::where('exhibition_id', $exhibitionId)
+            ->whereIn('name', $boothsData->pluck('id')->filter())
+            ->get()
+            ->keyBy('name');
+
+        // Valid size IDs for this exhibition to avoid FK errors
+        $validSizeIds = DB::table('exhibition_booth_sizes')
+            ->where('exhibition_id', $exhibitionId)
+            ->pluck('id')
+            ->toArray();
+
+        foreach ($boothsData as $boothData) {
+            $boothName = $boothData['id'] ?? null;
+            if (!$boothName) {
+                continue;
+            }
+
+            $booth = $existingBooths[$boothName] ?? new Booth([
+                'exhibition_id' => $exhibitionId,
+                'name' => $boothName,
+            ]);
+
+            $booth->category = $boothData['category'] ?? $booth->category ?? 'Standard';
+            $booth->booth_type = $booth->booth_type ?? 'Raw';
+            $booth->size_sqft = $boothData['area'] ?? $booth->size_sqft ?? 0;
+            $booth->sides_open = $boothData['openSides'] ?? $booth->sides_open ?? 1;
+            $booth->price = $boothData['price'] ?? $booth->price ?? 0;
+            $booth->is_free = $booth->is_free ?? false;
+            $booth->is_available = true;
+            $booth->is_booked = false;
+            $booth->merged_booths = $boothData['merged_booths'] ?? $booth->merged_booths ?? null;
+            $booth->position_x = $boothData['x'] ?? $booth->position_x;
+            $booth->position_y = $boothData['y'] ?? $booth->position_y;
+            $booth->width = $boothData['width'] ?? $booth->width;
+            $booth->height = $boothData['height'] ?? $booth->height;
+
+            $sizeId = $boothData['sizeId'] ?? null;
+            $booth->exhibition_booth_size_id = ($sizeId && in_array($sizeId, $validSizeIds)) ? $sizeId : null;
+
+            $booth->save();
+        }
     }
 }

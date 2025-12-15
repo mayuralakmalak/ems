@@ -216,7 +216,7 @@ class ExhibitionController extends Controller
 
     public function step3($id)
     {
-        $exhibition = Exhibition::with(['paymentSchedules'])->findOrFail($id);
+        $exhibition = Exhibition::with(['paymentSchedules', 'boothSizes'])->findOrFail($id);
         return view('admin.exhibitions.step3', compact('exhibition'));
     }
 
@@ -230,6 +230,7 @@ class ExhibitionController extends Controller
             'parts.*.due_date' => 'required|date',
             'addon_services_cutoff_date' => 'nullable|date',
             'document_upload_deadline' => 'nullable|date',
+            'floorplan_image' => 'nullable|image|max:10240',
         ]);
 
         // Delete existing schedules
@@ -246,10 +247,17 @@ class ExhibitionController extends Controller
         }
 
         // Update cut-off dates
-        $exhibition->update([
+        $updateData = [
             'addon_services_cutoff_date' => $request->addon_services_cutoff_date,
             'document_upload_deadline' => $request->document_upload_deadline,
-        ]);
+        ];
+
+        // Optional floorplan image (carried over from step 2)
+        if ($request->hasFile('floorplan_image')) {
+            $updateData['floorplan_image'] = $request->file('floorplan_image')->store('floorplans', 'public');
+        }
+
+        $exhibition->update($updateData);
 
         return redirect()->route('admin.exhibitions.step4', $exhibition->id);
     }
