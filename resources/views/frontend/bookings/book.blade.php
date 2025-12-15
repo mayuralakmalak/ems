@@ -886,6 +886,9 @@ document.addEventListener('DOMContentLoaded', function() {
     setupPriceRange();
     toggleServicesCard();
     
+    // Load floorplan positions from JSON if needed
+    loadFloorplanPositionsFromJson();
+    
     // Pre-select booths from query parameter
     const urlParams = new URLSearchParams(window.location.search);
     const boothIds = urlParams.get('booths');
@@ -900,6 +903,87 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// Load floorplan positions from JSON file as fallback
+async function loadFloorplanPositionsFromJson() {
+    const exhibitionId = {{ $exhibition->id }};
+    const booths = document.querySelectorAll('.booth-item');
+    
+    // Check if any booths are missing positions
+    let needsPositions = false;
+    booths.forEach(booth => {
+        const style = booth.getAttribute('style') || '';
+        // Check if position is using fallback (loop index calculation)
+        if (style.includes('left:') && (style.match(/left:\s*(\d+)/)?.[1] || '0') < 100) {
+            // Might be using fallback, check if it's a calculated position
+            const leftMatch = style.match(/left:\s*(\d+)/);
+            const topMatch = style.match(/top:\s*(\d+)/);
+            if (leftMatch && topMatch) {
+                // If positions seem like fallback values, try to load from JSON
+                needsPositions = true;
+            }
+        }
+    });
+    
+    // Only load if we have booths and they might need positions
+    if (booths.length > 0) {
+        try {
+            const response = await fetch(`{{ route('floorplan.config.load', $exhibition->id) }}`, {
+                headers: { 'Accept': 'application/json' }
+            });
+            const config = await response.json();
+            
+            if (config.booths && Array.isArray(config.booths)) {
+                // Update booth positions from JSON (match by booth name)
+                config.booths.forEach(boothData => {
+                    const boothName = boothData.id;
+                    if (!boothName) return;
+                    
+                    // Find booth by name
+                    const booth = Array.from(booths).find(b => {
+                        return b.getAttribute('data-booth-name') === boothName;
+                    });
+                    
+                    if (booth) {
+                        const currentStyle = booth.getAttribute('style') || '';
+                        let newStyle = currentStyle;
+                        
+                        // Update position if provided in JSON
+                        if (boothData.x !== undefined) {
+                            newStyle = newStyle.replace(/left:\s*[^;]+/, `left: ${boothData.x}px`);
+                            if (!newStyle.includes('left:')) {
+                                newStyle += ` left: ${boothData.x}px;`;
+                            }
+                        }
+                        if (boothData.y !== undefined) {
+                            newStyle = newStyle.replace(/top:\s*[^;]+/, `top: ${boothData.y}px`);
+                            if (!newStyle.includes('top:')) {
+                                newStyle += ` top: ${boothData.y}px;`;
+                            }
+                        }
+                        if (boothData.width !== undefined) {
+                            newStyle = newStyle.replace(/width:\s*[^;]+/, `width: ${boothData.width}px`);
+                            if (!newStyle.includes('width:')) {
+                                newStyle += ` width: ${boothData.width}px;`;
+                            }
+                        }
+                        if (boothData.height !== undefined) {
+                            newStyle = newStyle.replace(/height:\s*[^;]+/, `height: ${boothData.height}px`);
+                            if (!newStyle.includes('height:')) {
+                                newStyle += ` height: ${boothData.height}px;`;
+                            }
+                        }
+                        
+                        booth.setAttribute('style', newStyle);
+                    }
+                });
+            }
+        } catch (error) {
+            console.warn('Failed to load floorplan positions from JSON:', error);
+            // Continue without JSON positions - use database positions
+        }
+    }
+}
 
 // Booth Selection
 function setupBoothSelection() {

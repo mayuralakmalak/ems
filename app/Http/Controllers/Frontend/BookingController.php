@@ -13,6 +13,7 @@ use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class BookingController extends Controller
 {
@@ -82,7 +83,84 @@ class BookingController extends Controller
             ->orderBy('name', 'asc');
         }, 'services', 'stallSchemes'])->findOrFail($exhibitionId);
         
+        // Sync booth positions from JSON file if booths don't have positions
+        $this->syncBoothPositionsFromJson($exhibition);
+        
         return view('frontend.bookings.book', compact('exhibition'));
+    }
+    
+    /**
+     * Sync booth positions from JSON configuration file.
+     * This ensures booths have proper positions even if they're missing in the database.
+     */
+    private function syncBoothPositionsFromJson($exhibition)
+    {
+        $path = "floorplans/exhibition_{$exhibition->id}.json";
+        $privatePath = "private/floorplans/exhibition_{$exhibition->id}.json";
+        
+        $jsonPath = null;
+        if (Storage::disk('local')->exists($path)) {
+            $jsonPath = $path;
+        } elseif (Storage::disk('local')->exists($privatePath)) {
+            $jsonPath = $privatePath;
+        }
+        
+        if (!$jsonPath) {
+            return; // No JSON file found, skip
+        }
+        
+        try {
+            $json = Storage::disk('local')->get($jsonPath);
+            $config = json_decode($json, true);
+            
+            if (!isset($config['booths']) || !is_array($config['booths'])) {
+                return; // Invalid JSON structure
+            }
+            
+            // Update booth positions from JSON (match by booth name)
+            foreach ($config['booths'] as $boothData) {
+                $boothName = $boothData['id'] ?? null;
+                if (!$boothName) continue;
+                
+                // Try exact match first
+                $booth = Booth::where('exhibition_id', $exhibition->id)
+                    ->where('name', $boothName)
+                    ->first();
+                
+                // If no exact match, try case-insensitive match
+                if (!$booth) {
+                    $booth = Booth::where('exhibition_id', $exhibition->id)
+                        ->whereRaw('LOWER(name) = LOWER(?)', [$boothName])
+                        ->first();
+                }
+                
+                if ($booth) {
+                    // Update position if missing or if JSON has valid data
+                    $updateData = [];
+                    
+                    // Always update from JSON if JSON has the data (JSON is source of truth for positions)
+                    if (isset($boothData['x']) && is_numeric($boothData['x'])) {
+                        $updateData['position_x'] = (int)$boothData['x'];
+                    }
+                    if (isset($boothData['y']) && is_numeric($boothData['y'])) {
+                        $updateData['position_y'] = (int)$boothData['y'];
+                    }
+                    if (isset($boothData['width']) && is_numeric($boothData['width']) && $boothData['width'] > 0) {
+                        $updateData['width'] = (int)$boothData['width'];
+                    }
+                    if (isset($boothData['height']) && is_numeric($boothData['height']) && $boothData['height'] > 0) {
+                        $updateData['height'] = (int)$boothData['height'];
+                    }
+                    
+                    if (!empty($updateData)) {
+                        $booth->update($updateData);
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed to sync booth positions from JSON: ' . $e->getMessage());
+            // Don't throw, just log - continue with existing positions
+        }
     }
 
     public function details(Request $request, $exhibitionId)
@@ -362,7 +440,7 @@ class BookingController extends Controller
                 ->with('success', 'Booking captured. Please complete payment to submit your booth request to the admin.');
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Booking creation failed: ' . $e->getMessage(), [
+            \Illuminate\Support\Facades\Log::error('Booking creation failed: ' . $e->getMessage(), [
                 'user_id' => $user->id,
                 'exhibition_id' => $exhibition->id,
                 'booth_ids' => $boothIds,
@@ -572,5 +650,39 @@ class BookingController extends Controller
             DB::rollBack();
             return back()->with('error', 'Booth replacement failed: ' . $e->getMessage());
         }
+    }
+    
+    /**
+     * Load floorplan configuration JSON for frontend.
+     */
+    public function loadFloorplanConfig($exhibitionId)
+    {
+        $exhibition = Exhibition::findOrFail($exhibitionId);
+        $path = "floorplans/exhibition_{$exhibition->id}.json";
+        $privatePath = "private/floorplans/exhibition_{$exhibition->id}.json";
+        
+        if (Storage::disk('local')->exists($path)) {
+            $json = Storage::disk('local')->get($path);
+            return response($json, 200)->header('Content-Type', 'application/json');
+        } elseif (Storage::disk('local')->exists($privatePath)) {
+            $json = Storage::disk('local')->get($privatePath);
+            return response($json, 200)->header('Content-Type', 'application/json');
+        }
+        
+        // Return empty structure if not found
+        return response()->json([
+            'hall' => [
+                'width' => 1200,
+                'height' => 800,
+                'margin' => 0,
+            ],
+            'grid' => [
+                'size' => 50,
+                'show' => true,
+                'snap' => true,
+            ],
+            'booths' => [],
+            'lastUpdated' => null,
+        ]);
     }
 }

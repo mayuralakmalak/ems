@@ -39,6 +39,8 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     Route::post('/exhibitions/{id}/step3', [ExhibitionController::class, 'storeStep3'])->name('exhibitions.step3.store');
     Route::get('/exhibitions/{id}/step4', [ExhibitionController::class, 'step4'])->name('exhibitions.step4');
     Route::post('/exhibitions/{id}/step4', [ExhibitionController::class, 'storeStep4'])->name('exhibitions.step4.store');
+    Route::get('/exhibitions/{id}/step5', [ExhibitionController::class, 'step5'])->name('exhibitions.step5');
+    Route::post('/exhibitions/{id}/step5', [ExhibitionController::class, 'storeStep5'])->name('exhibitions.step5.store');
     
     // User Management
     Route::resource('users', UserController::class);
@@ -220,6 +222,7 @@ Route::middleware('auth')->group(function () {
     
     // Floorplan (Exhibitor)
     Route::get('/exhibitions/{id}/floorplan', [\App\Http\Controllers\Frontend\FloorplanController::class, 'show'])->name('floorplan.show');
+    Route::get('/exhibitions/{id}/floorplan/config', [\App\Http\Controllers\Frontend\BookingController::class, 'loadFloorplanConfig'])->name('floorplan.config.load');
     Route::post('/exhibitions/{exhibitionId}/booths/merge-request', [\App\Http\Controllers\Frontend\FloorplanController::class, 'requestMerge'])->name('floorplan.merge-request');
     Route::post('/exhibitions/{exhibitionId}/booths/{boothId}/split-request', [\App\Http\Controllers\Frontend\FloorplanController::class, 'requestSplit'])->name('floorplan.split-request');
     

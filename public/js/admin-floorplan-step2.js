@@ -293,7 +293,7 @@ class AdminFloorplanManager {
 
         // Property inputs - update booth on change
         ['boothWidth', 'boothHeight', 'boothX', 'boothY', 'boothStatus', 'boothSize',
-            'boothArea', 'boothPrice', 'boothOpenSides', 'boothCategory', 'boothItems'
+            'boothArea', 'boothCategory'
         ].forEach(id => {
             const input = document.getElementById(id);
             if (input) {
@@ -613,10 +613,11 @@ class AdminFloorplanManager {
                         status: 'available',
                         size: this.getSizeCategory(width, height),
                         area: Math.round((width * height) / (this.gridConfig.size * this.gridConfig.size) * 100), // Approximate sq ft
-                        price: 10000,
-                        openSides: 2,
                         category: 'Standard',
-                        includedItems: ['Table', '2 Chairs', 'Power Outlet']
+                        // Set default values for removed fields to maintain compatibility
+                        price: 0,
+                        openSides: 2,
+                        includedItems: []
                     };
 
                     this.addBooth(booth);
@@ -863,10 +864,7 @@ class AdminFloorplanManager {
         document.getElementById('boothStatus').value = booth.status;
         document.getElementById('boothSize').value = booth.size;
         document.getElementById('boothArea').value = booth.area;
-        document.getElementById('boothPrice').value = booth.price;
-        document.getElementById('boothOpenSides').value = booth.openSides;
         document.getElementById('boothCategory').value = booth.category;
-        document.getElementById('boothItems').value = booth.includedItems.join(', ');
     }
 
     // Update booth from properties
@@ -883,10 +881,12 @@ class AdminFloorplanManager {
             booth.status = document.getElementById('boothStatus').value;
             booth.size = document.getElementById('boothSize').value;
             booth.area = parseInt(document.getElementById('boothArea').value);
-            booth.price = parseInt(document.getElementById('boothPrice').value);
-            booth.openSides = parseInt(document.getElementById('boothOpenSides').value);
             booth.category = document.getElementById('boothCategory').value;
-            booth.includedItems = document.getElementById('boothItems').value.split(',').map(s => s.trim());
+
+            // Set default values for removed fields to maintain compatibility
+            booth.price = booth.price || 0;
+            booth.openSides = booth.openSides || 2;
+            booth.includedItems = booth.includedItems || [];
 
             // Update size category based on dimensions
             booth.size = this.getSizeCategory(booth.width, booth.height);
@@ -938,10 +938,11 @@ class AdminFloorplanManager {
                 status: document.getElementById('boothStatus').value,
                 size: this.getSizeCategory(width, height),
                 area: Math.round((width * height) / (this.gridConfig.size * this.gridConfig.size) * 100),
-                price: parseInt(document.getElementById('boothPrice').value) || 10000,
-                openSides: parseInt(document.getElementById('boothOpenSides').value) || 2,
                 category: document.getElementById('boothCategory').value,
-                includedItems: document.getElementById('boothItems').value.split(',').map(s => s.trim())
+                // Set default values for removed fields to maintain compatibility
+                price: 0,
+                openSides: 2,
+                includedItems: []
             };
 
             this.addBooth(booth);
@@ -1168,10 +1169,11 @@ class AdminFloorplanManager {
             status: booth1.status, // Keep first booth's status
             size: this.getSizeCategory(mergedWidth, mergedHeight),
             area: Math.round((mergedWidth * mergedHeight) / (this.gridConfig.size * this.gridConfig.size) * 100),
-            price: booth1.price + booth2.price, // Combine prices
-            openSides: Math.max(booth1.openSides, booth2.openSides),
             category: booth1.category === booth2.category ? booth1.category : 'Premium',
-            includedItems: [...new Set([...booth1.includedItems, ...booth2.includedItems])] // Combine unique items
+            // Set default values for removed fields to maintain compatibility
+            price: 0,
+            openSides: Math.max(booth1.openSides || 2, booth2.openSides || 2),
+            includedItems: []
         };
 
         // Delete original booths
@@ -1318,10 +1320,11 @@ class AdminFloorplanManager {
                     status: 'available',
                     size: this.getSizeCategory(boothWidth, boothHeight),
                     area: Math.round((boothWidth * boothHeight) / (gridSize * gridSize) * 100), // Approximate sq ft based on grid
-                    price: 5000 + Math.floor(Math.random() * 15000),
-                    openSides: 2,
                     category: 'Standard',
-                    includedItems: ['Table', '2 Chairs', 'Power Outlet']
+                    // Set default values for removed fields to maintain compatibility
+                    price: 0,
+                    openSides: 2,
+                    includedItems: []
                 };
 
                 this.addBooth(booth);

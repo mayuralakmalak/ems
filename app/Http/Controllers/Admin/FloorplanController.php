@@ -197,9 +197,15 @@ class FloorplanController extends Controller
     {
         $exhibition = Exhibition::findOrFail($exhibitionId);
         $path = "floorplans/exhibition_{$exhibition->id}.json";
+        
+        // Also check private subdirectory
+        $privatePath = "private/floorplans/exhibition_{$exhibition->id}.json";
 
         if (Storage::disk('local')->exists($path)) {
             $json = Storage::disk('local')->get($path);
+            return response($json, 200)->header('Content-Type', 'application/json');
+        } elseif (Storage::disk('local')->exists($privatePath)) {
+            $json = Storage::disk('local')->get($privatePath);
             return response($json, 200)->header('Content-Type', 'application/json');
         }
 
@@ -218,5 +224,74 @@ class FloorplanController extends Controller
             'booths' => [],
             'lastUpdated' => null,
         ]);
+    }
+
+    /**
+     * Sync booths from JSON configuration to database.
+     */
+    public function syncBoothsFromJson($exhibitionId)
+    {
+        $exhibition = Exhibition::findOrFail($exhibitionId);
+        $path = "floorplans/exhibition_{$exhibition->id}.json";
+        $privatePath = "private/floorplans/exhibition_{$exhibition->id}.json";
+        
+        $jsonPath = null;
+        if (Storage::disk('local')->exists($path)) {
+            $jsonPath = $path;
+        } elseif (Storage::disk('local')->exists($privatePath)) {
+            $jsonPath = $privatePath;
+        }
+        
+        if (!$jsonPath) {
+            return ['success' => false, 'message' => 'No JSON configuration found'];
+        }
+        
+        $json = Storage::disk('local')->get($jsonPath);
+        $config = json_decode($json, true);
+        
+        if (!isset($config['booths']) || !is_array($config['booths'])) {
+            return ['success' => false, 'message' => 'Invalid JSON structure'];
+        }
+        
+        $synced = 0;
+        $updated = 0;
+        
+        foreach ($config['booths'] as $boothData) {
+            $booth = Booth::where('exhibition_id', $exhibitionId)
+                ->where('name', $boothData['id'])
+                ->first();
+            
+            $boothAttributes = [
+                'exhibition_id' => $exhibitionId,
+                'name' => $boothData['id'],
+                'category' => $boothData['category'] ?? 'Standard',
+                'booth_type' => 'Raw', // Default
+                'size_sqft' => $boothData['area'] ?? 100,
+                'sides_open' => $boothData['openSides'] ?? 2,
+                'price' => $boothData['price'] ?? 0,
+                'position_x' => $boothData['x'] ?? 0,
+                'position_y' => $boothData['y'] ?? 0,
+                'width' => $boothData['width'] ?? 100,
+                'height' => $boothData['height'] ?? 80,
+                'is_available' => ($boothData['status'] ?? 'available') !== 'booked',
+                'is_booked' => ($boothData['status'] ?? 'available') === 'booked',
+                'is_free' => false,
+            ];
+            
+            if ($booth) {
+                $booth->update($boothAttributes);
+                $updated++;
+            } else {
+                Booth::create($boothAttributes);
+                $synced++;
+            }
+        }
+        
+        return [
+            'success' => true,
+            'message' => "Synced {$synced} booths, updated {$updated} booths",
+            'synced' => $synced,
+            'updated' => $updated
+        ];
     }
 }

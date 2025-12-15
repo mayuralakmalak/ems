@@ -73,7 +73,6 @@ class ExhibitionController extends Controller
         $exhibition = Exhibition::findOrFail($id);
         
         $validated = $request->validate([
-            'floorplan_image' => 'nullable|image|max:10240',
             'price_per_sqft' => 'nullable|numeric|min:0',
             'rear_price_per_sqft' => 'nullable|numeric|min:0',
             'orphaned_price_per_sqft' => 'nullable|numeric|min:0',
@@ -111,10 +110,6 @@ class ExhibitionController extends Controller
             'standard_price' => $validated['standard_price'] ?? $exhibition->standard_price ?? 0,
             'economy_price' => $validated['economy_price'] ?? $exhibition->economy_price ?? 0,
         ];
-
-        if ($request->hasFile('floorplan_image')) {
-            $updateData['floorplan_image'] = $request->file('floorplan_image')->store('floorplans', 'public');
-        }
 
         $exhibition->update($updateData);
 
@@ -183,6 +178,29 @@ class ExhibitionController extends Controller
         return redirect()->route('admin.exhibitions.step3', $exhibition->id);
     }
 
+    public function step3($id)
+    {
+        $exhibition = Exhibition::with(['stallSchemes', 'booths'])->findOrFail($id);
+        return view('admin.exhibitions.step3', compact('exhibition'));
+    }
+
+    public function storeStep3(Request $request, $id)
+    {
+        $exhibition = Exhibition::findOrFail($id);
+        
+        $validated = $request->validate([
+            'floorplan_image' => 'nullable|image|max:10240',
+        ]);
+
+        if ($request->hasFile('floorplan_image')) {
+            $exhibition->update([
+                'floorplan_image' => $request->file('floorplan_image')->store('floorplans', 'public')
+            ]);
+        }
+
+        return redirect()->route('admin.exhibitions.step4', $exhibition->id);
+    }
+
     private function calculateBoothPrice($exhibition, $boothData)
     {
         if (isset($boothData['is_free']) && $boothData['is_free']) {
@@ -214,13 +232,13 @@ class ExhibitionController extends Controller
         return round(max(0, $calculatedPrice), 2);
     }
 
-    public function step3($id)
+    public function step4($id)
     {
         $exhibition = Exhibition::with(['paymentSchedules'])->findOrFail($id);
-        return view('admin.exhibitions.step3', compact('exhibition'));
+        return view('admin.exhibitions.step4', compact('exhibition'));
     }
 
-    public function storeStep3(Request $request, $id)
+    public function storeStep4(Request $request, $id)
     {
         $exhibition = Exhibition::findOrFail($id);
         
@@ -251,16 +269,16 @@ class ExhibitionController extends Controller
             'document_upload_deadline' => $request->document_upload_deadline,
         ]);
 
-        return redirect()->route('admin.exhibitions.step4', $exhibition->id);
+        return redirect()->route('admin.exhibitions.step5', $exhibition->id);
     }
 
-    public function step4($id)
+    public function step5($id)
     {
         $exhibition = Exhibition::with(['badgeConfigurations', 'stallVariations'])->findOrFail($id);
-        return view('admin.exhibitions.step4', compact('exhibition'));
+        return view('admin.exhibitions.step5', compact('exhibition'));
     }
 
-    public function storeStep4(Request $request, $id)
+    public function storeStep5(Request $request, $id)
     {
         $exhibition = Exhibition::findOrFail($id);
         
