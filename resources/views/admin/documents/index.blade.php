@@ -316,6 +316,9 @@
 <div class="card" id="documentsContainer">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="bi bi-file-earmark-text me-2"></i>Documents</h5>
+        <a href="{{ route('admin.document-categories.index') }}" class="btn btn-sm btn-primary">
+            <i class="bi bi-folder me-2"></i>Document Categories
+        </a>
     </div>
     <div class="card-body p-0" id="documentsTableContainer">
         @include('admin.documents.partials.table')

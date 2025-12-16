@@ -27,6 +27,9 @@ Route::get('/exhibitions', [FrontendExhibitionController::class, 'list'])->name(
 Route::get('/exhibitions/{id}', [FrontendExhibitionController::class, 'show'])->name('exhibitions.show');
 Route::get('/exhibitions/{id}/floorplan', [\App\Http\Controllers\Frontend\FloorplanController::class, 'show'])->name('floorplan.show.public');
 
+// API Routes for Country/State
+Route::get('/api/states', [\App\Http\Controllers\Auth\RegisteredUserController::class, 'getStates'])->name('api.states');
+
 // Admin Routes
 Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
@@ -108,6 +111,9 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     Route::post('/documents/{id}/reject', [\App\Http\Controllers\Admin\DocumentController::class, 'reject'])->name('documents.reject');
     Route::post('/documents/bulk-approve', [\App\Http\Controllers\Admin\DocumentController::class, 'bulkApprove'])->name('documents.bulk-approve');
     
+    // Document Categories Management (CRUD)
+    Route::resource('document-categories', \App\Http\Controllers\Admin\DocumentCategoryController::class);
+    
     // Floorplan Management
         Route::get('/exhibitions/{id}/floorplan', [\App\Http\Controllers\Admin\FloorplanController::class, 'show'])->name('floorplan.show');
         Route::get('/exhibitions/{id}/floorplan/config', [\App\Http\Controllers\Admin\FloorplanController::class, 'loadConfig'])->name('floorplan.config.load');
@@ -152,6 +158,12 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     Route::get('/exhibitors/{id}', [\App\Http\Controllers\Admin\ExhibitorManagementController::class, 'show'])->name('exhibitors.show');
     Route::put('/exhibitors/{id}/contact', [\App\Http\Controllers\Admin\ExhibitorManagementController::class, 'updateContact'])->name('exhibitors.update-contact');
     Route::put('/exhibitors/{id}/booth', [\App\Http\Controllers\Admin\ExhibitorManagementController::class, 'updateBooth'])->name('exhibitors.update-booth');
+    Route::post('/exhibitors/{id}/messages', [\App\Http\Controllers\Admin\ExhibitorManagementController::class, 'sendMessage'])->name('exhibitors.messages.send');
+    Route::post('/exhibitors/{id}/messages/close', [\App\Http\Controllers\Admin\ExhibitorManagementController::class, 'closeChat'])->name('exhibitors.messages.close');
+    
+    // Admin Communication Center - start new chat with any exhibitor
+    Route::get('/communications/new', [\App\Http\Controllers\Admin\CommunicationController::class, 'create'])->name('communications.create');
+    Route::post('/communications', [\App\Http\Controllers\Admin\CommunicationController::class, 'store'])->name('communications.store');
     
     // Email Management (Wireframe 36)
     Route::get('/emails', [\App\Http\Controllers\Admin\EmailManagementController::class, 'index'])->name('emails.index');
@@ -193,8 +205,8 @@ Route::middleware('auth')->group(function () {
     // Documents
     Route::resource('documents', DocumentController::class);
     
-    // Document Categories
-    Route::resource('document-categories', \App\Http\Controllers\Frontend\DocumentCategoryController::class);
+    // Document Categories (Read-only for exhibitors - only active categories)
+    Route::get('/document-categories', [\App\Http\Controllers\Frontend\DocumentCategoryController::class, 'index'])->name('document-categories.index');
     
     // Badges
     Route::resource('badges', BadgeController::class);

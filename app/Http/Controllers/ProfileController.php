@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Models\Country;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,6 +21,7 @@ class ProfileController extends Controller
         if ($request->user()->hasRole('Exhibitor') || !$request->user()->hasAnyRole(['Admin', 'Sub Admin'])) {
             return view('frontend.profile.edit', [
                 'user' => $request->user(),
+                'countries' => Country::active()->ordered()->get(),
             ]);
         }
         
@@ -42,11 +44,41 @@ class ProfileController extends Controller
         }
         
         // Update other fields
-        $user->fill($request->only([
-            'name', 'email', 'phone', 'company_name', 'address', 'city', 
-            'state', 'country', 'pincode', 'gst_number', 'pan_number', 
-            'website', 'company_description'
-        ]));
+        $data = $request->only([
+            'name',
+            'email',
+            'phone',
+            'company_name',
+            'address',
+            'city',
+            'state',
+            'country',
+            'pincode',
+            'gst_number',
+            'pan_number',
+            'website',
+            'company_description',
+        ]);
+
+        // If country/state come as IDs (from dropdown), convert to names before saving
+        if (!empty($data['country']) && ctype_digit((string) $data['country'])) {
+            $countryModel = Country::find($data['country']);
+            if ($countryModel) {
+                $data['country'] = $countryModel->name;
+            }
+        }
+
+        if (!empty($data['state']) && ctype_digit((string) $data['state'])) {
+            // State model is not imported here on purpose; we only convert if needed in registration.
+            // For profile updates we generally expect the state name, so leave as-is for non-numeric values.
+            // Numeric values will be treated as-is if no matching state is found.
+            $stateModel = \App\Models\State::find($data['state']);
+            if ($stateModel) {
+                $data['state'] = $stateModel->name;
+            }
+        }
+
+        $user->fill($data);
 
         if ($user->isDirty('email')) {
             $user->email_verified_at = null;

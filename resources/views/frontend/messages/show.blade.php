@@ -1,35 +1,36 @@
 <div class="conversation-header">
-    <div class="conversation-title">{{ Str::limit($message->message, 30) }}</div>
+    <div class="conversation-title">
+        Conversation with {{ $otherUser->name ?? 'Admin' }}
+    </div>
     <div class="conversation-participants">
-        {{ $message->sender->name ?? 'Admin' }} -> You
+        You &bull; {{ $otherUser->email ?? '' }}
     </div>
 </div>
 
 <div class="conversation-messages">
-    <div class="message-bubble">
+    @foreach($conversation as $msg)
+    @php
+        $isUser = $msg->sender_id === auth()->id();
+    @endphp
+    <div class="message-bubble {{ $isUser ? 'user-message' : 'admin-message' }}">
         <div class="message-header">
-            <span class="message-author">{{ $message->sender->name ?? 'Admin' }}</span>
-            <span class="message-date">{{ $message->created_at->format('M d, Y, h:i A') }}</span>
+            <span class="message-author">
+                {{ $isUser ? 'You' : ($otherUser->name ?? 'Admin') }}
+            </span>
+            <span class="message-date">{{ $msg->created_at->format('M d, Y, h:i A') }}</span>
         </div>
-        <div class="message-text">{{ $message->message }}</div>
-    </div>
-    
-    @if($message->receiver_id === auth()->id())
-    <div class="message-bubble">
-        <div class="message-header">
-            <span class="message-author">You</span>
-            <span class="message-date">{{ now()->format('M d, Y, h:i A') }}</span>
+        <div class="message-text">
+            {{ $msg->message }}
         </div>
-        <div class="message-text">Thanks for reaching out! I'm always keen to explore potential collaborations. Does either of those work for you? Looking forward to connecting.</div>
     </div>
-    @endif
+    @endforeach
 </div>
 
 <div class="reply-box">
     <form action="{{ route('messages.store') }}" method="POST">
         @csrf
-        <input type="hidden" name="receiver_id" value="{{ $message->sender_id }}">
-        <input type="hidden" name="exhibition_id" value="{{ $message->exhibition_id }}">
+        <input type="hidden" name="receiver_id" value="{{ $otherUser->id }}">
+        <input type="hidden" name="exhibition_id" value="">
         <textarea name="message" class="reply-input" rows="3" placeholder="Reply to message..."></textarea>
         <div class="reply-actions">
             <button type="button" class="btn-attach">
@@ -41,4 +42,3 @@
         </div>
     </form>
 </div>
-
