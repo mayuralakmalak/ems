@@ -230,8 +230,8 @@
                 </a>
             </li>
             <li>
-                <a href="{{ route('home') }}" class="{{ request()->routeIs('home') || request()->routeIs('exhibitions.*') ? 'active' : '' }}">
-                    <i class="bi bi-calendar-plus"></i>Book New Stall
+                <a href="{{ route('exhibitions.list') }}" class="{{ request()->routeIs('exhibitions.list') ? 'active' : '' }}">
+                    <i class="bi bi-calendar-plus"></i>Book New Booth
                 </a>
             </li>
             <li>

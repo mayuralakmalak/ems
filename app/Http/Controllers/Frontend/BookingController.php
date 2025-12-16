@@ -83,7 +83,30 @@ class BookingController extends Controller
                   ->where('is_split', true);
             })
             ->orderBy('name', 'asc');
-        }, 'services', 'stallSchemes', 'boothSizes', 'stallVariations'])->findOrFail($exhibitionId);
+        }, 'stallSchemes', 'boothSizes', 'stallVariations', 'addonServices'])->findOrFail($exhibitionId);
+
+        // Booths that have an active booking request which is PAID but not yet
+        // approved or rejected should appear as "booked" on the floorplan
+        // so that other exhibitors cannot select them. Unpaid / abandoned
+        // booking attempts must NOT block the booth selection.
+        //
+        // We intentionally do NOT change the underlying booth flags here
+        // (is_booked / is_available) to keep the existing approval flow
+        // intact. This is purely a frontend visibility rule.
+        $pendingBookedBoothIds = Booking::where('exhibition_id', $exhibitionId)
+            ->where('approval_status', 'pending')
+            ->whereNotIn('status', ['cancelled', 'rejected'])
+            // Only consider bookings that have at least one completed payment.
+            // This prevents a booth from showing as booked when the exhibitor
+            // has not actually finished the payment / booking process.
+            ->whereHas('payments', function ($q) {
+                $q->where('status', 'completed');
+            })
+            ->pluck('booth_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
 
         // If no booths in DB, try to hydrate from saved floorplan JSON
         if ($exhibition->booths->isEmpty()) {
@@ -96,10 +119,13 @@ class BookingController extends Controller
                     $q->whereNotNull('parent_booth_id')->where('is_split', true);
                 })
                 ->orderBy('name', 'asc');
-            }]);
+            }, 'addonServices']);
         }
         
-        return view('frontend.bookings.book', compact('exhibition'));
+        return view('frontend.bookings.book', [
+            'exhibition' => $exhibition,
+            'pendingBookedBoothIds' => $pendingBookedBoothIds,
+        ]);
     }
 
     /**
@@ -173,8 +199,9 @@ class BookingController extends Controller
 
     public function details(Request $request, $exhibitionId)
     {
-        $exhibition = Exhibition::with(['booths', 'services', 'stallSchemes', 'boothSizes'])->findOrFail($exhibitionId);
+        $exhibition = Exhibition::with(['booths', 'stallSchemes', 'boothSizes'])->findOrFail($exhibitionId);
         $boothIds = array_filter(explode(',', $request->query('booths', '')));
+        $merge = (bool) $request->query('merge', false);
         
         if (empty($boothIds)) {
             return redirect()->route('bookings.book', $exhibitionId)
@@ -214,17 +241,52 @@ class BookingController extends Controller
             $boothTotal += $price;
         }
         
-        // Calculate services total
-        $serviceIds = array_filter(explode(',', $request->query('services', '')));
+        // Calculate services total (supports optional quantities via JSON payload)
         $servicesTotal = 0;
-        if (!empty($serviceIds)) {
-            $services = Service::whereIn('id', $serviceIds)
-                ->where('exhibition_id', $exhibition->id)
-                ->where('is_active', true)
-                ->get();
-            $servicesTotal = $services->sum('price');
-        }
+        $selectedServices = [];
 
+        $servicesPayload = json_decode($request->query('services_payload', '[]'), true) ?: [];
+        $serviceIdsFromQuery = array_filter(explode(',', $request->query('services', '')));
+
+        if (!empty($servicesPayload)) {
+            foreach ($servicesPayload as $row) {
+                $id = (int) ($row['id'] ?? 0);
+                $qty = max(0, (int) ($row['quantity'] ?? 0));
+                $unitPrice = (float) ($row['unit_price'] ?? 0);
+                $name = (string) ($row['name'] ?? '');
+
+                if (!$id || $qty <= 0 || $unitPrice <= 0) {
+                    continue;
+                }
+
+                $lineTotal = $qty * $unitPrice;
+                $servicesTotal += $lineTotal;
+
+                $selectedServices[] = [
+                    'id' => $id,
+                    'name' => $name,
+                    'quantity' => $qty,
+                    'unit_price' => $unitPrice,
+                    'total_price' => $lineTotal,
+                ];
+            }
+        } elseif (!empty($serviceIdsFromQuery)) {
+            // Legacy support: when only IDs are provided, assume quantity=1 and look up price-less services as 0
+            foreach ($serviceIdsFromQuery as $rawId) {
+                $id = (int) $rawId;
+                if (!$id) {
+                    continue;
+                }
+                $selectedServices[] = [
+                    'id' => $id,
+                    'name' => '',
+                    'quantity' => 1,
+                    'unit_price' => 0,
+                    'total_price' => 0,
+                ];
+            }
+        }
+        
         // Included item extras (from booth size items)
         $includedItemsRaw = json_decode($request->query('included_items', '[]'), true) ?: [];
         $includedExtras = [];
@@ -281,8 +343,10 @@ class BookingController extends Controller
             'includedExtras' => $includedExtras,
             'extrasTotal' => $extrasTotal,
             'boothTotal' => $boothTotal,
+            'selectedServices' => $selectedServices,
             'servicesTotal' => $servicesTotal,
             'totalAmount' => $totalAmount,
+            'merge' => $merge,
         ]);
     }
 
@@ -305,8 +369,10 @@ class BookingController extends Controller
             'contact_numbers' => 'nullable|array|max:5',
             'contact_numbers.*' => 'nullable|string',
             'services' => 'nullable|array',
-            'services.*.service_id' => 'exists:services,id',
-            'services.*.quantity' => 'integer|min:1',
+            // Additional items (add‑on services) now come from exhibition-specific configuration,
+            // not the global `services` table, so we only validate basic shape here.
+            'services.*.service_id' => 'nullable|integer|min:1',
+            'services.*.quantity' => 'nullable|integer|min:1',
             'included_item_extras' => 'nullable|array',
             'included_item_extras.*.item_id' => 'required_with:included_item_extras|exists:exhibition_booth_size_items,id',
             'included_item_extras.*.quantity' => 'required_with:included_item_extras|integer|min:1',
@@ -395,14 +461,26 @@ class BookingController extends Controller
                 $boothId = $booths->first()->id; // Primary booth
             }
 
-            // Calculate additional services total
+            // Calculate additional services total from posted payload (no direct Service dependency)
             $servicesTotal = 0;
+            $postedServices = [];
             if ($request->services) {
                 foreach ($request->services as $serviceData) {
-                    $service = Service::find($serviceData['service_id']);
-                    if ($service && $service->exhibition_id === $exhibition->id) {
-                        $quantity = $serviceData['quantity'] ?? 1;
-                        $servicesTotal += $service->price * $quantity;
+                    $serviceId = (int) ($serviceData['service_id'] ?? 0);
+                    $quantity = max(0, (int) ($serviceData['quantity'] ?? 0));
+                    $unitPrice = (float) ($serviceData['unit_price'] ?? 0);
+                    $name = (string) ($serviceData['name'] ?? '');
+
+                    if ($serviceId && $quantity > 0 && $unitPrice > 0) {
+                        $lineTotal = $unitPrice * $quantity;
+                        $servicesTotal += $lineTotal;
+                        $postedServices[] = [
+                            'service_id' => $serviceId,
+                            'quantity' => $quantity,
+                            'unit_price' => $unitPrice,
+                            'total_price' => $lineTotal,
+                            'name' => $name,
+                        ];
                     }
                 }
             }
@@ -489,20 +567,27 @@ class BookingController extends Controller
             // DO NOT mark booths as booked yet - wait for admin approval
             // Booths will be marked as booked when admin approves the request
 
-            // Add additional services
-            if ($request->services) {
-                foreach ($request->services as $serviceData) {
-                    $service = Service::find($serviceData['service_id']);
-                    if ($service && $service->exhibition_id === $exhibition->id) {
-                        $quantity = $serviceData['quantity'] ?? 1;
-                        BookingService::create([
-                            'booking_id' => $booking->id,
-                            'service_id' => $service->id,
-                            'quantity' => $quantity,
-                            'unit_price' => $service->price,
-                            'total_price' => $service->price * $quantity,
-                        ]);
+            // Add additional services, but only for service IDs that actually exist
+            if (!empty($postedServices)) {
+                foreach ($postedServices as $serviceRow) {
+                    $serviceId = $serviceRow['service_id'] ?? null;
+                    if (!$serviceId) {
+                        continue;
                     }
+
+                    // Guard against stale/missing services to avoid FK violations
+                    $serviceModel = Service::find($serviceId);
+                    if (!$serviceModel) {
+                        continue;
+                    }
+
+                    BookingService::create([
+                        'booking_id' => $booking->id,
+                        'service_id' => $serviceModel->id,
+                        'quantity' => $serviceRow['quantity'],
+                        'unit_price' => $serviceRow['unit_price'],
+                        'total_price' => $serviceRow['total_price'],
+                    ]);
                 }
             }
 
@@ -537,25 +622,48 @@ class BookingController extends Controller
 
     private function mergeBooths($booths, $exhibition)
     {
+        // Derive merged booth name from selected booth names (sorted, concatenated)
         $mergedNames = $booths->pluck('name')->sort()->implode('');
         $totalSize = $booths->sum('size_sqft');
-        $totalPrice = $booths->sum('price');
         $maxSidesOpen = $booths->max('sides_open');
-        
-        // Calculate merged price based on exhibition pricing
+
+        // Calculate merged price based on exhibition pricing (same logic as floorplan merge)
         $basePrice = $exhibition->price_per_sqft ?? 0;
         $mergedPrice = $totalSize * $basePrice;
-        
-        // Apply side open percentage
+
+        // Apply side‑open percentage
         $sideOpenPercent = 0;
-        if ($maxSidesOpen == 1) $sideOpenPercent = $exhibition->side_1_open_percent ?? 0;
-        elseif ($maxSidesOpen == 2) $sideOpenPercent = $exhibition->side_2_open_percent ?? 0;
-        elseif ($maxSidesOpen == 3) $sideOpenPercent = $exhibition->side_3_open_percent ?? 0;
-        elseif ($maxSidesOpen == 4) $sideOpenPercent = $exhibition->side_4_open_percent ?? 0;
-        
+        if ($maxSidesOpen == 1) {
+            $sideOpenPercent = $exhibition->side_1_open_percent ?? 0;
+        } elseif ($maxSidesOpen == 2) {
+            $sideOpenPercent = $exhibition->side_2_open_percent ?? 0;
+        } elseif ($maxSidesOpen == 3) {
+            $sideOpenPercent = $exhibition->side_3_open_percent ?? 0;
+        } elseif ($maxSidesOpen == 4) {
+            $sideOpenPercent = $exhibition->side_4_open_percent ?? 0;
+        }
+
         $mergedPrice = $mergedPrice * (1 + $sideOpenPercent / 100);
 
-        // Create merged booth
+        // Calculate merged booth position and size to cover all originals
+        $positions = $booths->map(function ($booth) {
+            return [
+                'x1' => $booth->position_x ?? 0,
+                'y1' => $booth->position_y ?? 0,
+                'x2' => ($booth->position_x ?? 0) + ($booth->width ?? 100),
+                'y2' => ($booth->position_y ?? 0) + ($booth->height ?? 80),
+            ];
+        });
+
+        $minX = $positions->min('x1');
+        $minY = $positions->min('y1');
+        $maxX = $positions->max('x2');
+        $maxY = $positions->max('y2');
+
+        $mergedWidth = max(100, $maxX - $minX);
+        $mergedHeight = max(80, $maxY - $minY);
+
+        // Create merged booth as a real booth in the floorplan
         $mergedBooth = Booth::create([
             'exhibition_id' => $exhibition->id,
             'name' => $mergedNames,
@@ -566,7 +674,22 @@ class BookingController extends Controller
             'price' => $mergedPrice,
             'is_merged' => true,
             'merged_booths' => $booths->pluck('id')->toArray(),
+            'is_available' => true,   // will appear on floorplan but treated as booked via booking status
+            'is_booked' => false,     // we rely on approval flow / pending booking to show as taken
+            'position_x' => $minX,
+            'position_y' => $minY,
+            'width' => $mergedWidth,
+            'height' => $mergedHeight,
         ]);
+
+        // Mark original booths as merged children so they are hidden on the floorplan
+        foreach ($booths as $booth) {
+            $booth->update([
+                'is_available' => false,
+                'is_merged' => true,
+                'parent_booth_id' => $mergedBooth->id,
+            ]);
+        }
 
         return $mergedBooth;
     }

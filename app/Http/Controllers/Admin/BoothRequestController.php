@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BoothRequest;
 use App\Models\Booth;
 use App\Models\Booking;
+use App\Models\ExhibitionBoothSizeItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -37,7 +38,7 @@ class BoothRequestController extends Controller
     {
         $boothRequest = BoothRequest::with(['exhibition', 'user'])->findOrFail($id);
 
-        $booking = Booking::with(['exhibition', 'user', 'booth', 'payments', 'documents', 'bookingServices'])
+        $booking = Booking::with(['exhibition', 'user', 'booth', 'payments', 'documents', 'bookingServices.service'])
             ->where('user_id', $boothRequest->user_id)
             ->where('exhibition_id', $boothRequest->exhibition_id)
             ->when($boothRequest->booth_ids, function ($query) use ($boothRequest) {
@@ -45,8 +46,25 @@ class BoothRequestController extends Controller
             })
             ->latest()
             ->first();
+        
+        // Map included item extras to their item definitions (for names)
+        $extraItemsMap = collect();
+        if ($booking && !empty($booking->included_item_extras)) {
+            $itemIds = collect($booking->included_item_extras)
+                ->pluck('item_id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
 
-        return view('admin.booth-requests.show', compact('boothRequest', 'booking'));
+            if (!empty($itemIds)) {
+                $extraItemsMap = ExhibitionBoothSizeItem::whereIn('id', $itemIds)
+                    ->get()
+                    ->keyBy('id');
+            }
+        }
+
+        return view('admin.booth-requests.show', compact('boothRequest', 'booking', 'extraItemsMap'));
     }
 
     public function approve($id)
@@ -214,13 +232,24 @@ class BoothRequestController extends Controller
 
     private function processBooking($boothRequest)
     {
-        // Find the most recent pending booking for this request
-        $booking = Booking::where('user_id', $boothRequest->user_id)
-            ->where('exhibition_id', $boothRequest->exhibition_id)
-            ->whereIn('booth_id', $boothRequest->booth_ids)
-            ->where('approval_status', 'pending')
-            ->latest()
-            ->first();
+        // Prefer an explicit booking_id from the request payload (created at payment time)
+        $bookingIdFromRequest = $boothRequest->request_data['booking_id'] ?? null;
+
+        if ($bookingIdFromRequest) {
+            $booking = Booking::where('id', $bookingIdFromRequest)
+                ->where('user_id', $boothRequest->user_id)
+                ->where('exhibition_id', $boothRequest->exhibition_id)
+                ->where('approval_status', 'pending')
+                ->first();
+        } else {
+            // Fallback: locate by booth_id list (legacy behaviour)
+            $booking = Booking::where('user_id', $boothRequest->user_id)
+                ->where('exhibition_id', $boothRequest->exhibition_id)
+                ->whereIn('booth_id', $boothRequest->booth_ids ?? [])
+                ->where('approval_status', 'pending')
+                ->latest()
+                ->first();
+        }
         
         if (!$booking) {
             throw new \Exception('No pending booking found for this request');
@@ -233,15 +262,12 @@ class BoothRequestController extends Controller
             'status' => 'confirmed',
         ]);
         
-        // Mark all booths in the booking as booked
-        foreach ($boothRequest->booth_ids ?? [] as $boothId) {
-            $booth = Booth::find($boothId);
-            if ($booth && !$booth->is_booked) {
-                $booth->update([
-                    'is_booked' => true,
-                    'is_available' => false,
-                ]);
-            }
+        // Mark the primary booth on the booking as booked (this may be a merged booth)
+        if ($booking->booth) {
+            $booking->booth->update([
+                'is_booked' => true,
+                'is_available' => false,
+            ]);
         }
     }
 }

@@ -41,13 +41,15 @@ class ExhibitionController extends Controller
     public function show($id)
     {
         try {
-            $exhibition = Exhibition::with('booths')->findOrFail($id);
-            
-            // If user is logged in, show booking interface, otherwise show public view
-            if (auth()->check()) {
-                return redirect()->route('bookings.book', $id);
-            }
-            
+            $exhibition = Exhibition::with([
+                'booths',
+                'boothSizes.items',
+                'addonServices',
+                'paymentSchedules',
+                'badgeConfigurations',
+                'stallVariations',
+            ])->findOrFail($id);
+
             return view('frontend.exhibitions.show', compact('exhibition'));
         } catch (\Exception $e) {
             return redirect()->route('home')

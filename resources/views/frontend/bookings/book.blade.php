@@ -798,9 +798,11 @@
                     // Priority: booked > available > reserved
                     $status = 'available';
                     $statusClass = 'booth-available';
+                    $hasPendingBooking = isset($pendingBookedBoothIds) && in_array($booth->id, $pendingBookedBoothIds, true);
                     
-                    if ($booth->is_booked) {
-                        // Booked booths (after admin approval)
+                    if ($booth->is_booked || $hasPendingBooking) {
+                        // Treat booths with a pending booking request as booked
+                        // so they cannot be selected again until admin acts.
                         $status = 'booked';
                         $statusClass = 'booth-booked';
                     } elseif ($booth->is_available) {
@@ -1020,7 +1022,28 @@
 
         <!-- Additional Services -->
         @php
-            $activeServices = $exhibition->services ? $exhibition->services->where('is_active', true) : collect();
+            // Exhibition-specific add-on services: price comes from ExhibitionAddonService,
+            // but the underlying service is the global Service model (for FK in booking_services).
+            $addonServices = $exhibition->addonServices ?? collect();
+            $serviceNames = $addonServices->pluck('item_name')->filter()->unique()->values();
+            $servicesByName = \App\Models\Service::whereIn('name', $serviceNames)->get()->keyBy('name');
+
+            $activeServices = $addonServices->map(function ($addon) use ($servicesByName) {
+                $serviceModel = $servicesByName->get($addon->item_name);
+                if (!$serviceModel) {
+                    return null;
+                }
+
+                return (object) [
+                    // IMPORTANT: use Service ID here so booking_services.service_id references services.id
+                    'id' => $serviceModel->id,
+                    'name' => $serviceModel->name,
+                    'description' => $serviceModel->description,
+                    'image' => $serviceModel->image,
+                    'price' => $addon->price_per_quantity, // exhibition-specific price per quantity
+                    'category' => $serviceModel->category ?? null,
+                ];
+            })->filter();
         @endphp
         @if($activeServices->count() > 0)
         <div class="panel-card services-card" id="servicesCard">
@@ -1040,15 +1063,28 @@
                                 @if($service->description)
                                 <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 5px;">{{ $service->description }}</div>
                                 @endif
-                                <div class="service-price" style="margin-bottom: 5px;">₹{{ number_format($service->price, 2) }}</div>
+                                <div class="service-price" style="margin-bottom: 3px;">₹{{ number_format($service->price, 2) }}</div>
+                                <small class="text-muted" style="font-size: 0.8rem; display:block; margin-bottom:4px;">Price per quantity</small>
                                 @if($service->image)
                                 <button type="button" class="btn-view-image" onclick="openImageGallery({{ $service->id }}, '{{ asset('storage/' . $service->image) }}', '{{ $service->name }}')" style="padding: 4px 12px; background: #6366f1; color: white; border: none; border-radius: 4px; font-size: 0.75rem; cursor: pointer; margin-top: 5px;">
                                     <i class="bi bi-image me-1"></i>View Image
                                 </button>
                                 @endif
                             </div>
-                            <div>
-                                <input type="checkbox" class="service-checkbox" data-service-id="{{ $service->id }}" data-service-price="{{ $service->price }}" data-service-name="{{ $service->name }}" onchange="updateServiceSelection()">
+                            <div style="min-width: 110px; text-align: right;">
+                                <label style="font-size: 0.8rem; color:#64748b; display:block;">Quantity</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value="0"
+                                    class="form-control form-control-sm service-qty-input"
+                                    style="width: 90px; display:inline-block;"
+                                    data-service-id="{{ $service->id }}"
+                                    data-service-price="{{ $service->price }}"
+                                    data-service-name="{{ $service->name }}"
+                                    oninput="updateServiceSelection()"
+                                >
+                                <div class="service-line-total" id="serviceTotal-{{ $service->id }}" style="margin-top:4px; font-size:0.8rem; color:#6366f1; font-weight:600;"></div>
                             </div>
                         </div>
                     </div>
@@ -1090,6 +1126,7 @@ let currentZoom = 1;
 let selectedBoothId = null;
 let contactCount = 0;
 let boothSelections = {};
+let mergeRequested = false;
 
 const pricingConfig = {
     basePricePerSqft: {{ $exhibition->price_per_sqft ?? 0 }},
@@ -1535,6 +1572,14 @@ function updateSelectedBoothsList() {
     }
     
     let html = '';
+    if (mergeRequested && selectedBooths.length > 1) {
+        html += `
+            <div class="alert alert-info py-2 px-3 mb-2" style="font-size: 0.85rem;">
+                <i class="bi bi-arrow-left-right me-1"></i>
+                Selected booths will be booked as a <strong>merged booth</strong> in the next step. The actual merge will be created only after you submit the booking.
+            </div>
+        `;
+    }
     selectedBooths.forEach(boothId => {
         const booth = document.querySelector(`[data-booth-id="${boothId}"]`);
         if (booth) {
@@ -1564,20 +1609,38 @@ function updateSelectedBoothsList() {
 function updateServiceSelection() {
     selectedServices = [];
     let servicesTotal = 0;
-    const checkboxes = document.querySelectorAll('.service-checkbox:checked');
-    
-    checkboxes.forEach(checkbox => {
-        const serviceId = checkbox.getAttribute('data-service-id');
-        const servicePrice = parseFloat(checkbox.getAttribute('data-service-price'));
-        const serviceName = checkbox.getAttribute('data-service-name');
-        selectedServices.push({
-            id: serviceId,
-            price: servicePrice,
-            name: serviceName
-        });
-        servicesTotal += servicePrice;
+    const inputs = document.querySelectorAll('.service-qty-input');
+
+    inputs.forEach(input => {
+        const serviceId = input.getAttribute('data-service-id');
+        const servicePrice = parseFloat(input.getAttribute('data-service-price')) || 0;
+        const serviceName = input.getAttribute('data-service-name');
+        let quantity = parseInt(input.value, 10);
+        if (isNaN(quantity) || quantity < 0) {
+            quantity = 0;
+            input.value = '0';
+        }
+
+        const lineEl = document.getElementById(`serviceTotal-${serviceId}`);
+
+        if (quantity > 0 && servicePrice > 0) {
+            const lineTotal = servicePrice * quantity;
+            selectedServices.push({
+                id: serviceId,
+                price: servicePrice,
+                name: serviceName,
+                quantity: quantity,
+                lineTotal: lineTotal,
+            });
+            servicesTotal += lineTotal;
+            if (lineEl) {
+                lineEl.textContent = `₹${lineTotal.toLocaleString()}`;
+            }
+        } else if (lineEl) {
+            lineEl.textContent = '';
+        }
     });
-    
+
     const servicesTotalDiv = document.getElementById('servicesTotal');
     const servicesTotalAmount = document.getElementById('servicesTotalAmount');
     
@@ -1602,7 +1665,10 @@ function updateTotalAmount() {
     
     let servicesTotal = 0;
     selectedServices.forEach(service => {
-        servicesTotal += service.price;
+        const qty = service.quantity || 1;
+        const unit = service.price || 0;
+        const line = service.lineTotal != null ? service.lineTotal : qty * unit;
+        servicesTotal += line;
     });
 
     // Included items extras total
@@ -1713,6 +1779,7 @@ function setupZoom() {
     
     document.getElementById('resetView').addEventListener('click', () => {
         currentZoom = 1;
+        mergeRequested = false;
         applyZoom();
         selectedBooths = [];
         document.querySelectorAll('.booth-item').forEach(booth => {
@@ -1720,6 +1787,11 @@ function setupZoom() {
         });
         updateSelectedBoothsList();
         updateProceedButton();
+
+        const mergeBtn = document.getElementById('mergeBoothBtn');
+        if (mergeBtn) {
+            mergeBtn.innerHTML = '<i class="bi bi-arrow-left-right me-1"></i>Request Merge';
+        }
     });
 }
 
@@ -1751,7 +1823,15 @@ function setupMergeSplit() {
             alert('Please select at least 2 booths to merge');
             return;
         }
-        requestMerge();
+
+        // Toggle client-side merge mode; actual DB merge happens only after booking submission.
+        mergeRequested = !mergeRequested;
+
+        this.innerHTML = mergeRequested
+            ? '<i class="bi bi-arrow-left-right me-1"></i>Merged for this booking'
+            : '<i class="bi bi-arrow-left-right me-1"></i>Request Merge';
+
+        updateSelectedBoothsList();
     });
     
     document.getElementById('splitBoothBtn').addEventListener('click', function() {
@@ -1865,6 +1945,9 @@ document.getElementById('proceedToBookBtn').addEventListener('click', function()
     const detailsUrl = "{{ route('bookings.details', $exhibition->id) }}";
     const params = new URLSearchParams();
     params.set('booths', selectedBooths.join(','));
+    if (mergeRequested && selectedBooths.length > 1) {
+        params.set('merge', '1');
+    }
     const meta = {};
     selectedBooths.forEach(id => {
         if (boothSelections[id]) {
@@ -1878,7 +1961,16 @@ document.getElementById('proceedToBookBtn').addEventListener('click', function()
         params.set('booth_meta', JSON.stringify(meta));
     }
     if (selectedServices.length > 0) {
+        // Preserve legacy list of IDs for backward compatibility
         params.set('services', selectedServices.map(s => s.id).join(','));
+        // New payload with full data for accurate pricing on details & server
+        const servicesPayload = selectedServices.map(s => ({
+            id: s.id,
+            quantity: s.quantity || 1,
+            unit_price: s.price || 0,
+            name: s.name || '',
+        }));
+        params.set('services_payload', JSON.stringify(servicesPayload));
     }
     // Included item extras (only those with quantity > 0)
     const extrasPayload = [];

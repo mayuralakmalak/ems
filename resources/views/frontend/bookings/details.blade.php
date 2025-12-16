@@ -74,19 +74,21 @@
                         @foreach($boothIds as $boothId)
                             <input type="hidden" name="booth_ids[]" value="{{ $boothId }}">
                         @endforeach
+                        @if($merge && count($boothIds) > 1)
+                            <input type="hidden" name="merge_booths" value="1">
+                        @endif
                         @if(!empty($boothSelections))
                             @foreach($boothSelections as $selection)
                                 <input type="hidden" name="booth_selections[{{ $selection['id'] }}][type]" value="{{ $selection['type'] }}">
                                 <input type="hidden" name="booth_selections[{{ $selection['id'] }}][sides]" value="{{ $selection['sides'] }}">
                             @endforeach
                         @endif
-                        @php
-                            $serviceIds = array_filter(explode(',', request()->query('services', '')));
-                        @endphp
-                        @if(!empty($serviceIds))
-                            @foreach($serviceIds as $serviceId)
-                                <input type="hidden" name="services[{{ $loop->index }}][service_id]" value="{{ $serviceId }}">
-                                <input type="hidden" name="services[{{ $loop->index }}][quantity]" value="1">
+                        @if(!empty($selectedServices ?? []))
+                            @foreach($selectedServices as $index => $service)
+                                <input type="hidden" name="services[{{ $index }}][service_id]" value="{{ $service['id'] }}">
+                                <input type="hidden" name="services[{{ $index }}][quantity]" value="{{ $service['quantity'] }}">
+                                <input type="hidden" name="services[{{ $index }}][unit_price]" value="{{ $service['unit_price'] }}">
+                                <input type="hidden" name="services[{{ $index }}][name]" value="{{ $service['name'] }}">
                             @endforeach
                         @endif
                         @if(!empty($includedExtras ?? []))
@@ -211,36 +213,19 @@
                     $boothTotal = $boothTotal ?? (!empty($boothSelections)
                         ? collect($boothSelections)->sum('price')
                         : $booths->sum('price'));
-                    $serviceIds = array_filter(explode(',', request()->query('services', '')));
-                    $selectedServices = [];
-                    $servicesTotal = $servicesTotal ?? 0;
-                    if ($servicesTotal === 0 && !empty($serviceIds)) {
-                        $selectedServices = \App\Models\Service::whereIn('id', $serviceIds)
-                            ->where('exhibition_id', $exhibition->id)
-                            ->where('is_active', true)
-                            ->get();
-                        $servicesTotal = $selectedServices->sum('price');
-                    } elseif (!empty($serviceIds) && empty($selectedServices)) {
-                        $selectedServices = \App\Models\Service::whereIn('id', $serviceIds)
-                            ->where('exhibition_id', $exhibition->id)
-                            ->where('is_active', true)
-                            ->get();
-                    }
                     $extrasTotal = $extrasTotal ?? 0;
+                    $servicesTotal = $servicesTotal ?? 0;
                     $grandTotal = $totalAmount ?? ($boothTotal + $servicesTotal + $extrasTotal);
+                    // Normalize for view
+                    $selectedServices = $selectedServices ?? [];
                 @endphp
-                @if($selectedServices && $selectedServices->count() > 0)
+                @if(!empty($selectedServices))
                 <div class="summary-row">
                     <span class="summary-label">Additional Services</span>
                     <span class="summary-value">
                         @foreach($selectedServices as $service)
                             <div style="font-size: 0.85rem; margin-bottom: 3px;">
-                                {{ $service->name }} - ₹{{ number_format($service->price, 2) }}
-                                @if($service->image)
-                                <button type="button" class="btn btn-sm btn-link p-0 ms-1" onclick="openServiceImage('{{ asset('storage/' . $service->image) }}', '{{ $service->name }}')" style="font-size: 0.75rem; text-decoration: none;">
-                                    <i class="bi bi-image"></i> View
-                                </button>
-                                @endif
+                                {{ $service['name'] ?: 'Additional service' }} (x{{ $service['quantity'] }}) - ₹{{ number_format($service['total_price'], 2) }}
                             </div>
                         @endforeach
                     </span>

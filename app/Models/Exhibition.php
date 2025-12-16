@@ -37,11 +37,6 @@ class Exhibition extends Model
         return $this->hasMany(Booking::class);
     }
 
-    public function services()
-    {
-        return $this->hasMany(Service::class);
-    }
-
     public function sponsorships()
     {
         return $this->hasMany(Sponsorship::class);

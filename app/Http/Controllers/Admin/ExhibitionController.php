@@ -9,6 +9,7 @@ use App\Models\PaymentSchedule;
 use App\Models\BadgeConfiguration;
 use App\Models\StallVariation;
 use App\Models\ExhibitionAddonService;
+use App\Models\Service;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
@@ -66,7 +67,9 @@ class ExhibitionController extends Controller
     public function step2($id)
     {
         $exhibition = Exhibition::with(['stallSchemes', 'booths', 'boothSizes.items', 'addonServices'])->findOrFail($id);
-        return view('admin.exhibitions.step2', compact('exhibition'));
+        $services = Service::where('is_active', true)->orderBy('name')->get();
+
+        return view('admin.exhibitions.step2', compact('exhibition', 'services'));
     }
 
     public function storeStep2(Request $request, $id)
@@ -97,6 +100,7 @@ class ExhibitionController extends Controller
             'booth_sizes.*.items.*.images' => 'nullable|array',
             'booth_sizes.*.items.*.images.*' => 'nullable|image|max:10240',
             'addon_services' => 'nullable|array',
+            'addon_services.*.service_id' => 'nullable|exists:services,id',
             'addon_services.*.item_name' => 'nullable|string|max:255',
             'addon_services.*.price_per_quantity' => 'nullable|numeric|min:0',
         ]);
@@ -195,11 +199,22 @@ class ExhibitionController extends Controller
         ExhibitionAddonService::where('exhibition_id', $exhibition->id)->delete();
         $addonServices = $request->input('addon_services', []);
         foreach ($addonServices as $service) {
+            $serviceId = $service['service_id'] ?? null;
             $name = $service['item_name'] ?? null;
             $price = $service['price_per_quantity'] ?? null;
+
+            // If a configured service is selected, use its name
+            if ($serviceId) {
+                $serviceModel = Service::find($serviceId);
+                if ($serviceModel) {
+                    $name = $serviceModel->name;
+                }
+            }
+
             if (empty($name) && is_null($price)) {
                 continue;
             }
+
             ExhibitionAddonService::create([
                 'exhibition_id' => $exhibition->id,
                 'item_name' => $name ?? '',

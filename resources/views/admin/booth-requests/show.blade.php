@@ -296,6 +296,88 @@
                 </ul>
             </div>
 
+            @if(!empty($booking->included_item_extras))
+            <div class="detail-section">
+                <h5 class="section-header">Included Item Extras (Paid)</h5>
+                <table class="payment-history-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th class="text-end">Quantity</th>
+                            <th class="text-end">Unit Price</th>
+                            <th class="text-end">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @php
+                            $extrasTotal = 0;
+                        @endphp
+                        @foreach($booking->included_item_extras as $extra)
+                            @php
+                                $qty = (int) ($extra['quantity'] ?? 0);
+                                $unit = (float) ($extra['unit_price'] ?? 0);
+                                $lineTotal = $qty * $unit;
+                                $extrasTotal += $lineTotal;
+                                $item = isset($extraItemsMap) ? $extraItemsMap->get($extra['item_id'] ?? null) : null;
+                            @endphp
+                            <tr>
+                                <td>{{ $item->item_name ?? ('Item #' . ($extra['item_id'] ?? '-')) }}</td>
+                                <td class="text-end">{{ $qty }}</td>
+                                <td class="text-end">₹{{ number_format($unit, 2) }}</td>
+                                <td class="text-end">₹{{ number_format($lineTotal, 2) }}</td>
+                            </tr>
+                        @endforeach
+                        <tr>
+                            <td colspan="3" class="text-end"><strong>Total Extras</strong></td>
+                            <td class="text-end"><strong>₹{{ number_format($extrasTotal, 2) }}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            @endif
+
+            @php
+                $adminServices = $booking->bookingServices()->with('service')->get();
+            @endphp
+            @if($adminServices->count())
+            <div class="detail-section">
+                <h5 class="section-header">Additional Services</h5>
+                <table class="payment-history-table">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th class="text-end">Quantity</th>
+                            <th class="text-end">Unit Price</th>
+                            <th class="text-end">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @php
+                            $servicesTotal = 0;
+                        @endphp
+                        @foreach($adminServices as $bs)
+                            @php
+                                $qty = (int) $bs->quantity;
+                                $unit = (float) $bs->unit_price;
+                                $lineTotal = $qty * $unit;
+                                $servicesTotal += $lineTotal;
+                            @endphp
+                            <tr>
+                                <td>{{ $bs->service->name ?? 'Service #' . $bs->service_id }}</td>
+                                <td class="text-end">{{ $qty }}</td>
+                                <td class="text-end">₹{{ number_format($unit, 2) }}</td>
+                                <td class="text-end">₹{{ number_format($lineTotal, 2) }}</td>
+                            </tr>
+                        @endforeach
+                        <tr>
+                            <td colspan="3" class="text-end"><strong>Total Services</strong></td>
+                            <td class="text-end"><strong>₹{{ number_format($servicesTotal, 2) }}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            @endif
+
             <div class="detail-section">
                 <h5 class="section-header">Payment History</h5>
                 <table class="payment-history-table">

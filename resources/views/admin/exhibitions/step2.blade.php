@@ -269,8 +269,15 @@
                         @forelse($exhibition->addonServices as $idx => $service)
                         <div class="row g-3 align-items-end addon-row" data-addon-index="{{ $idx }}">
                             <div class="col-md-6">
-                                <label class="form-label">Item name</label>
-                                <input type="text" name="addon_services[{{ $idx }}][item_name]" class="form-control" value="{{ $service->item_name }}">
+                                <label class="form-label">Service</label>
+                                <select name="addon_services[{{ $idx }}][service_id]" class="form-select">
+                                    <option value="">Select service</option>
+                                    @foreach($services as $configuredService)
+                                        <option value="{{ $configuredService->id }}" {{ $configuredService->name === $service->item_name ? 'selected' : '' }}>
+                                            {{ $configuredService->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Price per quantity</label>
@@ -283,8 +290,13 @@
                         @empty
                         <div class="row g-3 align-items-end addon-row" data-addon-index="0">
                             <div class="col-md-6">
-                                <label class="form-label">Item name</label>
-                                <input type="text" name="addon_services[0][item_name]" class="form-control" placeholder="Service name">
+                                <label class="form-label">Service</label>
+                                <select name="addon_services[0][service_id]" class="form-select">
+                                    <option value="">Select service</option>
+                                    @foreach($services as $configuredService)
+                                        <option value="{{ $configuredService->id }}">{{ $configuredService->name }}</option>
+                                    @endforeach
+                                </select>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Price per quantity</label>
@@ -436,8 +448,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const addonTemplate = (idx) => `
         <div class="row g-3 align-items-end addon-row" data-addon-index="${idx}">
             <div class="col-md-6">
-                <label class="form-label">Item name</label>
-                <input type="text" name="addon_services[${idx}][item_name]" class="form-control" placeholder="Service name">
+                <label class="form-label">Service</label>
+                <select name="addon_services[${idx}][service_id]" class="form-select">
+                    <option value="">Select service</option>
+                    @foreach($services as $configuredService)
+                        <option value="{{ $configuredService->id }}">{{ $configuredService->name }}</option>
+                    @endforeach
+                </select>
             </div>
             <div class="col-md-4">
                 <label class="form-label">Price per quantity</label>

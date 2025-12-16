@@ -18,41 +18,29 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         @endif
-        <form method="GET" class="mb-3">
-            <div class="row g-2">
-                <div class="col-md-4">
-                    <select name="category" class="form-select">
-                        <option value="">All Categories</option>
-                        @foreach($categories as $category)
-                        <option value="{{ $category }}" {{ request('category') == $category ? 'selected' : '' }}>{{ $category }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <select name="exhibition_id" class="form-select">
-                        <option value="">All Exhibitions</option>
-                        @foreach($exhibitions as $exhibition)
-                        <option value="{{ $exhibition->id }}" {{ request('exhibition_id') == $exhibition->id ? 'selected' : '' }}>{{ $exhibition->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <button type="submit" class="btn btn-primary w-100">Filter</button>
-                </div>
-            </div>
-        </form>
+        @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        @endif
+        @if($errors->any())
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <ul class="mb-0">
+                @foreach($errors->all() as $error)
+                <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        @endif
         <div class="table-responsive">
             <table class="table table-hover align-middle">
                 <thead>
                     <tr>
                         <th><input type="checkbox" id="selectAll"></th>
                         <th>Service Name</th>
-                        <th>Category</th>
-                        <th>Exhibition</th>
-                        <th>Price</th>
-                        <th>Price Unit</th>
-                        <th>Available From</th>
-                        <th>Available To</th>
+                        <th>Description</th>
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
@@ -62,12 +50,7 @@
                     <tr>
                         <td><input type="checkbox" name="ids[]" value="{{ $service->id }}" class="service-checkbox"></td>
                         <td><strong>{{ $service->name }}</strong></td>
-                        <td>{{ $service->category }}</td>
-                        <td>{{ $service->exhibition->name ?? '-' }}</td>
-                        <td>₹{{ number_format($service->price, 2) }}</td>
-                        <td>{{ $service->price_unit }}</td>
-                        <td>{{ $service->available_from ? $service->available_from->format('d M Y') : '-' }}</td>
-                        <td>{{ $service->available_to ? $service->available_to->format('d M Y') : '-' }}</td>
+                        <td>{{ Str::limit($service->description ?? '-', 50) }}</td>
                         <td>
                             <span class="badge bg-{{ $service->is_active ? 'success' : 'secondary' }}">
                                 {{ $service->is_active ? 'Active' : 'Inactive' }}
@@ -88,7 +71,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="10" class="text-center">No services found.</td>
+                        <td colspan="5" class="text-center">No services found.</td>
                     </tr>
                     @endforelse
                 </tbody>
@@ -124,42 +107,9 @@
                 <input type="hidden" name="_method" id="formMethod" value="POST">
                 <div class="modal-body">
                     <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Exhibition <span class="text-danger">*</span></label>
-                            <select name="exhibition_id" id="exhibition_id" class="form-select" required>
-                                <option value="">Select Exhibition</option>
-                                @foreach($exhibitions as $exhibition)
-                                <option value="{{ $exhibition->id }}">{{ $exhibition->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-6 mb-3">
+                        <div class="col-12 mb-3">
                             <label class="form-label">Service Name <span class="text-danger">*</span></label>
                             <input type="text" name="name" id="service_name" class="form-control" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Category <span class="text-danger">*</span></label>
-                            <input type="text" name="category" id="service_category" class="form-control" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Type</label>
-                            <input type="text" name="type" id="service_type" class="form-control">
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Price <span class="text-danger">*</span></label>
-                            <input type="number" name="price" id="service_price" step="0.01" min="0" class="form-control" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Price Unit <span class="text-danger">*</span></label>
-                            <input type="text" name="price_unit" id="service_price_unit" class="form-control" value="per person" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Available From</label>
-                            <input type="date" name="available_from" id="service_available_from" class="form-control">
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Available To</label>
-                            <input type="date" name="available_to" id="service_available_to" class="form-control">
                         </div>
                         <div class="col-12 mb-3">
                             <label class="form-label">Description</label>
@@ -218,7 +168,6 @@ function resetModal() {
     document.getElementById('formMethod').value = 'POST';
     document.getElementById('modalTitle').textContent = 'Add New Service';
     document.getElementById('submitBtn').textContent = 'Create Service';
-    document.getElementById('service_price_unit').value = 'per person';
     document.getElementById('service_is_active').checked = true;
     
     // Hide current image
@@ -227,9 +176,6 @@ function resetModal() {
     
     // Clear file input
     document.getElementById('service_image').value = '';
-    
-    // Reset exhibition dropdown
-    document.getElementById('exhibition_id').selectedIndex = 0;
 }
 
 function editService(id) {
@@ -266,43 +212,8 @@ function editService(id) {
         document.getElementById('serviceForm').reset();
         
         // Populate form fields
-        document.getElementById('exhibition_id').value = service.exhibition_id || '';
         document.getElementById('service_name').value = service.name || '';
         document.getElementById('service_description').value = service.description || '';
-        document.getElementById('service_type').value = service.type || '';
-        document.getElementById('service_category').value = service.category || '';
-        document.getElementById('service_price').value = service.price || '';
-        document.getElementById('service_price_unit').value = service.price_unit || 'per person';
-        
-        // Format dates for date inputs (YYYY-MM-DD)
-        if (service.available_from) {
-            // If it's already in YYYY-MM-DD format, use it directly
-            if (service.available_from.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                document.getElementById('service_available_from').value = service.available_from;
-            } else {
-                const fromDate = new Date(service.available_from);
-                if (!isNaN(fromDate.getTime())) {
-                    document.getElementById('service_available_from').value = fromDate.toISOString().split('T')[0];
-                }
-            }
-        } else {
-            document.getElementById('service_available_from').value = '';
-        }
-        
-        if (service.available_to) {
-            // If it's already in YYYY-MM-DD format, use it directly
-            if (service.available_to.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                document.getElementById('service_available_to').value = service.available_to;
-            } else {
-                const toDate = new Date(service.available_to);
-                if (!isNaN(toDate.getTime())) {
-                    document.getElementById('service_available_to').value = toDate.toISOString().split('T')[0];
-                }
-            }
-        } else {
-            document.getElementById('service_available_to').value = '';
-        }
-        
         document.getElementById('service_is_active').checked = service.is_active === true || service.is_active === 1;
         
         // Show current image if exists

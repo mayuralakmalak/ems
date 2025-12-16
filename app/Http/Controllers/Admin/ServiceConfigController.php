@@ -4,61 +4,61 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Service;
-use App\Models\Exhibition;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class ServiceConfigController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Service::with('exhibition');
-
-        if ($request->has('category') && $request->category) {
-            $query->where('category', $request->category);
-        }
-
-        if ($request->has('exhibition_id') && $request->exhibition_id) {
-            $query->where('exhibition_id', $request->exhibition_id);
-        }
+        $query = Service::query();
 
         $services = $query->latest()->paginate(20);
-        $exhibitions = Exhibition::all();
-        $categories = Service::distinct()->pluck('category')->filter();
 
-        return view('admin.services.config', compact('services', 'exhibitions', 'categories'));
-    }
-
-    public function addCategory(Request $request)
-    {
-        // Category is managed per service, not separately
-        return back()->with('info', 'Categories are managed per service.');
+        return view('admin.services.config', compact('services'));
     }
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'exhibition_id' => 'required|exists:exhibitions,id',
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'type' => 'nullable|string',
-            'category' => 'required|string|max:255',
-            'price' => 'required|numeric|min:0',
-            'price_unit' => 'required|string|max:255',
-            'available_from' => 'nullable|date',
-            'available_to' => 'nullable|date|after:available_from',
-            'image' => 'nullable|image|max:5120',
-            'is_active' => 'boolean',
-        ]);
+        try {
+            Log::info('Service creation attempt', [
+                'request_data' => $request->all(),
+                'has_is_active' => $request->has('is_active'),
+                'is_active_value' => $request->input('is_active')
+            ]);
 
-        if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('services', 'public');
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'description' => 'nullable|string',
+                'image' => 'nullable|image|max:5120',
+                'is_active' => 'nullable',
+            ]);
+
+            if ($request->hasFile('image')) {
+                $validated['image'] = $request->file('image')->store('services', 'public');
+            }
+
+            // Handle checkbox: if present (checked), set to true, otherwise false
+            $validated['is_active'] = $request->has('is_active') ? true : false;
+
+            Log::info('Validated data before create', ['validated' => $validated]);
+
+            $service = Service::create($validated);
+            
+            Log::info('Service created successfully', ['service_id' => $service->id]);
+            
+            return redirect()->route('admin.services.config')->with('success', 'Service created successfully.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Validation failed', ['errors' => $e->errors()]);
+            return back()->withErrors($e->errors())->withInput();
+        } catch (\Exception $e) {
+            Log::error('Service creation failed: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+            return back()->withInput()->with('error', 'Failed to create service: ' . $e->getMessage());
         }
-
-        $validated['is_active'] = $request->has('is_active');
-
-        Service::create($validated);
-        return redirect()->route('admin.services.config')->with('success', 'Service created successfully.');
     }
 
     public function show($id)
@@ -69,15 +69,8 @@ class ServiceConfigController extends Controller
         if (request()->wantsJson() || request()->ajax()) {
             return response()->json([
                 'id' => $service->id,
-                'exhibition_id' => $service->exhibition_id,
                 'name' => $service->name,
                 'description' => $service->description,
-                'type' => $service->type,
-                'category' => $service->category,
-                'price' => $service->price,
-                'price_unit' => $service->price_unit,
-                'available_from' => $service->available_from ? $service->available_from->format('Y-m-d') : null,
-                'available_to' => $service->available_to ? $service->available_to->format('Y-m-d') : null,
                 'image' => $service->image,
                 'is_active' => $service->is_active,
             ]);
@@ -90,15 +83,8 @@ class ServiceConfigController extends Controller
     {
         $service = Service::findOrFail($id);
         $validated = $request->validate([
-            'exhibition_id' => 'required|exists:exhibitions,id',
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'type' => 'nullable|string',
-            'category' => 'required|string|max:255',
-            'price' => 'required|numeric|min:0',
-            'price_unit' => 'required|string|max:255',
-            'available_from' => 'nullable|date',
-            'available_to' => 'nullable|date|after:available_from',
             'image' => 'nullable|image|max:5120',
             'is_active' => 'boolean',
         ]);
