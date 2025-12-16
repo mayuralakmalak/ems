@@ -454,14 +454,22 @@
                 <div class="col-md-4">
                     <div class="form-group">
                         <label for="country" class="form-label">Country</label>
-                        <input 
-                            type="text" 
-                            class="form-control @error('country') is-invalid @enderror" 
+                        <select 
+                            class="form-select @error('country') is-invalid @enderror" 
                             id="country" 
                             name="country" 
-                            value="{{ old('country') }}" 
-                            required
-                            placeholder="country">
+                            required>
+                            <option value="">Select Country</option>
+                            @foreach($countries as $country)
+                                <option
+                                    value="{{ $country->id }}"
+                                    data-id="{{ $country->id }}"
+                                    {{ old('country') == $country->id ? 'selected' : '' }}
+                                >
+                                    {{ $country->name }}
+                                </option>
+                            @endforeach
+                        </select>
                         @error('country')
                             <div class="text-danger">{{ $message }}</div>
                         @enderror
@@ -489,14 +497,15 @@
                 <div class="col-md-6">
                     <div class="form-group">
                         <label for="state" class="form-label">State</label>
-                        <input 
-                            type="text" 
-                            class="form-control @error('state') is-invalid @enderror" 
+                        <select 
+                            class="form-select @error('state') is-invalid @enderror" 
                             id="state" 
                             name="state" 
-                            value="{{ old('state') }}" 
                             required
-                            placeholder="state">
+                            data-old-value="{{ old('state') }}"
+                            data-value-field="id">
+                            <option value="">Select State</option>
+                        </select>
                         @error('state')
                             <div class="text-danger">{{ $message }}</div>
                         @enderror
@@ -559,6 +568,10 @@
 @push('scripts')
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.19.5/dist/jquery.validate.min.js"></script>
+<script>
+    // Set API URL for country-state.js
+    window.statesApiUrl = '{{ route("api.states") }}';
+</script>
 <script src="{{ asset('js/country-state.js') }}"></script>
 <script>
 $(function() {

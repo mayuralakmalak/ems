@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Booking;
+use App\Models\Message;
 use App\Models\Booth;
 use App\Models\Exhibition;
 use App\Models\Discount;
@@ -25,9 +26,8 @@ class ExhibitorManagementController extends Controller
             });
         }
 
-        if ($request->has('industry') && $request->industry) {
-            $query->where('industry', $request->industry);
-        }
+        // 'industry' column does not exist on users table in current schema,
+        // so skip industry-based filtering to avoid SQL errors.
 
         if ($request->has('payment_status') && $request->payment_status) {
             if ($request->payment_status === 'paid') {
@@ -48,10 +48,9 @@ class ExhibitorManagementController extends Controller
         }
 
         $exhibitors = $query->latest()->paginate(20);
-        $industries = User::role('Exhibitor')->distinct()->pluck('industry')->filter();
         $exhibitions = Exhibition::all();
 
-        return view('admin.exhibitors.index', compact('exhibitors', 'industries', 'exhibitions'));
+        return view('admin.exhibitors.index', compact('exhibitors', 'exhibitions'));
     }
 
     public function show($id)
@@ -60,12 +59,18 @@ class ExhibitorManagementController extends Controller
         $bookings = $exhibitor->bookings()->with(['exhibition', 'booth', 'payments'])->latest()->get();
         $exhibitions = Exhibition::all();
         $booths = Booth::where('is_available', true)->get();
-        $discounts = Discount::where('status', 'active')
-            ->where('start_date', '<=', now())
-            ->where('end_date', '>=', now())
+        $messages = Message::where(function ($query) use ($exhibitor) {
+                $query->where('sender_id', $exhibitor->id)
+                    ->orWhere('receiver_id', $exhibitor->id);
+            })
+            ->with(['sender', 'receiver', 'exhibition'])
+            ->orderBy('created_at')
             ->get();
+        // Discounts table no longer has date columns after migration,
+        // so simply fetch currently active discounts.
+        $discounts = Discount::where('status', 'active')->get();
 
-        return view('admin.exhibitors.show', compact('exhibitor', 'bookings', 'exhibitions', 'booths', 'discounts'));
+        return view('admin.exhibitors.show', compact('exhibitor', 'bookings', 'exhibitions', 'booths', 'discounts', 'messages'));
     }
 
     public function updateContact(Request $request, $id)
@@ -130,5 +135,49 @@ class ExhibitorManagementController extends Controller
         ]);
 
         return back()->with('success', 'Booth assignment updated successfully.');
+    }
+
+    /**
+     * Send a message from admin to a specific exhibitor.
+     */
+    public function sendMessage(Request $request, $id)
+    {
+        $exhibitor = User::role('Exhibitor')->findOrFail($id);
+
+        $validated = $request->validate([
+            'message' => 'required|string|max:5000',
+            'exhibition_id' => 'nullable|exists:exhibitions,id',
+        ]);
+
+        Message::create([
+            'sender_id' => auth()->id(),
+            'receiver_id' => $exhibitor->id,
+            'exhibition_id' => $validated['exhibition_id'] ?? null,
+            'message' => $validated['message'],
+            'status' => 'inbox',
+            'is_closed' => false,
+        ]);
+
+        return back()->with('success', 'Message sent to exhibitor successfully.');
+    }
+
+    /**
+     * Close the chat with a specific exhibitor and move it to archive.
+     */
+    public function closeChat($id)
+    {
+        $exhibitor = User::role('Exhibitor')->findOrFail($id);
+
+        Message::where(function ($query) use ($exhibitor) {
+                $query->where('sender_id', $exhibitor->id)
+                    ->orWhere('receiver_id', $exhibitor->id);
+            })
+            ->where('status', '!=', 'archived')
+            ->update([
+                'status' => 'archived',
+                'is_closed' => true,
+            ]);
+
+        return back()->with('success', 'Chat archived successfully for this exhibitor.');
     }
 }

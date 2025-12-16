@@ -327,13 +327,7 @@
 
 @section('content')
 <!-- Header with Manage Button -->
-<div class="row mb-3">
-    <div class="col-12 d-flex justify-content-end">
-        <a href="{{ route('document-categories.index') }}" class="btn btn-outline-primary">
-            <i class="bi bi-folder me-2"></i>Document Categories
-        </a>
-    </div>
-</div>
+
 
 <!-- Upload Section -->
 <div class="upload-section">

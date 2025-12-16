@@ -302,6 +302,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.exhibitors.*') ? 'active' : '' }}" href="{{ route('admin.exhibitors.index') }}">
+                                <i class="bi bi-people-fill me-2"></i> Exhibitors
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('admin.financial.*') ? 'active' : '' }}" href="{{ route('admin.financial.index') }}">
                                 <i class="bi bi-cash-coin me-2"></i> Financial
                             </a>
@@ -377,6 +382,10 @@
                                     <li><a class="dropdown-item text-center" href="#" id="markAllReadBtn">Mark all as read</a></li>
                                 </ul>
                             </div>
+                            <!-- New Chat (Admin) -->
+                            <a href="{{ route('admin.communications.create') }}" class="btn btn-link p-0 me-3" title="Start new chat with exhibitor" style="text-decoration: none; color: #6366f1;">
+                                <i class="bi bi-envelope fs-5"></i>
+                            </a>
                             <form method="POST" action="{{ route('logout') }}" class="d-inline">
                                 @csrf
                                 <button type="submit" class="btn btn-link p-0" style="width: 40px; height: 40px; border-radius: 50%; background: #ef4444; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; transition: all 0.3s ease;" title="Logout" onmouseover="this.style.background='#dc2626'; this.style.transform='scale(1.1)'" onmouseout="this.style.background='#ef4444'; this.style.transform='scale(1)'">

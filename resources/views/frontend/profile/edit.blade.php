@@ -228,7 +228,15 @@
                 <div class="col-md-4">
                     <div class="form-group">
                         <label class="form-label">State</label>
-                        <input type="text" name="state" class="form-control" value="{{ old('state', auth()->user()->state) }}">
+                        <select
+                            class="form-select"
+                            id="state"
+                            name="state"
+                            data-value-field="name"
+                            data-old-value="{{ old('state', auth()->user()->state) }}"
+                        >
+                            <option value="">Select State</option>
+                        </select>
                         @error('state')
                             <small class="text-danger">{{ $message }}</small>
                         @enderror
@@ -237,7 +245,27 @@
                 <div class="col-md-4">
                     <div class="form-group">
                         <label class="form-label">Country</label>
-                        <input type="text" name="country" class="form-control" value="{{ old('country', auth()->user()->country) }}">
+                        <select
+                            class="form-select"
+                            id="country"
+                            name="country"
+                        >
+                            <option value="">Select Country</option>
+                            @foreach($countries as $country)
+                                <option
+                                    value="{{ $country->id }}"
+                                    data-id="{{ $country->id }}"
+                                    @if(
+                                        old('country') == $country->id ||
+                                        (!old('country') && auth()->user()->country === $country->name)
+                                    )
+                                        selected
+                                    @endif
+                                >
+                                    {{ $country->name }}
+                                </option>
+                            @endforeach
+                        </select>
                         @error('country')
                             <small class="text-danger">{{ $message }}</small>
                         @enderror
@@ -294,17 +322,20 @@
 
 @push('scripts')
 <script>
-function previewPhoto(input) {
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const preview = document.getElementById('photoPreview');
-            preview.src = e.target.result;
-            preview.style.display = 'block';
-        };
-        reader.readAsDataURL(input.files[0]);
+    // Set API URL for country/state dropdowns
+    window.statesApiUrl = '{{ route('api.states') }}';
+
+    function previewPhoto(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const preview = document.getElementById('photoPreview');
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
     }
-}
 </script>
 @endpush
 @endsection

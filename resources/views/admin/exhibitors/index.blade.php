@@ -15,14 +15,6 @@
                     <input type="text" name="search" class="form-control" placeholder="Search..." value="{{ request('search') }}">
                 </div>
                 <div class="col-md-3">
-                    <select name="industry" class="form-select">
-                        <option value="">All Industries</option>
-                        @foreach($industries as $industry)
-                        <option value="{{ $industry }}" {{ request('industry') == $industry ? 'selected' : '' }}>{{ $industry }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-3">
                     <select name="payment_status" class="form-select">
                         <option value="">All Payment Status</option>
                         <option value="paid" {{ request('payment_status') == 'paid' ? 'selected' : '' }}>Paid</option>
@@ -45,7 +37,6 @@
                         <th>Name</th>
                         <th>Company</th>
                         <th>Email</th>
-                        <th>Industry</th>
                         <th>Bookings</th>
                         <th>Actions</th>
                     </tr>
@@ -56,7 +47,6 @@
                         <td><strong>{{ $exhibitor->name }}</strong></td>
                         <td>{{ $exhibitor->company_name ?? '-' }}</td>
                         <td>{{ $exhibitor->email }}</td>
-                        <td>{{ $exhibitor->industry ?? '-' }}</td>
                         <td>{{ $exhibitor->bookings->count() }}</td>
                         <td>
                             <a href="{{ route('admin.exhibitors.show', $exhibitor->id) }}" class="btn btn-sm btn-info">
