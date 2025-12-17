@@ -340,6 +340,13 @@
         
         <!-- Email/Password Login Form -->
         <div id="emailForm" class="login-form">
+            @if (session('status'))
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle-fill me-2"></i>
+                    {{ session('status') }}
+                </div>
+            @endif
+            
             @if ($errors->any())
                 <div class="alert alert-danger">
                     @foreach ($errors->all() as $error)
@@ -387,6 +394,8 @@
             <div class="register-links">
                 <p>New user?</p>
                 <a href="{{ route('register') }}" class="register-link">Create an account / Register</a>
+                <p style="margin-top: 12px; margin-bottom: 8px;">Didn't receive verification email?</p>
+                <a href="{{ route('verification.resend.show') }}" class="register-link">Resend Verification Email</a>
             </div>
         </div>
     </div>

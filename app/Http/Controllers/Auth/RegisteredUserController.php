@@ -31,7 +31,7 @@ class RegisteredUserController extends Controller
      *
      * @throws \Illuminate\Validation\ValidationException
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): RedirectResponse|View
     {
         $request->validate([
             // Company Details
@@ -81,10 +81,13 @@ class RegisteredUserController extends Controller
 
         event(new Registered($user));
 
-        Auth::login($user);
+        // Send email verification notification
+        $user->sendEmailVerificationNotification();
 
-        // Redirect exhibitors to frontend homepage instead of dashboard
-        return redirect(route('home', absolute: false));
+        // Show thank you / next-steps page (user is NOT logged in)
+        return view('auth.register-thank-you', [
+            'email' => $user->email,
+        ]);
     }
 
     /**

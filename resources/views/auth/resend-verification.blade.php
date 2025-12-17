@@ -1,6 +1,6 @@
 @extends('layouts.frontend')
 
-@section('title', 'Verify Your Email - ' . config('app.name', 'EMS'))
+@section('title', 'Resend Verification Email - ' . config('app.name', 'EMS'))
 
 @push('styles')
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -20,8 +20,8 @@
         justify-content: center;
     }
     
-    .verify-container {
-        max-width: 600px;
+    .resend-container {
+        max-width: 500px;
         width: 100%;
         margin: 0 auto;
         background: linear-gradient(135deg, rgba(17,24,39,0.95) 0%, rgba(15,23,42,0.92) 40%, rgba(15,23,42,0.9) 100%);
@@ -33,7 +33,7 @@
         overflow: hidden;
     }
     
-    .verify-container::before {
+    .resend-container::before {
         content: "";
         position: absolute;
         top: -140px;
@@ -45,14 +45,14 @@
         pointer-events: none;
     }
     
-    .verify-header {
+    .resend-header {
         text-align: center;
         margin-bottom: 32px;
         position: relative;
         z-index: 1;
     }
     
-    .verify-header .icon {
+    .resend-header .icon {
         width: 80px;
         height: 80px;
         margin: 0 auto 20px;
@@ -66,7 +66,7 @@
         box-shadow: 0 12px 32px rgba(99, 102, 241, 0.4);
     }
     
-    .verify-header h1 {
+    .resend-header h1 {
         font-size: 2rem;
         font-weight: 800;
         color: #f8fafc;
@@ -74,25 +74,14 @@
         letter-spacing: -0.02em;
     }
     
-    .verify-header p {
+    .resend-header p {
         font-size: 1rem;
         color: #cbd5e1;
     }
     
-    .verify-content {
+    .resend-content {
         position: relative;
         z-index: 1;
-    }
-    
-    .verify-message {
-        background: rgba(255,255,255,0.04);
-        border: 1px solid rgba(226, 232, 240, 0.15);
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 24px;
-        color: #cbd5e1;
-        font-size: 0.95rem;
-        line-height: 1.6;
     }
     
     .alert-success {
@@ -106,16 +95,37 @@
         font-weight: 500;
     }
     
-    .verify-actions {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
+    .form-group {
+        margin-bottom: 20px;
     }
     
-    .btn-verify {
-        flex: 1;
-        min-width: 200px;
-        padding: 14px 24px;
+    .form-label {
+        font-weight: 600;
+        color: #cbd5e1;
+        margin-bottom: 8px;
+        font-size: 0.95rem;
+    }
+    
+    .form-control {
+        padding: 12px 16px;
+        border: 1px solid rgba(226, 232, 240, 0.35);
+        border-radius: 10px;
+        font-size: 1rem;
+        transition: all 0.2s ease;
+        background: rgba(255,255,255,0.04);
+        color: #ffffff !important;
+    }
+    
+    .form-control:focus {
+        border-color: #818cf8;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        outline: none;
+        background: rgba(255,255,255,0.06);
+    }
+    
+    .btn-resend {
+        width: 100%;
+        padding: 14px;
         background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
         border: none;
         border-radius: 12px;
@@ -128,36 +138,30 @@
         cursor: pointer;
     }
     
-    .btn-verify:hover {
+    .btn-resend:hover {
         transform: translateY(-1px);
         box-shadow: 0 22px 36px rgba(99, 102, 241, 0.42);
     }
     
-    .btn-verify:active {
-        transform: translateY(0);
-        box-shadow: 0 14px 28px rgba(99, 102, 241, 0.35);
-    }
-    
-    .btn-logout {
-        flex: 1;
-        min-width: 200px;
-        padding: 14px 24px;
-        background: rgba(255,255,255,0.06);
-        border: 1px solid rgba(226, 232, 240, 0.25);
-        border-radius: 12px;
-        color: #cbd5e1;
-        font-weight: 600;
-        font-size: 1rem;
-        transition: all 0.2s ease;
-        text-decoration: none;
-        display: inline-block;
+    .login-link {
         text-align: center;
+        margin-top: 18px;
     }
     
-    .btn-logout:hover {
-        background: rgba(255,255,255,0.1);
-        color: #e2e8f0;
+    .login-link a {
+        color: #c7d2fe;
         text-decoration: none;
+        font-weight: 600;
+        padding: 10px 12px;
+        border-radius: 8px;
+        display: inline-block;
+        transition: all 0.2s ease;
+    }
+    
+    .login-link a:hover {
+        background: rgba(255,255,255,0.08);
+        text-decoration: none;
+        color: #e0e7ff;
     }
     
     @media (max-width: 768px) {
@@ -165,67 +169,64 @@
             padding: 30px 20px;
         }
         
-        .verify-container {
+        .resend-container {
             padding: 34px 22px;
         }
         
-        .verify-header h1 {
+        .resend-header h1 {
             font-size: 1.75rem;
-        }
-        
-        .verify-actions {
-            flex-direction: column;
-        }
-        
-        .btn-verify,
-        .btn-logout {
-            width: 100%;
-            min-width: unset;
         }
     }
 </style>
 @endpush
 
 @section('content')
-<div class="verify-container">
-    <div class="verify-header">
+<div class="resend-container">
+    <div class="resend-header">
         <div class="icon">
-            <i class="bi bi-envelope-check"></i>
+            <i class="bi bi-envelope-paper"></i>
         </div>
-        <h1>Verify Your Email</h1>
-        <p>We've sent you a verification link</p>
+        <h1>Resend Verification Email</h1>
+        <p>Enter your email to receive a new verification link</p>
     </div>
     
-    <div class="verify-content">
-        <div class="verify-message">
-            <p class="mb-0">
-                Thanks for signing up! Before getting started, could you verify your email address by clicking on the link we just emailed to you? If you didn't receive the email, we will gladly send you another.
-            </p>
-        </div>
-
-        @if (session('status') == 'verification-link-sent')
+    <div class="resend-content">
+        @if (session('status'))
             <div class="alert-success">
                 <i class="bi bi-check-circle-fill me-2"></i>
-                A new verification link has been sent to the email address you provided during registration.
+                {{ session('status') }}
             </div>
         @endif
 
-        <div class="verify-actions">
-            <form method="POST" action="{{ route('verification.send') }}" class="d-inline">
-                @csrf
-                <button type="submit" class="btn-verify">
-                    <i class="bi bi-envelope-paper me-2"></i>
-                    Resend Verification Email
-                </button>
-            </form>
-
-            <form method="POST" action="{{ route('logout') }}" class="d-inline">
-                @csrf
-                <button type="submit" class="btn-logout">
-                    <i class="bi bi-box-arrow-right me-2"></i>
-                    Log Out
-                </button>
-            </form>
+        <form method="POST" action="{{ route('verification.resend') }}" novalidate>
+            @csrf
+            
+            <div class="form-group">
+                <label for="email" class="form-label">Email Address</label>
+                <input 
+                    type="email" 
+                    class="form-control @error('email') is-invalid @enderror" 
+                    id="email" 
+                    name="email" 
+                    value="{{ old('email') }}" 
+                    required
+                    autofocus
+                    placeholder="Enter your email address">
+                @error('email')
+                    <div class="text-danger" style="margin-top: 5px; font-size: 0.85rem;">{{ $message }}</div>
+                @enderror
+            </div>
+            
+            <button type="submit" class="btn-resend">
+                <i class="bi bi-send-fill me-2"></i>
+                Send Verification Link
+            </button>
+        </form>
+        
+        <div class="login-link">
+            <a href="{{ route('login') }}">
+                Already verified? Sign in
+            </a>
         </div>
     </div>
 </div>

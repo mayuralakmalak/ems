@@ -437,22 +437,6 @@
             <div class="row">
                 <div class="col-md-4">
                     <div class="form-group">
-                        <label for="city" class="form-label">City</label>
-                        <input 
-                            type="text" 
-                            class="form-control @error('city') is-invalid @enderror" 
-                            id="city" 
-                            name="city" 
-                            value="{{ old('city') }}" 
-                            required
-                            placeholder="city">
-                        @error('city')
-                            <div class="text-danger">{{ $message }}</div>
-                        @enderror
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="form-group">
                         <label for="country" class="form-label">Country</label>
                         <select 
                             class="form-select @error('country') is-invalid @enderror" 
@@ -477,25 +461,6 @@
                 </div>
                 <div class="col-md-4">
                     <div class="form-group">
-                        <label for="zip_code" class="form-label">Zip Code</label>
-                        <input 
-                            type="text" 
-                            class="form-control @error('zip_code') is-invalid @enderror" 
-                            id="zip_code" 
-                            name="zip_code" 
-                            value="{{ old('zip_code') }}" 
-                            required
-                            placeholder="zip code">
-                        @error('zip_code')
-                            <div class="text-danger">{{ $message }}</div>
-                        @enderror
-                    </div>
-                </div>
-            </div>
-            
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="form-group">
                         <label for="state" class="form-label">State</label>
                         <select 
                             class="form-select @error('state') is-invalid @enderror" 
@@ -511,7 +476,42 @@
                         @enderror
                     </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="city" class="form-label">City</label>
+                        <input 
+                            type="text" 
+                            class="form-control @error('city') is-invalid @enderror" 
+                            id="city" 
+                            name="city" 
+                            value="{{ old('city') }}" 
+                            required
+                            placeholder="city">
+                        @error('city')
+                            <div class="text-danger">{{ $message }}</div>
+                        @enderror
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="zip_code" class="form-label">Zip Code</label>
+                        <input 
+                            type="text" 
+                            class="form-control @error('zip_code') is-invalid @enderror" 
+                            id="zip_code" 
+                            name="zip_code" 
+                            value="{{ old('zip_code') }}" 
+                            required
+                            placeholder="zip code">
+                        @error('zip_code')
+                            <div class="text-danger">{{ $message }}</div>
+                        @enderror
+                    </div>
+                </div>
+                <div class="col-md-8">
                     <div class="form-group">
                         <label for="industry_category" class="form-label">Industry Category</label>
                         <select 
