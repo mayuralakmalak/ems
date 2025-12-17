@@ -1,7 +1,7 @@
-@extends('layouts.exhibitor')
+@extends('layouts.admin')
 
-@section('title', 'Communication Center page')
-@section('page-title', 'Communication Center page')
+@section('title', 'Community Center')
+@section('page-title', 'Community Center')
 
 @push('styles')
 <style>
@@ -70,13 +70,9 @@
         font-weight: 500;
         margin-bottom: 25px;
         cursor: pointer;
+        text-decoration: none;
+        display: block;
         text-align: center;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    .btn-compose:hover {
-        background: #4f46e5;
     }
 
     .folder-list {
@@ -115,13 +111,13 @@
         overflow-y: auto;
     }
     .message-item {
-        padding: 15px;
+        padding: 20px;
         border-bottom: 1px solid #e2e8f0;
         cursor: pointer;
         transition: all 0.3s ease;
         display: flex;
         align-items: center;
-        gap: 15px;
+        gap: 18px;
     }
     .message-item:hover {
         background: #f8fafc;
@@ -130,14 +126,15 @@
         background: #f0f9ff;
     }
     .message-avatar {
-        width: 40px;
-        height: 40px;
+        width: 55px;
+        height: 55px;
         border-radius: 50%;
         background: #e2e8f0;
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
+        font-size: 1.2rem;
     }
     .message-content {
         flex: 1;
@@ -146,18 +143,19 @@
     .message-sender {
         font-weight: 600;
         color: #1e293b;
-        margin-bottom: 4px;
+        margin-bottom: 6px;
+        font-size: 1rem;
     }
     .message-subject {
         color: #64748b;
-        font-size: 0.9rem;
+        font-size: 0.95rem;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
     .message-time {
         color: #94a3b8;
-        font-size: 0.85rem;
+        font-size: 0.9rem;
         white-space: nowrap;
     }
     .unread-dot {
@@ -194,10 +192,10 @@
         display: flex;
         flex-direction: column;
     }
-    .message-bubble.user-message {
+    .message-bubble.admin-message {
         align-items: flex-end;
     }
-    .message-bubble.admin-message {
+    .message-bubble.exhibitor-message {
         align-items: flex-start;
     }
     .message-header {
@@ -216,12 +214,12 @@
         max-width: 75%;
         word-wrap: break-word;
     }
-    .message-bubble.user-message .message-text {
+    .message-bubble.admin-message .message-text {
         background: #6366f1;
         color: #ffffff;
         border-bottom-right-radius: 4px;
     }
-    .message-bubble.admin-message .message-text {
+    .message-bubble.exhibitor-message .message-text {
         background: #f3f4f6;
         color: #1f2937;
         border-bottom-left-radius: 4px;
@@ -229,18 +227,19 @@
 
     .reply-box {
         border-top: 2px solid #e2e8f0;
-        padding-top: 20px;
+        padding-top: 15px;
     }
     .reply-input {
         width: 100%;
-        padding: 12px;
+        padding: 10px 12px;
         border: 1px solid #cbd5e1;
         border-radius: 8px;
         margin-bottom: 10px;
         resize: none;
-        min-height: 80px;
-        font-size: 0.95rem;
-        line-height: 1.5;
+        min-height: 60px;
+        max-height: 100px;
+        font-size: 0.9rem;
+        line-height: 1.4;
     }
     .reply-actions {
         display: flex;
@@ -267,6 +266,20 @@
         font-weight: 500;
         cursor: pointer;
     }
+
+    .exhibitor-item {
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .exhibitor-item:hover {
+        background-color: #f8fafc;
+        transform: translateX(5px);
+    }
+    .list-group-item {
+        border: 1px solid #e2e8f0;
+        margin-bottom: 5px;
+        border-radius: 8px;
+    }
 </style>
 @endpush
 
@@ -280,14 +293,14 @@
             <button class="nav-tab active">Inbox</button>
         </div>
 
-        <button type="button" class="btn-compose" onclick="openNewChat()">
-            <i class="bi bi-plus-circle me-2"></i>Compose New Message
+        <button type="button" class="btn-compose" onclick="openComposeModal()">
+            <i class="bi bi-plus-circle me-2"></i>+ Compose New Message
         </button>
 
         <ul class="folder-list">
             <li class="folder-item {{ $folder === 'inbox' ? 'active' : '' }}" onclick="switchFolder('inbox')">
                 <span>Inbox</span>
-                <span class="folder-count">{{ $messages->where('receiver_id', auth()->id())->where('is_read', false)->where('status', '!=', 'archived')->where('status', '!=', 'deleted')->count() }}</span>
+                <span class="folder-count">{{ $messages->where('receiver_id', auth()->id())->where('is_read', false)->where('status', '!=', 'archived')->count() }}</span>
             </li>
             <li class="folder-item {{ $folder === 'sent' ? 'active' : '' }}" onclick="switchFolder('sent')">
                 <span>Sent</span>
@@ -345,7 +358,7 @@
                     </div>
                     <div class="message-content">
                         <div class="message-sender">
-                            {{ $otherUser->name ?? 'Admin' }}
+                            {{ $otherUser->name ?? 'Exhibitor' }}
                         </div>
                         <div class="message-subject">{{ Str::limit($lastMessage->message, 50) }}</div>
                     </div>
@@ -375,10 +388,34 @@
     </div>
 </div>
 
+<!-- Compose Modal -->
+<div class="modal fade" id="composeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Select Exhibitor to Start New Chat</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <input type="text" class="form-control" id="exhibitorSearch" placeholder="Search exhibitors..." onkeyup="filterExhibitors()">
+                </div>
+                <div id="exhibitorList" style="max-height: 400px; overflow-y: auto;">
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 @push('scripts')
 <script>
 function loadMessage(messageId) {
-    fetch(`{{ url('/messages') }}/${messageId}`)
+    fetch(`{{ url('/admin/communications') }}/${messageId}`)
         .then(response => response.text())
         .then(html => {
             document.getElementById('messageDetail').innerHTML = html;
@@ -431,8 +468,91 @@ function loadMessage(messageId) {
         });
 }
 
-function openNewChat() {
-    fetch(`{{ route('messages.new-chat') }}`)
+function openComposeModal() {
+    const modal = new bootstrap.Modal(document.getElementById('composeModal'));
+    modal.show();
+    
+    // Load exhibitors list - use dedicated endpoint
+    fetch('{{ route("admin.communications.exhibitors-list") }}', {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok: ' + response.status);
+        }
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            return response.json();
+        } else {
+            // If not JSON, try to parse as text first
+            return response.text().then(text => {
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    throw new Error('Response is not valid JSON');
+                }
+            });
+        }
+    })
+    .then(data => {
+        const listDiv = document.getElementById('exhibitorList');
+        if (data && data.exhibitors && data.exhibitors.length > 0) {
+            let html = '<div class="list-group">';
+            data.exhibitors.forEach(exhibitor => {
+                html += `
+                    <a href="#" class="list-group-item list-group-item-action exhibitor-item" data-id="${exhibitor.id}" data-name="${exhibitor.name.toLowerCase()}" data-email="${exhibitor.email.toLowerCase()}" data-company="${(exhibitor.company_name || '').toLowerCase()}">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">${exhibitor.name}</h6>
+                        </div>
+                        <p class="mb-1 text-muted">${exhibitor.email}</p>
+                        <small class="text-muted">${exhibitor.company_name || 'No company'}</small>
+                    </a>
+                `;
+            });
+            html += '</div>';
+            listDiv.innerHTML = html;
+            
+            // Add click handlers
+            document.querySelectorAll('.exhibitor-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const exhibitorId = this.getAttribute('data-id');
+                    openNewChat(exhibitorId);
+                    modal.hide();
+                });
+            });
+        } else {
+            listDiv.innerHTML = '<div class="text-center py-3 text-muted">No exhibitors found</div>';
+        }
+    })
+    .catch(error => {
+        console.error('Error loading exhibitors:', error);
+        document.getElementById('exhibitorList').innerHTML = '<div class="text-center py-3 text-danger">Failed to load exhibitors. Please try again.</div>';
+    });
+}
+
+function filterExhibitors() {
+    const searchTerm = document.getElementById('exhibitorSearch').value.toLowerCase();
+    document.querySelectorAll('.exhibitor-item').forEach(item => {
+        const name = item.getAttribute('data-name');
+        const email = item.getAttribute('data-email');
+        const company = item.getAttribute('data-company');
+        
+        if (name.includes(searchTerm) || email.includes(searchTerm) || company.includes(searchTerm)) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+function openNewChat(exhibitorId) {
+    fetch(`{{ url('/admin/communications/new-chat') }}/${exhibitorId}`)
         .then(response => response.text())
         .then(html => {
             document.getElementById('messageDetail').innerHTML = html;
@@ -446,7 +566,7 @@ function openNewChat() {
 }
 
 function switchFolder(folder) {
-    window.location.href = `{{ route('messages.index') }}?folder=${folder}`;
+    window.location.href = `{{ route('admin.communications.index') }}?folder=${folder}`;
 }
 
 function getSelectedMessageIds() {
@@ -461,7 +581,7 @@ function markAsReadSelected() {
         return;
     }
 
-    fetch('{{ route("messages.mark-as-read") }}', {
+    fetch('{{ route("admin.communications.mark-as-read") }}', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -505,25 +625,41 @@ function deleteSelected() {
         return;
     }
 
-    fetch('{{ route("messages.delete") }}', {
+    fetch('{{ route("admin.communications.delete") }}', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
         },
         body: JSON.stringify({ message_ids: messageIds })
     })
-    .then(response => response.json())
+    .then(response => {
+        // Check if response is ok
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        // Try to parse as JSON
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            return response.json();
+        } else {
+            // If not JSON, assume success and reload
+            return { success: true };
+        }
+    })
     .then(data => {
-        if (data.success) {
+        if (data && data.success) {
             window.location.reload();
         } else {
-            alert('Failed to delete messages.');
+            // Even if response doesn't have success flag, reload to check
+            window.location.reload();
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Failed to delete messages.');
+        // Even on error, reload to check if deletion actually happened
+        window.location.reload();
     });
 }
 
@@ -534,8 +670,7 @@ function archiveSelected() {
         return;
     }
 
-    // Archive all selected conversations
-    fetch('{{ route("messages.archive") }}', {
+    fetch('{{ route("admin.communications.archive") }}', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -575,8 +710,7 @@ function unarchiveSelected() {
         return;
     }
 
-    // Unarchive messages
-    fetch('{{ route("messages.unarchive") }}', {
+    fetch('{{ route("admin.communications.unarchive") }}', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

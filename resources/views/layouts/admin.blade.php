@@ -348,6 +348,11 @@
                                 <i class="bi bi-file-earmark-check me-2"></i> Document Verification
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.communications.*') ? 'active' : '' }}" href="{{ route('admin.communications.index') }}">
+                                <i class="bi bi-chat-dots me-2"></i> Community Center
+                            </a>
+                        </li>
                         @if(request()->routeIs('admin.booths.*'))
                         <li class="nav-item">
                             <a class="nav-link active" href="#">
@@ -462,7 +467,7 @@
                             const isRead = notif.is_read ? '' : 'bg-light';
                             const timeAgo = new Date(notif.created_at).toLocaleString();
                             html += `
-                                <li class="px-3 py-2 ${isRead}" data-id="${notif.id}">
+                                <li class="px-3 py-2 ${isRead}" data-id="${notif.id}" data-type="${notif.type || ''}" style="cursor: pointer;">
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div class="flex-grow-1">
                                             <strong>${notif.title}</strong>
@@ -476,10 +481,17 @@
                         });
                         list.html(html);
                         
-                        // Click to mark as read
+                        // Click to mark as read and navigate if message notification
                         list.find('li[data-id]').on('click', function() {
                             const id = $(this).data('id');
+                            const type = $(this).data('type');
+                            
                             markAsRead(id);
+                            
+                            // If it's a message notification, navigate to community center
+                            if (type === 'message') {
+                                window.location.href = `{{ route('admin.communications.index') }}`;
+                            }
                         });
                     }
                 }

@@ -250,6 +250,11 @@
                 </a>
             </li>
             <li>
+                <a href="{{ route('messages.index') }}" class="{{ request()->routeIs('messages.*') ? 'active' : '' }}">
+                    <i class="bi bi-chat-dots"></i>Community Center
+                </a>
+            </li>
+            <li>
                 <a href="#" class="">
                     <i class="bi bi-star"></i>Additional Services
                 </a>
@@ -376,7 +381,7 @@
                             const isRead = notif.is_read ? '' : 'bg-light';
                             const timeAgo = new Date(notif.created_at).toLocaleString();
                             html += `
-                                <li class="px-3 py-2 ${isRead}" data-id="${notif.id}" style="cursor: pointer;">
+                                <li class="px-3 py-2 ${isRead}" data-id="${notif.id}" data-type="${notif.type || ''}" style="cursor: pointer;">
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div class="flex-grow-1">
                                             <strong>${notif.title}</strong>
@@ -390,10 +395,17 @@
                         });
                         list.html(html);
                         
-                        // Click to mark as read
+                        // Click to mark as read and navigate if message notification
                         list.find('li[data-id]').on('click', function() {
                             const id = $(this).data('id');
+                            const type = $(this).data('type');
+                            
                             markAsRead(id);
+                            
+                            // If it's a message notification, navigate to community center
+                            if (type === 'message') {
+                                window.location.href = `{{ route('messages.index') }}`;
+                            }
                         });
                     }
                 }
