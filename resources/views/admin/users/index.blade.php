@@ -52,11 +52,6 @@
                                 <a href="{{ route('admin.users.edit', $user->id) }}" class="btn btn-sm btn-info" title="Edit User">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                @if($user->hasRole('Exhibitor'))
-                                <a href="{{ route('admin.exhibitors.show', $user->id) }}" class="btn btn-sm btn-secondary" title="View Exhibitor Profile &amp; Chat">
-                                    <i class="bi bi-chat-dots"></i>
-                                </a>
-                                @endif
                                 @if(! $user->hasRole('Admin'))
                                 <form action="{{ route('admin.users.destroy', $user->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this user?');">
                                     @csrf

@@ -224,9 +224,6 @@
     <li class="nav-item" role="presentation">
         <button class="nav-link" id="bookings-tab" data-bs-toggle="tab" data-bs-target="#bookings" type="button">Bookings</button>
     </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link" id="communication-tab" data-bs-toggle="tab" data-bs-target="#communication" type="button">Communication</button>
-    </li>
 </ul>
 
 <div class="tab-content" id="exhibitorTabContent">
@@ -363,103 +360,6 @@
                             @endforeach
                         </tbody>
                     </table>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="tab-pane fade" id="communication" role="tabpanel">
-        <div class="communication-container">
-            <!-- Left Panel -->
-            <div class="left-panel">
-                <h4 class="mb-3">Communication Center</h4>
-                <p class="text-muted small mb-3">Conversation with {{ $exhibitor->name }}</p>
-                <ul class="folder-list">
-                    <li class="folder-item active">
-                        <span>Active Chat</span>
-                        <span class="folder-count">{{ $messages->where('status', '!=', 'archived')->count() }}</span>
-                    </li>
-                    <li class="folder-item">
-                        <span>Archived</span>
-                        <span>{{ $messages->where('status', 'archived')->count() }}</span>
-                    </li>
-                </ul>
-                @php
-                    $hasActiveMessages = $messages->where('status', '!=', 'archived')->count() > 0;
-                @endphp
-                @if($hasActiveMessages)
-                <form action="{{ route('admin.exhibitors.messages.close', $exhibitor->id) }}" method="POST" class="mt-3">
-                    @csrf
-                    <button type="submit" class="btn btn-outline-danger w-100 btn-sm">
-                        Close Chat &amp; Archive
-                    </button>
-                </form>
-                @endif
-            </div>
-
-            <!-- Center Panel -->
-            <div class="center-panel">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5>Conversation</h5>
-                </div>
-                <div class="message-list">
-                    @php
-                        $lastMessage = $messages->where('status', '!=', 'archived')->sortByDesc('created_at')->first();
-                    @endphp
-                    @if($lastMessage)
-                        <div class="message-item active" onclick="loadAdminConversation({{ $exhibitor->id }})" style="cursor: pointer;">
-                            <div class="message-avatar">
-                                <i class="bi bi-person"></i>
-                            </div>
-                            <div class="message-content">
-                                <div class="message-sender">
-                                    {{ $exhibitor->name }}
-                                </div>
-                                <div class="message-subject">{{ Str::limit($lastMessage->message, 60) }}</div>
-                            </div>
-                            <div class="message-time">{{ $lastMessage->created_at->format('M d, Y') }}</div>
-                        </div>
-                    @else
-                        <div class="text-center py-5 text-muted">
-                            <p>No active messages yet.</p>
-                        </div>
-                    @endif
-                </div>
-            </div>
-
-            <!-- Right Panel -->
-            <div class="right-panel" id="adminMessageDetail">
-                <div class="conversation-header">
-                    <div class="conversation-title">Conversation with {{ $exhibitor->name }}</div>
-                    <div class="conversation-participants">
-                        Admin &bull; {{ $exhibitor->email }}
-                    </div>
-                </div>
-                <div class="conversation-messages">
-                    @foreach($messages->where('status', '!=', 'archived') as $msg)
-                    <div class="message-bubble {{ $msg->sender_id === $exhibitor->id ? 'exhibitor-message' : 'admin-message' }}">
-                        <div class="message-header">
-                            <span class="message-author">
-                                {{ $msg->sender_id === $exhibitor->id ? $exhibitor->name : ($msg->sender->name ?? 'Admin') }}
-                            </span>
-                            <span class="message-date">{{ $msg->created_at->format('M d, Y, h:i A') }}</span>
-                        </div>
-                        <div class="message-text">{{ $msg->message }}</div>
-                    </div>
-                    @endforeach
-                </div>
-                <div class="reply-box">
-                    <form action="{{ route('admin.exhibitors.messages.send', $exhibitor->id) }}" method="POST">
-                        @csrf
-                        <textarea name="message" class="reply-input" rows="3" placeholder="Reply to {{ $exhibitor->name }}..." required></textarea>
-                        <div class="reply-actions">
-                            <button type="button" class="btn-attach">
-                                <i class="bi bi-paperclip me-2"></i>Attach File
-                            </button>
-                            <button type="submit" class="btn-send">
-                                <i class="bi bi-send me-2"></i>Send
-                            </button>
-                        </div>
-                    </form>
                 </div>
             </div>
         </div>

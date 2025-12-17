@@ -161,9 +161,17 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     Route::post('/exhibitors/{id}/messages', [\App\Http\Controllers\Admin\ExhibitorManagementController::class, 'sendMessage'])->name('exhibitors.messages.send');
     Route::post('/exhibitors/{id}/messages/close', [\App\Http\Controllers\Admin\ExhibitorManagementController::class, 'closeChat'])->name('exhibitors.messages.close');
     
-    // Admin Communication Center - start new chat with any exhibitor
+    // Admin Communication Center
+    Route::get('/communications', [\App\Http\Controllers\Admin\CommunicationController::class, 'index'])->name('communications.index');
+    Route::get('/communications/{id}', [\App\Http\Controllers\Admin\CommunicationController::class, 'show'])->name('communications.show');
     Route::get('/communications/new', [\App\Http\Controllers\Admin\CommunicationController::class, 'create'])->name('communications.create');
+    Route::get('/communications/exhibitors/list', [\App\Http\Controllers\Admin\CommunicationController::class, 'getExhibitorsList'])->name('communications.exhibitors-list');
+    Route::get('/communications/new-chat/{exhibitorId}', [\App\Http\Controllers\Admin\CommunicationController::class, 'newChat'])->name('communications.new-chat');
     Route::post('/communications', [\App\Http\Controllers\Admin\CommunicationController::class, 'store'])->name('communications.store');
+    Route::post('/communications/mark-as-read', [\App\Http\Controllers\Admin\CommunicationController::class, 'markAsRead'])->name('communications.mark-as-read');
+    Route::post('/communications/delete', [\App\Http\Controllers\Admin\CommunicationController::class, 'delete'])->name('communications.delete');
+    Route::post('/communications/archive', [\App\Http\Controllers\Admin\CommunicationController::class, 'archive'])->name('communications.archive');
+    Route::post('/communications/unarchive', [\App\Http\Controllers\Admin\CommunicationController::class, 'unarchive'])->name('communications.unarchive');
     
     // Email Management (Wireframe 36)
     Route::get('/emails', [\App\Http\Controllers\Admin\EmailManagementController::class, 'index'])->name('emails.index');
@@ -215,7 +223,12 @@ Route::middleware('auth')->group(function () {
     
     // Messages
     Route::resource('messages', MessageController::class);
-    Route::post('/messages/{id}/archive', [MessageController::class, 'archive'])->name('messages.archive');
+    Route::get('/messages/new/chat', [MessageController::class, 'newChat'])->name('messages.new-chat');
+    Route::post('/messages/{id}/archive', [MessageController::class, 'archive'])->name('messages.archive-single');
+    Route::post('/messages/archive', [MessageController::class, 'archiveBulk'])->name('messages.archive');
+    Route::post('/messages/mark-as-read', [MessageController::class, 'markAsRead'])->name('messages.mark-as-read');
+    Route::post('/messages/delete', [MessageController::class, 'delete'])->name('messages.delete');
+    Route::post('/messages/unarchive', [MessageController::class, 'unarchive'])->name('messages.unarchive');
     
     // Wallet
     Route::get('/wallet', [WalletController::class, 'index'])->name('wallet.index');
