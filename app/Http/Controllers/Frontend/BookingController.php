@@ -11,10 +11,13 @@ use App\Models\BookingService;
 use App\Models\Wallet;
 use App\Models\Notification;
 use App\Models\User;
+use App\Models\Payment;
+use App\Mail\BookingConfirmationMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 class BookingController extends Controller
@@ -384,7 +387,7 @@ class BookingController extends Controller
         ]);
 
         $user = Auth::user();
-        $exhibition = Exhibition::with('boothSizes')->findOrFail($request->exhibition_id);
+        $exhibition = Exhibition::with(['boothSizes', 'paymentSchedules'])->findOrFail($request->exhibition_id);
         
         // Normalize booth IDs
         if (empty($boothIds) && $request->booth_id) {
@@ -591,9 +594,61 @@ class BookingController extends Controller
                 }
             }
 
+            // Create all part payments based on payment schedule
+            $paymentSchedules = $exhibition->paymentSchedules()->orderBy('part_number', 'asc')->get();
+            
+            if ($paymentSchedules->isEmpty()) {
+                // Fallback: If no payment schedule exists, create a single initial payment
+                // using the initial_payment_percent from exhibition
+                $initialPercent = $exhibition->initial_payment_percent ?? 10;
+                $initialAmount = ($totalAmount * $initialPercent) / 100;
+                
+                Payment::create([
+                    'booking_id' => $booking->id,
+                    'user_id' => $user->id,
+                    'payment_number' => 'PM' . now()->format('YmdHis') . str_pad($booking->id, 6, '0', STR_PAD_LEFT) . rand(10, 99),
+                    'payment_type' => 'initial',
+                    'payment_method' => 'online', // Default, will be updated when user makes payment
+                    'status' => 'pending',
+                    'approval_status' => 'pending',
+                    'amount' => round($initialAmount, 2),
+                    'gateway_charge' => 0,
+                    'due_date' => now()->addDays(7), // Default 7 days for initial payment
+                ]);
+            } else {
+                // Create payment records for all parts based on payment schedule
+                foreach ($paymentSchedules as $schedule) {
+                    $paymentAmount = ($totalAmount * $schedule->percentage) / 100;
+                    $paymentType = $schedule->part_number == 1 ? 'initial' : 'installment';
+                    
+                    Payment::create([
+                        'booking_id' => $booking->id,
+                        'user_id' => $user->id,
+                        'payment_number' => 'PM' . now()->format('YmdHis') . str_pad($booking->id, 6, '0', STR_PAD_LEFT) . str_pad($schedule->part_number, 2, '0', STR_PAD_LEFT) . rand(10, 99),
+                        'payment_type' => $paymentType,
+                        'payment_method' => 'online', // Default, will be updated when user makes payment
+                        'status' => 'pending',
+                        'approval_status' => 'pending',
+                        'amount' => round($paymentAmount, 2),
+                        'gateway_charge' => 0,
+                        'due_date' => $schedule->due_date,
+                    ]);
+                }
+            }
+
             DB::commit();
 
-            // Notify all admins about new booking
+            // Reload booking with relationships for email
+            $booking->load(['exhibition', 'user', 'booth', 'bookingServices.service']);
+
+            // Send booking confirmation email to exhibitor
+            try {
+                Mail::to($user->email)->send(new BookingConfirmationMail($booking, false));
+            } catch (\Exception $e) {
+                Log::error('Failed to send booking confirmation email to exhibitor: ' . $e->getMessage());
+            }
+
+            // Notify all admins about new booking and send emails
             $admins = \App\Models\User::role('Admin')->orWhere('id', 1)->get();
             foreach ($admins as $admin) {
                 \App\Models\Notification::create([
@@ -604,6 +659,15 @@ class BookingController extends Controller
                     'notifiable_type' => \App\Models\Booking::class,
                     'notifiable_id' => $booking->id,
                 ]);
+
+                // Send booking confirmation email to admin
+                try {
+                    if ($admin->email) {
+                        Mail::to($admin->email)->send(new BookingConfirmationMail($booking, true));
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Failed to send booking confirmation email to admin: ' . $e->getMessage());
+                }
             }
 
             return redirect()->route('payments.create', $booking->id)

@@ -406,15 +406,37 @@
                     <td>{{ $payment->due_date ? $payment->due_date->format('Y-m-d') : 'N/A' }}</td>
                     <td>₹{{ number_format($payment->amount, 2) }}</td>
                     <td>
-                        <span class="status-badge {{ $payment->status === 'completed' ? 'status-paid' : 'status-pending' }}">
-                            {{ ucfirst($payment->status) }}
+                        @php
+                            $displayStatus = $payment->status;
+                            $statusClass = 'status-pending';
+                            
+                            if ($payment->status === 'completed') {
+                                $displayStatus = 'completed';
+                                $statusClass = 'status-paid';
+                            } elseif ($payment->status === 'pending' && $payment->payment_proof_file && $payment->approval_status === 'pending') {
+                                $displayStatus = 'waiting for approval';
+                                $statusClass = 'status-pending';
+                            } else {
+                                $displayStatus = 'pending';
+                                $statusClass = 'status-pending';
+                            }
+                        @endphp
+                        <span class="status-badge {{ $statusClass }}">
+                            {{ ucfirst($displayStatus) }}
                         </span>
                     </td>
                     <td>
-                        @if($payment->status !== 'completed')
-                            <a href="{{ route('payments.create', $payment->booking_id) }}" class="btn-pay-now">Pay Now</a>
-                        @else
+                        @php
+                            // Show Pay Now only for pending payments WITHOUT payment proof (not waiting for approval)
+                            $canPay = $payment->status === 'pending' && !$payment->payment_proof_file;
+                        @endphp
+                        
+                        @if($canPay)
+                            <a href="{{ route('payments.pay', $payment->id) }}" class="btn-pay-now">Pay Now</a>
+                        @elseif($payment->status === 'completed')
                             <span class="text-muted">Paid</span>
+                        @else
+                            <span class="text-muted">Waiting for Approval</span>
                         @endif
                     </td>
                 </tr>

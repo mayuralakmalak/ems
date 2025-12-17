@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Models\Booking;
+use App\Mail\PaymentReceiptMail;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
 {
@@ -61,6 +64,31 @@ class PaymentController extends Controller
 
         // Update booking paid amount
         $booking->increment('paid_amount', $validated['amount']);
+        
+        // If payment is completed, send receipt emails
+        if ($validated['status'] === 'completed') {
+            // Reload payment with relationships for email
+            $payment->load(['booking.exhibition', 'booking.booth', 'booking.bookingServices.service', 'user']);
+            
+            // Send payment receipt email to exhibitor
+            try {
+                Mail::to($payment->user->email)->send(new PaymentReceiptMail($payment, false));
+            } catch (\Exception $e) {
+                Log::error('Failed to send payment receipt email to exhibitor: ' . $e->getMessage());
+            }
+            
+            // Send payment receipt email to all admins
+            $admins = \App\Models\User::role('Admin')->orWhere('id', 1)->get();
+            foreach ($admins as $admin) {
+                try {
+                    if ($admin->email) {
+                        Mail::to($admin->email)->send(new PaymentReceiptMail($payment, true));
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Failed to send payment receipt email to admin: ' . $e->getMessage());
+                }
+            }
+        }
 
         return redirect()->route('admin.payments.index')->with('success', 'Payment recorded successfully.');
     }
@@ -73,7 +101,7 @@ class PaymentController extends Controller
     
     public function approve($id)
     {
-        $payment = Payment::with('booking')->findOrFail($id);
+        $payment = Payment::with(['booking.exhibition', 'booking.booth', 'booking.bookingServices.service', 'user'])->findOrFail($id);
         
         $payment->update([
             'approval_status' => 'approved',
@@ -93,6 +121,25 @@ class PaymentController extends Controller
             'notifiable_type' => Payment::class,
             'notifiable_id' => $payment->id,
         ]);
+        
+        // Send payment receipt email to exhibitor
+        try {
+            Mail::to($payment->user->email)->send(new PaymentReceiptMail($payment, false));
+        } catch (\Exception $e) {
+            Log::error('Failed to send payment receipt email to exhibitor: ' . $e->getMessage());
+        }
+        
+        // Send payment receipt email to all admins
+        $admins = \App\Models\User::role('Admin')->orWhere('id', 1)->get();
+        foreach ($admins as $admin) {
+            try {
+                if ($admin->email) {
+                    Mail::to($admin->email)->send(new PaymentReceiptMail($payment, true));
+                }
+            } catch (\Exception $e) {
+                Log::error('Failed to send payment receipt email to admin: ' . $e->getMessage());
+            }
+        }
         
         return back()->with('success', 'Payment approved successfully.');
     }

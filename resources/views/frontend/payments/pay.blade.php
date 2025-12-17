@@ -1,36 +1,9 @@
 @extends('layouts.frontend')
 
-@section('title', 'Payment Processing')
+@section('title', 'Make Payment')
 
 @push('styles')
 <style>
-    .stepper {
-        display: flex;
-        gap: 12px;
-        align-items: center;
-        margin-bottom: 16px;
-        flex-wrap: wrap;
-    }
-    .step-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        padding: 8px 12px;
-        border-radius: 999px;
-        background: #e2e8f0;
-        color: #475569;
-        font-weight: 600;
-        font-size: 0.9rem;
-    }
-    .step-pill.active {
-        background: #6366f1;
-        color: #fff;
-        box-shadow: 0 8px 20px rgba(99,102,241,0.25);
-    }
-    .step-pill .badge {
-        background: rgba(255,255,255,0.2);
-        color: inherit;
-    }
     .payment-container {
         max-width: 1400px;
         margin: 0 auto;
@@ -55,6 +28,41 @@
         color: #64748b;
         font-size: 0.9rem;
         margin-bottom: 20px;
+    }
+    
+    .payment-info-card {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 30px;
+        margin-bottom: 25px;
+    }
+    
+    .payment-info-title {
+        font-size: 1.3rem;
+        font-weight: 700;
+        margin-bottom: 20px;
+    }
+    
+    .payment-info-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.2);
+    }
+    
+    .payment-info-item:last-child {
+        border-bottom: none;
+    }
+    
+    .payment-info-label {
+        font-size: 0.95rem;
+        opacity: 0.9;
+    }
+    
+    .payment-info-value {
+        font-size: 1.1rem;
+        font-weight: 600;
     }
     
     .breakdown-item {
@@ -100,57 +108,6 @@
         color: #0ea5e9;
     }
     
-    .booking-summary-item {
-        padding: 10px 0;
-        border-bottom: 1px solid #e2e8f0;
-    }
-    
-    .booking-summary-item:last-child {
-        border-bottom: none;
-    }
-    
-    .summary-label {
-        font-size: 0.85rem;
-        color: #64748b;
-        margin-bottom: 5px;
-    }
-    
-    .summary-value {
-        font-weight: 500;
-        color: #1e293b;
-    }
-    
-    .payment-schedule-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    
-    .payment-schedule-table th {
-        background: #f8fafc;
-        padding: 12px;
-        text-align: left;
-        font-weight: 600;
-        color: #1e293b;
-        font-size: 0.9rem;
-        border-bottom: 2px solid #e2e8f0;
-    }
-    
-    .payment-schedule-table td {
-        padding: 12px;
-        border-bottom: 1px solid #e2e8f0;
-        color: #64748b;
-    }
-    
-    .payment-schedule-table tr:last-child td {
-        border-bottom: none;
-    }
-    
-    .due-today {
-        background: #f0f9ff;
-        color: #0ea5e9;
-        font-weight: 600;
-    }
-    
     .payment-method-card {
         border: 2px solid #e2e8f0;
         border-radius: 12px;
@@ -163,7 +120,8 @@
     
     .payment-method-card:hover {
         border-color: #6366f1;
-        background: #f8fafc;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(99,102,241,0.15);
     }
     
     .payment-method-card.selected {
@@ -178,35 +136,9 @@
     }
     
     .payment-method-label {
-        font-weight: 500;
+        font-weight: 600;
         color: #1e293b;
         font-size: 0.95rem;
-    }
-    
-    .payment-details-form {
-        background: #f8fafc;
-        border-radius: 12px;
-        padding: 25px;
-    }
-    
-    .form-label {
-        font-weight: 500;
-        color: #334155;
-        margin-bottom: 8px;
-        font-size: 0.95rem;
-    }
-    
-    .form-control {
-        padding: 12px 16px;
-        border: 1px solid #cbd5e1;
-        border-radius: 8px;
-        font-size: 1rem;
-    }
-    
-    .form-control:focus {
-        border-color: #6366f1;
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-        outline: none;
     }
     
     .btn-payment {
@@ -225,111 +157,130 @@
         background: #4f46e5;
     }
     
+    .summary-item {
+        padding: 12px 0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .summary-item:last-child {
+        border-bottom: none;
+    }
+    
+    .summary-label {
+        color: #64748b;
+        font-size: 0.9rem;
+    }
+    
+    .summary-value {
+        font-weight: 600;
+        color: #1e293b;
+        font-size: 0.95rem;
+    }
+    
+    .payment-schedule-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+    
+    .payment-schedule-table th,
+    .payment-schedule-table td {
+        padding: 10px;
+        text-align: left;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .payment-schedule-table th {
+        background: #f8fafc;
+        font-weight: 600;
+        color: #1e293b;
+    }
+    
+    .payment-schedule-table tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .current-payment-row {
+        background: #f0f9ff;
+        font-weight: 600;
+    }
+    
+    .form-control {
+        padding: 12px 16px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 1rem;
+    }
+    
+    .form-control:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        outline: none;
+    }
+    
     .security-note {
         text-align: center;
         color: #64748b;
         font-size: 0.85rem;
         margin-top: 15px;
     }
-    
-    .security-note a {
-        color: #6366f1;
-        text-decoration: none;
-    }
 </style>
 @endpush
 
 @section('content')
-@php
-    $boothEntries = collect($booking->selected_booth_ids ?? []);
-    if ($boothEntries->isEmpty() && $booking->booth_id) {
-        $boothEntries = collect([['id' => $booking->booth_id]]);
-    }
-    $boothIds = $boothEntries->map(fn($entry) => is_array($entry) ? ($entry['id'] ?? null) : $entry)
-        ->filter()
-        ->values();
-    $booths = \App\Models\Booth::whereIn('id', $boothIds)->get()->keyBy('id');
-    $boothDisplay = $boothEntries->map(function($entry) use ($booths) {
-        $isArray = is_array($entry);
-        $id = $isArray ? ($entry['id'] ?? null) : $entry;
-        $model = $id ? ($booths[$id] ?? null) : null;
-        return [
-            'name' => $isArray ? ($entry['name'] ?? $model?->name) : ($model?->name),
-            'type' => $isArray ? ($entry['type'] ?? null) : ($model?->booth_type),
-            'sides' => $isArray ? ($entry['sides'] ?? null) : ($model?->sides_open),
-            'price' => $isArray ? ($entry['price'] ?? $model?->price ?? 0) : ($model?->price ?? 0),
-        ];
-    })->filter(fn($b) => $b['name'] || $b['price']);
-    $boothTotal = $boothDisplay->sum(fn($b) => $b['price'] ?? 0);
-@endphp
 <div class="payment-container">
-    <div class="stepper mb-2">
-        <span class="step-pill"><span class="badge bg-light text-dark">1</span> Select Booth</span>
-        <i class="bi bi-arrow-right text-secondary"></i>
-        <span class="step-pill"><span class="badge bg-light text-dark">2</span> Booking Details</span>
-        <i class="bi bi-arrow-right text-secondary"></i>
-        <span class="step-pill active"><span class="badge bg-light text-dark">3</span> Payment</span>
+    <div class="payment-info-card">
+        <div class="payment-info-title">
+            <i class="bi bi-credit-card me-2"></i>Payment Details
+        </div>
+        <div class="payment-info-item">
+            <span class="payment-info-label">Payment Number</span>
+            <span class="payment-info-value">{{ $payment->payment_number }}</span>
+        </div>
+        <div class="payment-info-item">
+            <span class="payment-info-label">Payment Type</span>
+            <span class="payment-info-value">{{ ucfirst($payment->payment_type) }} Payment</span>
+        </div>
+        <div class="payment-info-item">
+            <span class="payment-info-label">Amount Due</span>
+            <span class="payment-info-value">₹{{ number_format($payment->amount, 2) }}</span>
+        </div>
+        @if($payment->due_date)
+        <div class="payment-info-item">
+            <span class="payment-info-label">Due Date</span>
+            <span class="payment-info-value">
+                {{ $payment->due_date->format('Y-m-d') }}
+                @if($payment->due_date < now())
+                    <span style="color: #fef3c7; margin-left: 10px;">(Overdue)</span>
+                @endif
+            </span>
+        </div>
+        @endif
+        <div class="payment-info-item">
+            <span class="payment-info-label">Exhibition</span>
+            <span class="payment-info-value">{{ $payment->booking->exhibition->name }}</span>
+        </div>
     </div>
+
     <form method="POST" action="{{ route('payments.store') }}" id="paymentForm">
         @csrf
-        <input type="hidden" name="booking_id" value="{{ $booking->id }}">
-        @if(isset($specificPayment) && $specificPayment)
-            <input type="hidden" name="payment_id" value="{{ $specificPayment->id }}">
-        @endif
+        <input type="hidden" name="booking_id" value="{{ $payment->booking_id }}">
+        <input type="hidden" name="payment_id" value="{{ $payment->id }}">
         <input type="hidden" name="payment_method" id="selectedPaymentMethod" value="">
-        <input type="hidden" name="amount" id="paymentAmount" value="{{ $initialAmount }}">
+        <input type="hidden" name="amount" id="paymentAmount" value="{{ $payment->amount }}">
         
         <div class="row g-4">
             <!-- Left Column -->
             <div class="col-lg-8">
-                <!-- Payment Information -->
-                @if(isset($specificPayment) && $specificPayment)
-                <div class="section-card" style="background: #f0f9ff; border: 2px solid #0ea5e9; margin-bottom: 20px;">
-                    <h5 class="section-title" style="color: #0ea5e9;">
-                        <i class="bi bi-info-circle me-2"></i>Payment Information
-                    </h5>
-                    <p class="section-description">
-                        <strong>Payment Type:</strong> {{ ucfirst($specificPayment->payment_type) }} Payment<br>
-                        <strong>Amount Due:</strong> ₹{{ number_format($specificPayment->amount, 2) }}<br>
-                        @if($specificPayment->due_date)
-                            <strong>Due Date:</strong> {{ $specificPayment->due_date->format('Y-m-d') }}
-                            @if($specificPayment->due_date < now())
-                                <span class="text-danger">(Overdue)</span>
-                            @endif
-                        @endif
-                    </p>
-                </div>
-                @endif
-                
                 <!-- Payment Breakdown -->
                 <div class="section-card">
                     <h5 class="section-title">Payment Breakdown</h5>
-                    <p class="section-description">Review your booking costs and charges.</p>
+                    <p class="section-description">Details for this payment installment.</p>
                     
                     <div class="breakdown-item">
-                        <span class="breakdown-label">Booth Rental</span>
-                        <span class="breakdown-value">₹{{ number_format($boothTotal, 2) }}</span>
+                        <span class="breakdown-label">Payment Amount</span>
+                        <span class="breakdown-value">₹{{ number_format($payment->amount, 2) }}</span>
                     </div>
-                    
-                    @php
-                        $servicesTotal = $booking->bookingServices->sum(function($bs) {
-                            return $bs->quantity * $bs->unit_price;
-                        });
-                    @endphp
-                    
-                    @if($servicesTotal > 0)
-                    <div class="breakdown-item">
-                        <span class="breakdown-label">Additional Furniture/AV Equipment</span>
-                        <span class="breakdown-value">₹{{ number_format($servicesTotal, 2) }}</span>
-                    </div>
-                    @endif
-                    
-                    @if($booking->discount_percent > 0)
-                    <div class="breakdown-item">
-                        <span class="breakdown-label">Discount</span>
-                        <span class="breakdown-value" style="color: #10b981;">-₹{{ number_format(($booking->total_amount * $booking->discount_percent) / 100, 2) }}</span>
-                    </div>
-                    @endif
                     
                     <div class="breakdown-item">
                         <span class="breakdown-label">Payment Gateway Fee</span>
@@ -337,15 +288,15 @@
                     </div>
                     
                     <div class="total-due">
-                        <span class="total-due-label">Total Due Amount</span>
-                        <span class="total-due-value" id="totalDueAmount">₹{{ number_format($booking->total_amount, 2) }}</span>
+                        <span class="total-due-label">Total Amount to Pay</span>
+                        <span class="total-due-value" id="totalDueAmount">₹{{ number_format($payment->amount, 2) }}</span>
                     </div>
                 </div>
                 
                 <!-- Select Payment Method -->
                 <div class="section-card">
                     <h5 class="section-title">Select Payment Method</h5>
-                    <p class="section-description">Choose how you'd like to pay for your booking.</p>
+                    <p class="section-description">Choose how you'd like to pay for this installment.</p>
                     
                     <div class="row g-3">
                         <div class="col-md-4">
@@ -370,6 +321,7 @@
                             <div class="payment-method-card" data-method="wallet">
                                 <i class="bi bi-wallet2 payment-method-icon"></i>
                                 <div class="payment-method-label">Wallet</div>
+                                <small style="color: #64748b;">Balance: ₹{{ number_format($walletBalance, 2) }}</small>
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -401,34 +353,35 @@
                 @endphp
                 <div class="section-card" id="offlineInstructions" style="display: none;">
                     <h5 class="section-title">Bank Transfer Instructions</h5>
-                    <p class="section-description">Use these details to complete your NEFT/RTGS transfer. After transferring, you’ll upload proof on the confirmation screen for admin approval.</p>
-                    <div class="row g-3">
+                    <p class="section-description">Use these details for NEFT/RTGS transfer.</p>
+                    
+                    <div class="row">
                         <div class="col-md-6">
-                            <div class="booking-summary-item">
+                            <div class="summary-item">
                                 <div class="summary-label">Account Name</div>
                                 <div class="summary-value">{{ $bankDetails['account_name'] }}</div>
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <div class="booking-summary-item">
+                            <div class="summary-item">
                                 <div class="summary-label">Account Number</div>
                                 <div class="summary-value">{{ $bankDetails['account_number'] }}</div>
                             </div>
                         </div>
-                        <div class="col-md-4">
-                            <div class="booking-summary-item">
-                                <div class="summary-label">IFSC</div>
+                        <div class="col-md-6">
+                            <div class="summary-item">
+                                <div class="summary-label">IFSC Code</div>
                                 <div class="summary-value">{{ $bankDetails['ifsc'] }}</div>
                             </div>
                         </div>
-                        <div class="col-md-4">
-                            <div class="booking-summary-item">
+                        <div class="col-md-6">
+                            <div class="summary-item">
                                 <div class="summary-label">Bank</div>
                                 <div class="summary-value">{{ $bankDetails['bank_name'] }}</div>
                             </div>
                         </div>
-                        <div class="col-md-4">
-                            <div class="booking-summary-item">
+                        <div class="col-md-6">
+                            <div class="summary-item">
                                 <div class="summary-label">Branch</div>
                                 <div class="summary-value">{{ $bankDetails['branch'] }}</div>
                             </div>
@@ -480,10 +433,10 @@
                     </div>
                 </div>
 
-                <!-- Primary submit button (always visible) -->
+                <!-- Primary submit button -->
                 <div class="section-card" style="margin-top: -10px;">
                     <button type="submit" class="btn btn-payment" id="makePaymentBtn">
-                        <span id="paymentButtonLabel">Make Payment</span> - ₹<span id="paymentButtonAmount">{{ number_format($initialAmount, 2) }}</span>
+                        <span id="paymentButtonLabel">Make Payment</span> - ₹<span id="paymentButtonAmount">{{ number_format($payment->amount, 2) }}</span>
                     </button>
                     <div class="security-note">
                         Online payments are secure and encrypted. NEFT/RTGS submissions stay pending until proof is approved.
@@ -496,68 +449,64 @@
                 <!-- Booking Summary -->
                 <div class="section-card">
                     <h5 class="section-title">Booking Summary</h5>
-                    <p class="section-description">Booth details for your exhibition.</p>
+                    <p class="section-description">Exhibition and booking details.</p>
                     
-                    <div class="booking-summary-item">
+                    <div class="summary-item">
                         <div class="summary-label">Exhibition Name</div>
-                        <div class="summary-value">{{ $booking->exhibition->name }}</div>
+                        <div class="summary-value">{{ $payment->booking->exhibition->name }}</div>
                     </div>
-                    <div class="booking-summary-item">
-                        <div class="summary-label">Booth Selection</div>
-                        <div class="summary-value">
-                            @forelse($boothDisplay as $booth)
-                                <div style="margin-bottom:6px;">
-                                    <strong>{{ $booth['name'] ?? 'N/A' }}</strong>
-                                    <div style="font-size:0.9rem; color:#475569;">
-                                        {{ $booth['type'] ?? '—' }} / {{ $booth['sides'] ?? '—' }} sides — ₹{{ number_format($booth['price'] ?? 0, 2) }}
-                                    </div>
-                                </div>
-                            @empty
-                                N/A
-                            @endforelse
-                        </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Booking Number</div>
+                        <div class="summary-value">{{ $payment->booking->booking_number }}</div>
                     </div>
-                    <div class="booking-summary-item">
-                        <div class="summary-label">Booking Date</div>
-                        <div class="summary-value">{{ $booking->created_at->format('Y.m.d') }}</div>
+                    <div class="summary-item">
+                        <div class="summary-label">Total Booking Amount</div>
+                        <div class="summary-value">₹{{ number_format($payment->booking->total_amount, 2) }}</div>
                     </div>
-                    <div class="booking-summary-item">
-                        <div class="summary-label">Exhibition Dates</div>
-                        <div class="summary-value">
-                            {{ $booking->exhibition->start_date->format('Y.m.d') }} to {{ $booking->exhibition->end_date->format('Y.m.d') }}
-                        </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Paid Amount</div>
+                        <div class="summary-value">₹{{ number_format($payment->booking->paid_amount, 2) }}</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Outstanding Balance</div>
+                        <div class="summary-value">₹{{ number_format($outstanding, 2) }}</div>
                     </div>
                 </div>
                 
                 <!-- Payment Schedule -->
                 <div class="section-card">
                     <h5 class="section-title">Payment Schedule</h5>
-                    <p class="section-description">Initial payment and remaining due dates.</p>
+                    <p class="section-description">All payment installments for this booking.</p>
                     
                     <table class="payment-schedule-table">
                         <thead>
                             <tr>
-                                <th>Payment Type</th>
+                                <th>Type</th>
                                 <th>Amount</th>
-                                <th>Due Date</th>
+                                <th>Status</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr class="due-today">
-                                <td>Initial Payment</td>
-                                <td>₹{{ number_format($initialAmount, 2) }}</td>
-                                <td>Today</td>
-                            </tr>
-                            @php
-                                $remainingAmount = $booking->total_amount - $initialAmount;
-                                $installmentCount = $booking->exhibition->paymentSchedules->count() - 1;
-                                $installmentAmount = $installmentCount > 0 ? $remainingAmount / $installmentCount : 0;
-                            @endphp
-                            @foreach($booking->exhibition->paymentSchedules->skip(1) as $schedule)
-                            <tr>
-                                <td>{{ $schedule->part_number }} Installment Payment</td>
-                                <td>₹{{ number_format($installmentAmount, 2) }}</td>
-                                <td>{{ $schedule->due_date->format('Y.m.d') }}</td>
+                            @foreach($payment->booking->payments->sortBy(function($p) {
+                                return $p->payment_type === 'initial' ? 1 : 2;
+                            })->sortBy('due_date') as $p)
+                            <tr class="{{ $p->id === $payment->id ? 'current-payment-row' : '' }}">
+                                <td>
+                                    {{ ucfirst($p->payment_type) }}
+                                    @if($p->id === $payment->id)
+                                        <span style="color: #6366f1;">(Current)</span>
+                                    @endif
+                                </td>
+                                <td>₹{{ number_format($p->amount, 2) }}</td>
+                                <td>
+                                    @if($p->status === 'completed')
+                                        <span style="color: #10b981;">✓ Paid</span>
+                                    @elseif($p->payment_proof_file)
+                                        <span style="color: #f59e0b;">⏳ Waiting</span>
+                                    @else
+                                        <span style="color: #64748b;">Pending</span>
+                                    @endif
+                                </td>
                             </tr>
                             @endforeach
                         </tbody>
@@ -572,8 +521,8 @@
 <script>
 let selectedMethod = '';
 let gatewayFee = 0;
-let totalAmount = {{ $booking->total_amount }};
-let initialAmount = {{ $initialAmount }};
+let totalAmount = {{ $payment->amount }};
+let paymentAmount = {{ $payment->amount }};
 
 // Payment method selection
 document.querySelectorAll('.payment-method-card').forEach(card => {
@@ -586,7 +535,7 @@ document.querySelectorAll('.payment-method-card').forEach(card => {
         // Show payment details for card/upi/netbanking
         if (['card', 'upi', 'netbanking'].includes(selectedMethod)) {
             document.getElementById('paymentDetailsCard').style.display = 'block';
-            gatewayFee = totalAmount * 0.025; // 2.5% gateway fee
+            gatewayFee = paymentAmount * 0.025; // 2.5% gateway fee
         } else {
             document.getElementById('paymentDetailsCard').style.display = 'none';
             gatewayFee = 0;
@@ -614,9 +563,9 @@ document.querySelectorAll('.payment-method-card').forEach(card => {
 
 function updateGatewayFee() {
     document.getElementById('gatewayFee').textContent = '₹' + gatewayFee.toFixed(2);
-    let totalDue = totalAmount + gatewayFee;
+    let totalDue = paymentAmount + gatewayFee;
     document.getElementById('totalDueAmount').textContent = '₹' + totalDue.toFixed(2);
-    document.getElementById('paymentButtonAmount').textContent = initialAmount.toFixed(2);
+    document.getElementById('paymentButtonAmount').textContent = totalDue.toFixed(2);
 }
 
 // Form submission
@@ -638,7 +587,7 @@ document.getElementById('paymentForm').addEventListener('submit', function(e) {
     };
     
     document.getElementById('selectedPaymentMethod').value = methodMap[selectedMethod] || selectedMethod;
-    document.getElementById('paymentAmount').value = initialAmount;
+    document.getElementById('paymentAmount').value = paymentAmount;
 });
 
 // Card number formatting

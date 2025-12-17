@@ -7,7 +7,10 @@ use App\Models\Booking;
 use App\Models\BoothRequest;
 use App\Models\Payment;
 use App\Models\Wallet;
+use App\Mail\PaymentReceiptMail;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 use Mpdf\Mpdf;
 use Mpdf\Config\ConfigVariables;
 use Mpdf\Config\FontVariables;
@@ -67,16 +70,83 @@ class PaymentController extends Controller
         ));
     }
     
-    public function create(int $bookingId)
+    public function create(int $bookingId, Request $request)
     {
-        $booking = Booking::with('exhibition')->where('user_id', auth()->id())->findOrFail($bookingId);
+        $booking = Booking::with(['exhibition', 'payments'])->where('user_id', auth()->id())->findOrFail($bookingId);
 
         $outstanding = $booking->total_amount - $booking->paid_amount;
-        $initialPercent = $booking->exhibition->initial_payment_percent ?? 10;
-        $initialAmount = ($booking->total_amount * $initialPercent) / 100;
+        
+        // Check if a specific payment ID is provided
+        $paymentId = $request->get('payment_id');
+        $specificPayment = null;
+        
+        if ($paymentId) {
+            $specificPayment = Payment::where('id', $paymentId)
+                ->where('booking_id', $booking->id)
+                ->where('user_id', auth()->id())
+                ->where('status', 'pending')
+                ->firstOrFail();
+        }
+        
+        // Get the pending payment to pay (either specific or next pending)
+        if ($specificPayment) {
+            // Use the specific payment amount
+            $initialAmount = $specificPayment->amount;
+            $initialPercent = ($initialAmount / $booking->total_amount) * 100;
+        } else {
+            // Get the next pending payment (initial first, then installments)
+            $pendingPayment = $booking->payments()
+                ->where('status', 'pending')
+                ->orderByRaw("CASE WHEN payment_type = 'initial' THEN 1 ELSE 2 END")
+                ->orderBy('due_date', 'asc')
+                ->first();
+            
+            if ($pendingPayment) {
+                $initialAmount = $pendingPayment->amount;
+                $initialPercent = ($initialAmount / $booking->total_amount) * 100;
+            } else {
+                // Fallback: Calculate from exhibition initial_payment_percent (backward compatibility)
+                $initialPercent = $booking->exhibition->initial_payment_percent ?? 10;
+                $initialAmount = ($booking->total_amount * $initialPercent) / 100;
+            }
+        }
+        
         $walletBalance = auth()->user()->wallet_balance;
 
-        return view('frontend.payments.create', compact('booking', 'outstanding', 'initialPercent', 'initialAmount', 'walletBalance'));
+        return view('frontend.payments.create', compact('booking', 'outstanding', 'initialPercent', 'initialAmount', 'walletBalance', 'specificPayment'));
+    }
+
+    public function pay(int $paymentId)
+    {
+        $payment = Payment::with(['booking.exhibition', 'booking.booth', 'user'])
+            ->where('user_id', auth()->id())
+            ->where('status', 'pending')
+            ->findOrFail($paymentId);
+
+        $booking = $payment->booking;
+        $outstanding = $booking->total_amount - $booking->paid_amount;
+        $walletBalance = auth()->user()->wallet_balance;
+
+        // Get all pending payments for this booking to show in summary
+        $allPendingPayments = $booking->payments()
+            ->where('status', 'pending')
+            ->orderByRaw("CASE WHEN payment_type = 'initial' THEN 1 ELSE 2 END")
+            ->orderBy('due_date', 'asc')
+            ->get();
+
+        // Get completed payments count
+        $completedPayments = $booking->payments()
+            ->where('status', 'completed')
+            ->count();
+
+        return view('frontend.payments.pay', compact(
+            'payment',
+            'booking',
+            'outstanding',
+            'walletBalance',
+            'allPendingPayments',
+            'completedPayments'
+        ));
     }
 
     public function store(Request $request)
@@ -85,6 +155,7 @@ class PaymentController extends Controller
             'booking_id' => 'required|exists:bookings,id',
             'payment_method' => 'required|in:online,offline,rtgs,neft,wallet',
             'amount' => 'required|numeric|min:1',
+            'payment_id' => 'nullable|exists:payments,id',
         ]);
 
         $booking = Booking::where('user_id', auth()->id())->findOrFail($request->booking_id);
@@ -123,20 +194,111 @@ class PaymentController extends Controller
             ]);
         }
 
-        $payment = Payment::create([
-            'booking_id' => $booking->id,
-            'user_id' => $user->id,
-            'payment_number' => 'PM' . now()->format('YmdHis') . rand(100, 999),
-            'payment_type' => 'initial',
-            'payment_method' => $request->payment_method,
-            'status' => $request->payment_method === 'wallet' ? 'completed' : 'pending',
-            'approval_status' => $request->payment_method === 'wallet' ? 'approved' : 'pending',
-            'amount' => $amount,
-            'gateway_charge' => $request->payment_method === 'online' ? round($amount * 0.025, 2) : 0,
-            'paid_at' => $request->payment_method === 'wallet' ? now() : null,
-        ]);
+        // Find the payment to update (either specific payment_id or next pending payment)
+        if ($request->payment_id) {
+            // Update specific payment
+            $payment = Payment::where('id', $request->payment_id)
+                ->where('booking_id', $booking->id)
+                ->where('user_id', auth()->id())
+                ->where('status', 'pending')
+                ->firstOrFail();
+        } else {
+            // Find next pending payment (initial first, then installments by due date)
+            $payment = Payment::where('booking_id', $booking->id)
+                ->where('status', 'pending')
+                ->orderByRaw("CASE WHEN payment_type = 'initial' THEN 1 ELSE 2 END")
+                ->orderBy('due_date', 'asc')
+                ->first();
+        }
 
-        $booking->paid_amount += $amount;
+        if ($payment) {
+            // Update existing pending payment
+            // Use the scheduled amount from the payment record, not the request amount
+            // This ensures we use the correct amount from the payment schedule
+            $scheduledAmount = $payment->amount;
+            $isCompleted = $request->payment_method === 'wallet';
+            
+            $payment->update([
+                'payment_method' => $request->payment_method,
+                'status' => $isCompleted ? 'completed' : 'pending',
+                'approval_status' => $isCompleted ? 'approved' : 'pending',
+                'gateway_charge' => $request->payment_method === 'online' ? round($scheduledAmount * 0.025, 2) : 0,
+                'paid_at' => $isCompleted ? now() : null,
+                'transaction_id' => $request->transaction_id ?? null,
+            ]);
+            
+            // Only update booking paid_amount if payment is completed (wallet payment)
+            if ($isCompleted) {
+                $booking->paid_amount += $scheduledAmount;
+                
+                // Reload payment with relationships for email
+                $payment->load(['booking.exhibition', 'booking.booth', 'booking.bookingServices.service', 'user']);
+                
+                // Send payment receipt email to exhibitor
+                try {
+                    Mail::to($user->email)->send(new PaymentReceiptMail($payment, false));
+                } catch (\Exception $e) {
+                    Log::error('Failed to send payment receipt email to exhibitor: ' . $e->getMessage());
+                }
+                
+                // Send payment receipt email to all admins
+                $admins = \App\Models\User::role('Admin')->orWhere('id', 1)->get();
+                foreach ($admins as $admin) {
+                    try {
+                        if ($admin->email) {
+                            Mail::to($admin->email)->send(new PaymentReceiptMail($payment, true));
+                        }
+                    } catch (\Exception $e) {
+                        Log::error('Failed to send payment receipt email to admin: ' . $e->getMessage());
+                    }
+                }
+            }
+        } else {
+            // Fallback: Create new payment if no existing pending payment found (backward compatibility)
+            $isCompleted = $request->payment_method === 'wallet';
+            
+            $payment = Payment::create([
+                'booking_id' => $booking->id,
+                'user_id' => $user->id,
+                'payment_number' => 'PM' . now()->format('YmdHis') . rand(100, 999),
+                'payment_type' => 'initial',
+                'payment_method' => $request->payment_method,
+                'status' => $isCompleted ? 'completed' : 'pending',
+                'approval_status' => $isCompleted ? 'approved' : 'pending',
+                'amount' => $amount,
+                'gateway_charge' => $request->payment_method === 'online' ? round($amount * 0.025, 2) : 0,
+                'paid_at' => $isCompleted ? now() : null,
+                'transaction_id' => $request->transaction_id ?? null,
+            ]);
+            
+            // Only update booking paid_amount if payment is completed (wallet payment)
+            if ($isCompleted) {
+                $booking->paid_amount += $amount;
+                
+                // Reload payment with relationships for email
+                $payment->load(['booking.exhibition', 'booking.booth', 'booking.bookingServices.service', 'user']);
+                
+                // Send payment receipt email to exhibitor
+                try {
+                    Mail::to($user->email)->send(new PaymentReceiptMail($payment, false));
+                } catch (\Exception $e) {
+                    Log::error('Failed to send payment receipt email to exhibitor: ' . $e->getMessage());
+                }
+                
+                // Send payment receipt email to all admins
+                $admins = \App\Models\User::role('Admin')->orWhere('id', 1)->get();
+                foreach ($admins as $admin) {
+                    try {
+                        if ($admin->email) {
+                            Mail::to($admin->email)->send(new PaymentReceiptMail($payment, true));
+                        }
+                    } catch (\Exception $e) {
+                        Log::error('Failed to send payment receipt email to admin: ' . $e->getMessage());
+                    }
+                }
+            }
+        }
+
         // Keep booking pending until admin approval even if fully paid
         $booking->status = 'pending';
         $booking->approval_status = $booking->approval_status ?? 'pending';

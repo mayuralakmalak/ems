@@ -117,10 +117,13 @@
         font-size: 0.85rem;
         cursor: pointer;
         transition: all 0.3s ease;
+        font-weight: 500;
     }
     
     .btn-pay-now:hover {
         background: #059669;
+        color: white;
+        text-decoration: none;
     }
     
     .wallet-transaction {
@@ -200,6 +203,7 @@
                     <tr>
                         <th>Transaction</th>
                         <th>Date</th>
+                        <th>Due Date</th>
                         <th>Description</th>
                         <th>Amount</th>
                         <th>Payment</th>
@@ -212,33 +216,74 @@
                     <tr>
                         <td>{{ $payment->payment_number }}</td>
                         <td>{{ $payment->created_at->format('Y-m-d') }}</td>
+                        <td>
+                            @if($payment->due_date)
+                                {{ $payment->due_date->format('Y-m-d') }}
+                                @if($payment->due_date < now() && $payment->status === 'pending')
+                                    <span class="text-danger" style="font-size: 0.75rem; display: block;">(Overdue)</span>
+                                @endif
+                            @else
+                                <span class="text-muted">N/A</span>
+                            @endif
+                        </td>
                         <td>{{ $payment->booking->exhibition->name ?? 'Stall Booking' }}</td>
                         <td>₹{{ number_format($payment->amount, 2) }}</td>
                         <td>{{ ucfirst($payment->payment_method) }}</td>
                         <td>
-                            <span class="status-badge {{ $payment->status === 'completed' ? 'status-completed' : ($payment->status === 'pending' ? 'status-pending' : 'status-failed') }}">
-                                {{ ucfirst($payment->status) }}
+                            @php
+                                $displayStatus = $payment->status;
+                                $statusClass = 'status-pending';
+                                
+                                if ($payment->status === 'completed') {
+                                    $displayStatus = 'completed';
+                                    $statusClass = 'status-completed';
+                                } elseif ($payment->status === 'failed') {
+                                    $displayStatus = 'failed';
+                                    $statusClass = 'status-failed';
+                                } elseif ($payment->status === 'pending' && $payment->payment_proof_file && $payment->approval_status === 'pending') {
+                                    $displayStatus = 'waiting for approval';
+                                    $statusClass = 'status-pending'; // Keep pending style but show different text
+                                } else {
+                                    $displayStatus = 'pending';
+                                    $statusClass = 'status-pending';
+                                }
+                            @endphp
+                            <span class="status-badge {{ $statusClass }}">
+                                {{ ucfirst($displayStatus) }}
                             </span>
                         </td>
                         <td>
-                            @if($payment->receipt_file)
-                                <a href="{{ asset('storage/' . $payment->receipt_file) }}" download class="btn-download" style="text-decoration: none; display: inline-block;">
-                                    <i class="bi bi-download me-1"></i>Download Receipt
-                                </a>
-                            @elseif($payment->invoice_file)
-                                <a href="{{ asset('storage/' . $payment->invoice_file) }}" download class="btn-download" style="text-decoration: none; display: inline-block;">
-                                    <i class="bi bi-download me-1"></i>Download Invoice
-                                </a>
-                            @else
-                                <a href="{{ route('payments.download', $payment->id) }}" class="btn-download" style="text-decoration: none; display: inline-block;">
-                                    <i class="bi bi-download me-1"></i>Download
-                                </a>
-                            @endif
+                            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                @php
+                                    // Show Pay Now only for pending payments WITHOUT payment proof (not waiting for approval)
+                                    $canPay = $payment->status === 'pending' && !$payment->payment_proof_file;
+                                @endphp
+                                
+                                @if($canPay)
+                                    <a href="{{ route('payments.pay', $payment->id) }}" class="btn-pay-now" style="text-decoration: none; display: inline-block;">
+                                        <i class="bi bi-credit-card me-1"></i>Pay Now
+                                    </a>
+                                @endif
+                                
+                                @if($payment->receipt_file)
+                                    <a href="{{ asset('storage/' . $payment->receipt_file) }}" download class="btn-download" style="text-decoration: none; display: inline-block;">
+                                        <i class="bi bi-download me-1"></i>Receipt
+                                    </a>
+                                @elseif($payment->invoice_file)
+                                    <a href="{{ asset('storage/' . $payment->invoice_file) }}" download class="btn-download" style="text-decoration: none; display: inline-block;">
+                                        <i class="bi bi-download me-1"></i>Invoice
+                                    </a>
+                                @elseif($payment->status === 'completed')
+                                    <a href="{{ route('payments.download', $payment->id) }}" class="btn-download" style="text-decoration: none; display: inline-block;">
+                                        <i class="bi bi-download me-1"></i>Download
+                                    </a>
+                                @endif
+                            </div>
                         </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="text-center text-muted py-3">No payments found</td>
+                        <td colspan="8" class="text-center text-muted py-3">No payments found</td>
                     </tr>
                     @endforelse
                 </tbody>

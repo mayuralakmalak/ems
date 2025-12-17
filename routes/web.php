@@ -197,6 +197,7 @@ Route::middleware('auth')->group(function () {
     // Payment
     Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
     Route::get('/payments/{bookingId}', [PaymentController::class, 'create'])->name('payments.create');
+    Route::get('/payments/pay/{paymentId}', [PaymentController::class, 'pay'])->name('payments.pay');
     Route::post('/payments', [PaymentController::class, 'store'])->name('payments.store');
     Route::get('/payments/{paymentId}/confirmation', [PaymentController::class, 'confirmation'])->name('payments.confirmation');
     Route::post('/payments/{paymentId}/upload-proof', [PaymentController::class, 'uploadProof'])->name('payments.upload-proof');

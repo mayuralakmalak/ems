@@ -455,8 +455,23 @@
                             <td>₹{{ number_format($payment->amount, 2) }}</td>
                             <td>{{ ucfirst($payment->payment_method) }}</td>
                             <td>
-                                <span class="status-badge {{ $payment->status === 'completed' ? 'status-paid' : 'status-pending' }}">
-                                    {{ ucfirst($payment->status) }}
+                                @php
+                                    $displayStatus = $payment->status;
+                                    $statusClass = 'status-pending';
+                                    
+                                    if ($payment->status === 'completed') {
+                                        $displayStatus = 'completed';
+                                        $statusClass = 'status-paid';
+                                    } elseif ($payment->status === 'pending' && $payment->payment_proof_file && $payment->approval_status === 'pending') {
+                                        $displayStatus = 'waiting for approval';
+                                        $statusClass = 'status-pending';
+                                    } else {
+                                        $displayStatus = 'pending';
+                                        $statusClass = 'status-pending';
+                                    }
+                                @endphp
+                                <span class="status-badge {{ $statusClass }}">
+                                    {{ ucfirst($displayStatus) }}
                                 </span>
                             </td>
                         </tr>
