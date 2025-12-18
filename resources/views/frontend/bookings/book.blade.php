@@ -795,23 +795,23 @@
                     if ($booth->parent_booth_id !== null && !$booth->is_split) continue;
                     
                     // Determine booth status
-                    // Priority: booked > available > reserved
-                    $status = 'available';
-                    $statusClass = 'booth-available';
-                    $hasPendingBooking = isset($pendingBookedBoothIds) && in_array($booth->id, $pendingBookedBoothIds, true);
+                    // Priority: booked (approved) > reserved (pending with payment) > merged > available
+                    $isReserved = isset($reservedBoothIds) && in_array($booth->id, $reservedBoothIds, true);
+                    $isBooked = (isset($bookedBoothIds) && in_array($booth->id, $bookedBoothIds, true)) || $booth->is_booked;
+                    $isMerged = $booth->is_merged ?? false;
                     
-                    if ($booth->is_booked || $hasPendingBooking) {
-                        // Treat booths with a pending booking request as booked
-                        // so they cannot be selected again until admin acts.
+                    if ($isBooked) {
                         $status = 'booked';
                         $statusClass = 'booth-booked';
+                    } elseif ($isReserved) {
+                        $status = 'reserved';
+                        $statusClass = 'booth-reserved';
+                    } elseif ($isMerged && $booth->is_available) {
+                        $status = 'merged';
+                        $statusClass = 'booth-available booth-merged';
                     } elseif ($booth->is_available) {
-                        // Available booths (including merged booths that are available)
                         $status = 'available';
                         $statusClass = 'booth-available';
-                        if ($booth->is_merged) {
-                            $statusClass .= ' booth-merged';
-                        }
                     } else {
                         // Not available and not booked = reserved
                         $status = 'reserved';
@@ -1178,8 +1178,9 @@ function setupBoothSelection() {
             const boothId = this.getAttribute('data-booth-id');
             const status = this.getAttribute('data-booth-status');
             
-            if (status === 'booked') {
-                alert('This booth is already booked');
+            // Prevent selection of booked or reserved booths
+            if (status === 'booked' || status === 'reserved') {
+                alert('This booth is already ' + status + ' and cannot be selected');
                 return;
             }
 

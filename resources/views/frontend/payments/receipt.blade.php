@@ -137,6 +137,11 @@
 @php
     $booking = $payment->booking;
     $exhibition = $booking->exhibition ?? null;
+    
+    // Calculate booth total from selected_booth_ids (works for both merged and non-merged booths)
+    // For merged booths: selected_booth_ids contains the original booths that were merged
+    // For non-merged: selected_booth_ids contains the selected booths
+    // We always sum the prices from selected_booth_ids to get the correct booth rental total
     $boothEntries = collect($booking->selected_booth_ids ?? []);
     if ($boothEntries->isEmpty() && $booking->booth_id) {
         $boothEntries = collect([['id' => $booking->booth_id]]);
@@ -157,6 +162,9 @@
             'price' => $isArray ? ($entry['price'] ?? $model?->price ?? 0) : ($model?->price ?? 0),
         ];
     })->filter(fn($b) => $b['name'] || $b['price']);
+    
+    // Calculate booth total by summing prices from selected_booth_ids
+    // This works correctly for both merged and non-merged booths
     $boothTotal = $boothDisplay->sum(fn($b) => $b['price'] ?? 0);
     $services = $booking->bookingServices()->with('service')->get();
     $servicesTotal = $services->sum('total_price');

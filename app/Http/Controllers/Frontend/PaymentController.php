@@ -327,6 +327,64 @@ class PaymentController extends Controller
             ]);
         }
 
+        // Mark booths as reserved (unavailable but not booked yet) when payment is made
+        // This ensures booths show as reserved on the floorplan until admin approval
+        // Only mark as reserved if there's at least one completed payment
+        $hasCompletedPayment = $booking->payments()
+            ->where('status', 'completed')
+            ->exists();
+        
+        if ($hasCompletedPayment) {
+            // Mark primary booth as reserved (unavailable but not booked)
+            if ($booking->booth) {
+                $booking->booth->update([
+                    'is_available' => false,
+                    // Keep is_booked as false until admin approves
+                ]);
+            }
+            
+            // Also mark ALL booths in selected_booth_ids as reserved
+            if ($booking->selected_booth_ids) {
+                $selectedBoothIds = [];
+                if (is_array($booking->selected_booth_ids)) {
+                    // Handle array format: [{'id': 1, 'name': 'B001'}, ...]
+                    $selectedBoothIds = collect($booking->selected_booth_ids)
+                        ->pluck('id')
+                        ->filter()
+                        ->unique()
+                        ->values()
+                        ->all();
+                } else {
+                    // Handle simple array format: [1, 2, 3]
+                    $selectedBoothIds = collect($booking->selected_booth_ids)
+                        ->filter()
+                        ->unique()
+                        ->values()
+                        ->all();
+                }
+                
+                // Mark all selected booths as reserved
+                if (!empty($selectedBoothIds)) {
+                    \App\Models\Booth::whereIn('id', $selectedBoothIds)
+                        ->where('exhibition_id', $booking->exhibition_id)
+                        ->update([
+                            'is_available' => false,
+                            // Keep is_booked as false until admin approves
+                        ]);
+                }
+            } else {
+                // Fallback: mark booths from boothIds array
+                foreach ($boothIds as $boothId) {
+                    $booth = \App\Models\Booth::find($boothId);
+                    if ($booth && $booth->id !== $booking->booth_id) {
+                        $booth->update([
+                            'is_available' => false,
+                        ]);
+                    }
+                }
+            }
+        }
+
         // Redirect to payment confirmation
         return redirect()->route('payments.confirmation', $payment->id)
             ->with('success', 'Payment processed successfully.');

@@ -188,6 +188,12 @@
     .booth-selected {
         border: 3px solid #007bff !important;
         box-shadow: 0 0 10px rgba(0,123,255,0.5);
+        background-color: #17a2b8 !important;
+    }
+    
+    .booth-merged {
+        background-color: #20c997;
+        border: 2px solid #17a2b8;
     }
     
     .floorplan-controls {
@@ -393,7 +399,36 @@
             @endif
             <div id="boothsContainer" style="position: relative; min-height: 100%; z-index: 2;">
                 @foreach($exhibition->booths as $booth)
-                <div class="booth-item {{ $booth->is_booked ? 'booth-booked' : ($booth->is_available ? 'booth-available' : 'booth-reserved') }}" 
+                @php
+                    // Skip merged original booths (they are hidden)
+                    if ($booth->parent_booth_id !== null && !$booth->is_split) {
+                        continue;
+                    }
+                    
+                    // Determine booth status based on bookings
+                    // Priority: booked (approved) > reserved (pending with payment) > merged > available
+                    $isReserved = in_array($booth->id, $reservedBoothIds ?? []);
+                    $isBooked = in_array($booth->id, $bookedBoothIds ?? []) || $booth->is_booked;
+                    $isMerged = $booth->is_merged ?? false;
+                    
+                    if ($isBooked) {
+                        $statusClass = 'booth-booked';
+                        $status = 'booked';
+                    } elseif ($isReserved) {
+                        $statusClass = 'booth-reserved';
+                        $status = 'reserved';
+                    } elseif ($isMerged && $booth->is_available) {
+                        $statusClass = 'booth-merged';
+                        $status = 'merged';
+                    } elseif ($booth->is_available) {
+                        $statusClass = 'booth-available';
+                        $status = 'available';
+                    } else {
+                        $statusClass = 'booth-reserved';
+                        $status = 'reserved';
+                    }
+                @endphp
+                <div class="booth-item {{ $statusClass }}" 
                      data-booth-id="{{ $booth->id }}"
                      data-booth-name="{{ $booth->name }}"
                      data-booth-size="{{ $booth->size_sqft }}"
@@ -401,7 +436,7 @@
                      data-booth-category="{{ $booth->category }}"
                      data-booth-type="{{ $booth->booth_type }}"
                      data-booth-sides="{{ $booth->sides_open }}"
-                     data-booth-status="{{ $booth->is_booked ? 'booked' : ($booth->is_available ? 'available' : 'reserved') }}"
+                     data-booth-status="{{ $status }}"
                      style="left: {{ $booth->position_x ?? ($loop->index % 5) * 120 }}px; 
                             top: {{ $booth->position_y ?? floor($loop->index / 5) * 100 }}px; 
                             width: {{ $booth->width ?? 100 }}px; 
@@ -506,8 +541,9 @@ function toggleBoothSelection(booth) {
     const boothId = booth.getAttribute('data-booth-id');
     const status = booth.getAttribute('data-booth-status');
     
-    if (status === 'booked') {
-        alert('This booth is already booked');
+    // Prevent selection of booked or reserved booths
+    if (status === 'booked' || status === 'reserved') {
+        alert('This booth is already ' + status + ' and cannot be selected');
         return;
     }
     

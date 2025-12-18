@@ -269,5 +269,36 @@ class BoothRequestController extends Controller
                 'is_available' => false,
             ]);
         }
+        
+        // Mark ALL booths in selected_booth_ids as booked
+        if ($booking->selected_booth_ids) {
+            $selectedBoothIds = [];
+            if (is_array($booking->selected_booth_ids)) {
+                // Handle array format: [{'id': 1, 'name': 'B001'}, ...]
+                $selectedBoothIds = collect($booking->selected_booth_ids)
+                    ->pluck('id')
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all();
+            } else {
+                // Handle simple array format: [1, 2, 3]
+                $selectedBoothIds = collect($booking->selected_booth_ids)
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all();
+            }
+            
+            // Mark all selected booths as booked
+            if (!empty($selectedBoothIds)) {
+                Booth::whereIn('id', $selectedBoothIds)
+                    ->where('exhibition_id', $booking->exhibition_id)
+                    ->update([
+                        'is_booked' => true,
+                        'is_available' => false,
+                    ]);
+            }
+        }
     }
 }

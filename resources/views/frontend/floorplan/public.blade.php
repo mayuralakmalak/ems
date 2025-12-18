@@ -65,6 +65,10 @@
                         <div style="width: 20px; height: 20px; background-color: #dc3545; border: 1px solid #b02a37; margin-right: 10px;"></div>
                         <small>Booked</small>
                     </div>
+                    <div class="d-flex align-items-center mb-2">
+                        <div style="width: 20px; height: 20px; background-color: #20c997; border: 1px solid #17a2b8; margin-right: 10px;"></div>
+                        <small>Merged</small>
+                    </div>
                 </div>
             </div>
             
@@ -96,19 +100,53 @@
                     @endif
                     <div id="floorplanCanvas" style="position: relative; min-height: 100%; z-index: 2;">
                         @foreach($exhibition->booths as $booth)
+                        @php
+                            // Skip merged original booths (they are hidden)
+                            if ($booth->parent_booth_id !== null && !$booth->is_split) {
+                                continue;
+                            }
+                            
+                            // Determine booth status based on bookings
+                            // Priority: booked (approved) > reserved (pending with payment) > merged > available
+                            $isReserved = in_array($booth->id, $reservedBoothIds ?? []);
+                            $isBooked = in_array($booth->id, $bookedBoothIds ?? []) || $booth->is_booked;
+                            $isMerged = $booth->is_merged ?? false;
+                            
+                            if ($isBooked) {
+                                $status = 'booked';
+                                $bgColor = '#dc3545';
+                                $borderColor = '#b02a37';
+                            } elseif ($isReserved) {
+                                $status = 'reserved';
+                                $bgColor = '#ffc107';
+                                $borderColor = '#d39e00';
+                            } elseif ($isMerged && $booth->is_available) {
+                                $status = 'merged';
+                                $bgColor = '#20c997';
+                                $borderColor = '#17a2b8';
+                            } elseif ($booth->is_available) {
+                                $status = 'available';
+                                $bgColor = '#28a745';
+                                $borderColor = '#1e7e34';
+                            } else {
+                                $status = 'reserved';
+                                $bgColor = '#ffc107';
+                                $borderColor = '#d39e00';
+                            }
+                        @endphp
                         <div class="booth-item" 
                              data-booth-id="{{ $booth->id }}"
                              data-booth-name="{{ $booth->name }}"
                              data-booth-size="{{ $booth->size_sqft }}"
                              data-booth-price="{{ $booth->price }}"
-                             data-booth-status="{{ $booth->is_booked ? 'booked' : ($booth->is_available ? 'available' : 'reserved') }}"
+                             data-booth-status="{{ $status }}"
                              style="position: absolute; 
                                     left: {{ $booth->position_x ?? ($loop->index % 5) * 120 }}px; 
                                     top: {{ $booth->position_y ?? floor($loop->index / 5) * 100 }}px; 
                                     width: {{ $booth->width ?? 100 }}px; 
                                     height: {{ $booth->height ?? 80 }}px;
-                                    background-color: {{ $booth->is_booked ? '#dc3545' : ($booth->is_available ? '#28a745' : '#ffc107') }};
-                                    border: 2px solid {{ $booth->is_booked ? '#b02a37' : ($booth->is_available ? '#1e7e34' : '#d39e00') }};
+                                    background-color: {{ $bgColor }};
+                                    border: 2px solid {{ $borderColor }};
                                     cursor: pointer;
                                     display: flex;
                                     align-items: center;

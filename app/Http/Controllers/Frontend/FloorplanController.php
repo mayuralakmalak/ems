@@ -16,6 +16,86 @@ class FloorplanController extends Controller
     {
         $exhibition = Exhibition::with('booths')->findOrFail($id);
         
+        // Get all booths that are reserved (pending booking - regardless of payment status)
+        // A booth is reserved when booking exists with approval_status = 'pending'
+        $reservedBookings = \App\Models\Booking::where('exhibition_id', $id)
+            ->where('approval_status', 'pending')
+            ->whereNotIn('status', ['cancelled', 'rejected'])
+            ->get();
+        
+        // Collect all reserved booth IDs (including from selected_booth_ids)
+        $reservedBoothIds = [];
+        foreach ($reservedBookings as $booking) {
+            // Add primary booth_id
+            if ($booking->booth_id) {
+                $reservedBoothIds[] = $booking->booth_id;
+            }
+            
+            // Also include booths from selected_booth_ids
+            // Get the array value first to avoid indirect modification error
+            $selectedBoothIds = $booking->selected_booth_ids;
+            if ($selectedBoothIds && is_array($selectedBoothIds) && !empty($selectedBoothIds)) {
+                // Check if it's array of objects: [{'id': 1, 'name': 'B001'}, ...]
+                $firstItem = reset($selectedBoothIds);
+                if (is_array($firstItem) && isset($firstItem['id'])) {
+                    // Array of objects format - extract IDs
+                    foreach ($selectedBoothIds as $item) {
+                        if (isset($item['id'])) {
+                            $reservedBoothIds[] = $item['id'];
+                        }
+                    }
+                } else {
+                    // Simple array format: [1, 2, 3] - use directly
+                    foreach ($selectedBoothIds as $boothId) {
+                        if ($boothId) {
+                            $reservedBoothIds[] = $boothId;
+                        }
+                    }
+                }
+            }
+        }
+        $reservedBoothIds = array_values(array_unique(array_filter($reservedBoothIds)));
+        
+        // Get all booths that are booked (approved)
+        $bookedBookings = \App\Models\Booking::where('exhibition_id', $id)
+            ->where('approval_status', 'approved')
+            ->where('status', 'confirmed')
+            ->whereNotIn('status', ['cancelled', 'rejected'])
+            ->get();
+        
+        // Collect all booked booth IDs (including from selected_booth_ids)
+        $bookedBoothIds = [];
+        foreach ($bookedBookings as $booking) {
+            // Add primary booth_id
+            if ($booking->booth_id) {
+                $bookedBoothIds[] = $booking->booth_id;
+            }
+            
+            // Also include booths from selected_booth_ids
+            // Get the array value first to avoid indirect modification error
+            $selectedBoothIds = $booking->selected_booth_ids;
+            if ($selectedBoothIds && is_array($selectedBoothIds) && !empty($selectedBoothIds)) {
+                // Check if it's array of objects: [{'id': 1, 'name': 'B001'}, ...]
+                $firstItem = reset($selectedBoothIds);
+                if (is_array($firstItem) && isset($firstItem['id'])) {
+                    // Array of objects format - extract IDs
+                    foreach ($selectedBoothIds as $item) {
+                        if (isset($item['id'])) {
+                            $bookedBoothIds[] = $item['id'];
+                        }
+                    }
+                } else {
+                    // Simple array format: [1, 2, 3] - use directly
+                    foreach ($selectedBoothIds as $boothId) {
+                        if ($boothId) {
+                            $bookedBoothIds[] = $boothId;
+                        }
+                    }
+                }
+            }
+        }
+        $bookedBoothIds = array_values(array_unique(array_filter($bookedBoothIds)));
+        
         // If user is authenticated, use exhibitor layout, otherwise use public layout
         if (auth()->check()) {
             // Get user's bookings for this exhibition
@@ -33,9 +113,9 @@ class FloorplanController extends Controller
             ->latest()
             ->get();
             
-            return view('frontend.floorplan.show', compact('exhibition', 'bookings', 'payments'));
+            return view('frontend.floorplan.show', compact('exhibition', 'bookings', 'payments', 'reservedBoothIds', 'bookedBoothIds'));
         } else {
-            return view('frontend.floorplan.public', compact('exhibition'));
+            return view('frontend.floorplan.public', compact('exhibition', 'reservedBoothIds', 'bookedBoothIds'));
         }
     }
 

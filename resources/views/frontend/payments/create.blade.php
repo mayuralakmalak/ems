@@ -241,6 +241,10 @@
 
 @section('content')
 @php
+    // Calculate booth total from selected_booth_ids (works for both merged and non-merged booths)
+    // For merged booths: selected_booth_ids contains the original booths that were merged
+    // For non-merged: selected_booth_ids contains the selected booths
+    // We always sum the prices from selected_booth_ids to get the correct booth rental total
     $boothEntries = collect($booking->selected_booth_ids ?? []);
     if ($boothEntries->isEmpty() && $booking->booth_id) {
         $boothEntries = collect([['id' => $booking->booth_id]]);
@@ -260,6 +264,9 @@
             'price' => $isArray ? ($entry['price'] ?? $model?->price ?? 0) : ($model?->price ?? 0),
         ];
     })->filter(fn($b) => $b['name'] || $b['price']);
+    
+    // Calculate booth total by summing prices from selected_booth_ids
+    // This works correctly for both merged and non-merged booths
     $boothTotal = $boothDisplay->sum(fn($b) => $b['price'] ?? 0);
 @endphp
 <div class="payment-container">
@@ -312,22 +319,56 @@
                     </div>
                     
                     @php
+                        // Sum all add-on services attached to the booking
                         $servicesTotal = $booking->bookingServices->sum(function($bs) {
                             return $bs->quantity * $bs->unit_price;
                         });
+
+                        // Sum any additional included item extras stored on the booking
+                        $extrasTotal = 0;
+                        $extrasRaw = $booking->included_item_extras ?? [];
+                        if (is_array($extrasRaw)) {
+                            foreach ($extrasRaw as $extra) {
+                                // Prefer explicit total_price if present, otherwise qty * unit_price
+                                $lineTotal = $extra['total_price'] ?? (
+                                    (isset($extra['quantity'], $extra['unit_price']))
+                                        ? ((float) $extra['quantity'] * (float) $extra['unit_price'])
+                                        : 0
+                                );
+                                $extrasTotal += $lineTotal;
+                            }
+                        }
+                        
+                        // Calculate base total from breakdown items (Booth Rental + Services + Extras)
+                        // This keeps the visible rows in sync with the amount shown in Total Due (before gateway fee)
+                        $baseTotal = $boothTotal + $servicesTotal + $extrasTotal;
+                        
+                        // Apply discount if any
+                        $discountAmount = 0;
+                        if ($booking->discount_percent > 0) {
+                            $discountAmount = ($baseTotal * $booking->discount_percent) / 100;
+                            $baseTotal -= $discountAmount;
+                        }
                     @endphp
                     
                     @if($servicesTotal > 0)
                     <div class="breakdown-item">
-                        <span class="breakdown-label">Additional Furniture/AV Equipment</span>
+                        <span class="breakdown-label">Additional Services</span>
                         <span class="breakdown-value">₹{{ number_format($servicesTotal, 2) }}</span>
                     </div>
                     @endif
                     
-                    @if($booking->discount_percent > 0)
+                    @if($extrasTotal > 0)
+                    <div class="breakdown-item">
+                        <span class="breakdown-label">Booth Extras / Furnishing</span>
+                        <span class="breakdown-value">₹{{ number_format($extrasTotal, 2) }}</span>
+                    </div>
+                    @endif
+                    
+                    @if($discountAmount > 0)
                     <div class="breakdown-item">
                         <span class="breakdown-label">Discount</span>
-                        <span class="breakdown-value" style="color: #10b981;">-₹{{ number_format(($booking->total_amount * $booking->discount_percent) / 100, 2) }}</span>
+                        <span class="breakdown-value" style="color: #10b981;">-₹{{ number_format($discountAmount, 2) }}</span>
                     </div>
                     @endif
                     
@@ -338,7 +379,7 @@
                     
                     <div class="total-due">
                         <span class="total-due-label">Total Due Amount</span>
-                        <span class="total-due-value" id="totalDueAmount">₹{{ number_format($booking->total_amount, 2) }}</span>
+                        <span class="total-due-value" id="totalDueAmount">₹{{ number_format($baseTotal, 2) }}</span>
                     </div>
                 </div>
                 
@@ -572,7 +613,8 @@
 <script>
 let selectedMethod = '';
 let gatewayFee = 0;
-let totalAmount = {{ $booking->total_amount }};
+// Base total = Booth Rental + Services (already calculated in PHP, excluding gateway fee)
+let baseTotal = {{ $baseTotal }};
 let initialAmount = {{ $initialAmount }};
 
 // Payment method selection
@@ -586,7 +628,8 @@ document.querySelectorAll('.payment-method-card').forEach(card => {
         // Show payment details for card/upi/netbanking
         if (['card', 'upi', 'netbanking'].includes(selectedMethod)) {
             document.getElementById('paymentDetailsCard').style.display = 'block';
-            gatewayFee = totalAmount * 0.025; // 2.5% gateway fee
+            // Gateway fee is 2.5% of the base total (Booth Rental + Services)
+            gatewayFee = baseTotal * 0.025;
         } else {
             document.getElementById('paymentDetailsCard').style.display = 'none';
             gatewayFee = 0;
@@ -614,8 +657,10 @@ document.querySelectorAll('.payment-method-card').forEach(card => {
 
 function updateGatewayFee() {
     document.getElementById('gatewayFee').textContent = '₹' + gatewayFee.toFixed(2);
-    let totalDue = totalAmount + gatewayFee;
+    // Total Due = Base Total (Booth Rental + Services) + Gateway Fee
+    let totalDue = baseTotal + gatewayFee;
     document.getElementById('totalDueAmount').textContent = '₹' + totalDue.toFixed(2);
+    // Payment button shows the initial payment amount
     document.getElementById('paymentButtonAmount').textContent = initialAmount.toFixed(2);
 }
 

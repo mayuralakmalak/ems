@@ -88,28 +88,88 @@ class BookingController extends Controller
             ->orderBy('name', 'asc');
         }, 'stallSchemes', 'boothSizes', 'stallVariations', 'addonServices'])->findOrFail($exhibitionId);
 
-        // Booths that have an active booking request which is PAID but not yet
-        // approved or rejected should appear as "booked" on the floorplan
-        // so that other exhibitors cannot select them. Unpaid / abandoned
-        // booking attempts must NOT block the booth selection.
-        //
-        // We intentionally do NOT change the underlying booth flags here
-        // (is_booked / is_available) to keep the existing approval flow
-        // intact. This is purely a frontend visibility rule.
-        $pendingBookedBoothIds = Booking::where('exhibition_id', $exhibitionId)
+        // Get all booths that are reserved (pending booking - regardless of payment status)
+        // A booth is reserved when:
+        // 1. Booking exists with approval_status = 'pending' (user has submitted booking for admin approval)
+        // 2. Booking is not cancelled or rejected
+        // 3. Payment status doesn't matter - once booking is created and submitted, booth is reserved
+        $reservedBookings = Booking::where('exhibition_id', $exhibitionId)
             ->where('approval_status', 'pending')
             ->whereNotIn('status', ['cancelled', 'rejected'])
-            // Only consider bookings that have at least one completed payment.
-            // This prevents a booth from showing as booked when the exhibitor
-            // has not actually finished the payment / booking process.
-            ->whereHas('payments', function ($q) {
-                $q->where('status', 'completed');
-            })
-            ->pluck('booth_id')
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
+            ->get();
+        
+        // Collect all reserved booth IDs (including from selected_booth_ids)
+        $reservedBoothIds = [];
+        foreach ($reservedBookings as $booking) {
+            // Add primary booth_id
+            if ($booking->booth_id) {
+                $reservedBoothIds[] = $booking->booth_id;
+            }
+            
+            // Also include booths from selected_booth_ids
+            // Get the array value first to avoid indirect modification error
+            $selectedBoothIds = $booking->selected_booth_ids;
+            if ($selectedBoothIds && is_array($selectedBoothIds) && !empty($selectedBoothIds)) {
+                // Check if it's array of objects: [{'id': 1, 'name': 'B001'}, ...]
+                $firstItem = reset($selectedBoothIds);
+                if (is_array($firstItem) && isset($firstItem['id'])) {
+                    // Array of objects format - extract IDs
+                    foreach ($selectedBoothIds as $item) {
+                        if (isset($item['id'])) {
+                            $reservedBoothIds[] = $item['id'];
+                        }
+                    }
+                } else {
+                    // Simple array format: [1, 2, 3] - use directly
+                    foreach ($selectedBoothIds as $boothId) {
+                        if ($boothId) {
+                            $reservedBoothIds[] = $boothId;
+                        }
+                    }
+                }
+            }
+        }
+        $reservedBoothIds = array_values(array_unique(array_filter($reservedBoothIds)));
+        
+        // Get all booths that are booked (approved)
+        $bookedBookings = Booking::where('exhibition_id', $exhibitionId)
+            ->where('approval_status', 'approved')
+            ->where('status', 'confirmed')
+            ->whereNotIn('status', ['cancelled', 'rejected'])
+            ->get();
+        
+        // Collect all booked booth IDs (including from selected_booth_ids)
+        $bookedBoothIds = [];
+        foreach ($bookedBookings as $booking) {
+            // Add primary booth_id
+            if ($booking->booth_id) {
+                $bookedBoothIds[] = $booking->booth_id;
+            }
+            
+            // Also include booths from selected_booth_ids
+            // Get the array value first to avoid indirect modification error
+            $selectedBoothIds = $booking->selected_booth_ids;
+            if ($selectedBoothIds && is_array($selectedBoothIds) && !empty($selectedBoothIds)) {
+                // Check if it's array of objects: [{'id': 1, 'name': 'B001'}, ...]
+                $firstItem = reset($selectedBoothIds);
+                if (is_array($firstItem) && isset($firstItem['id'])) {
+                    // Array of objects format - extract IDs
+                    foreach ($selectedBoothIds as $item) {
+                        if (isset($item['id'])) {
+                            $bookedBoothIds[] = $item['id'];
+                        }
+                    }
+                } else {
+                    // Simple array format: [1, 2, 3] - use directly
+                    foreach ($selectedBoothIds as $boothId) {
+                        if ($boothId) {
+                            $bookedBoothIds[] = $boothId;
+                        }
+                    }
+                }
+            }
+        }
+        $bookedBoothIds = array_values(array_unique(array_filter($bookedBoothIds)));
 
         // If no booths in DB, try to hydrate from saved floorplan JSON
         if ($exhibition->booths->isEmpty()) {
@@ -127,7 +187,8 @@ class BookingController extends Controller
         
         return view('frontend.bookings.book', [
             'exhibition' => $exhibition,
-            'pendingBookedBoothIds' => $pendingBookedBoothIds,
+            'reservedBoothIds' => $reservedBoothIds,
+            'bookedBoothIds' => $bookedBoothIds,
         ]);
     }
 

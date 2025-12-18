@@ -287,8 +287,12 @@ class FloorplanController extends Controller
             $booth->sides_open = $boothData['openSides'] ?? $booth->sides_open ?? 1;
             $booth->price = $boothData['price'] ?? $booth->price ?? 0;
             $booth->is_free = $booth->is_free ?? false;
-            $booth->is_available = true;
-            $booth->is_booked = false;
+            // Preserve existing status from database (don't overwrite with defaults)
+            // Only set defaults if this is a new booth
+            if ($booth->exists === false) {
+                $booth->is_available = true;
+                $booth->is_booked = false;
+            }
             $booth->merged_booths = $boothData['merged_booths'] ?? $booth->merged_booths ?? null;
             $booth->position_x = $boothData['x'] ?? $booth->position_x;
             $booth->position_y = $boothData['y'] ?? $booth->position_y;
@@ -309,8 +313,8 @@ class FloorplanController extends Controller
     }
 
     /**
-     * Ensure each booth payload entry has the correct sizeId from DB so that
-     * the admin UI can show the already-selected size (if any).
+     * Ensure each booth payload entry has the correct sizeId and status from DB so that
+     * the admin UI can show the already-selected size and current booking status.
      */
     private function applySizeIdsFromDatabase(array $payload, int $exhibitionId): array
     {
@@ -328,6 +332,83 @@ class FloorplanController extends Controller
             return $payload;
         }
 
+        // Get all reserved and booked booth IDs for this exhibition
+        // Reserved = pending booking (regardless of payment status)
+        $reservedBookings = \App\Models\Booking::where('exhibition_id', $exhibitionId)
+            ->where('approval_status', 'pending')
+            ->whereNotIn('status', ['cancelled', 'rejected'])
+            ->get();
+        
+        $reservedBoothIds = [];
+        foreach ($reservedBookings as $booking) {
+            // Add primary booth_id
+            if ($booking->booth_id) {
+                $reservedBoothIds[] = $booking->booth_id;
+            }
+            
+            // Also include booths from selected_booth_ids
+            // Get the array value first to avoid indirect modification error
+            $selectedBoothIds = $booking->selected_booth_ids;
+            if ($selectedBoothIds && is_array($selectedBoothIds) && !empty($selectedBoothIds)) {
+                // Check if it's array of objects: [{'id': 1, 'name': 'B001'}, ...]
+                $firstItem = reset($selectedBoothIds);
+                if (is_array($firstItem) && isset($firstItem['id'])) {
+                    // Array of objects format - extract IDs
+                    foreach ($selectedBoothIds as $item) {
+                        if (isset($item['id'])) {
+                            $reservedBoothIds[] = $item['id'];
+                        }
+                    }
+                } else {
+                    // Simple array format: [1, 2, 3] - use directly
+                    foreach ($selectedBoothIds as $boothId) {
+                        if ($boothId) {
+                            $reservedBoothIds[] = $boothId;
+                        }
+                    }
+                }
+            }
+        }
+        $reservedBoothIds = array_values(array_unique(array_filter($reservedBoothIds)));
+        
+        $bookedBookings = \App\Models\Booking::where('exhibition_id', $exhibitionId)
+            ->where('approval_status', 'approved')
+            ->where('status', 'confirmed')
+            ->whereNotIn('status', ['cancelled', 'rejected'])
+            ->get();
+        
+        $bookedBoothIds = [];
+        foreach ($bookedBookings as $booking) {
+            // Add primary booth_id
+            if ($booking->booth_id) {
+                $bookedBoothIds[] = $booking->booth_id;
+            }
+            
+            // Also include booths from selected_booth_ids
+            // Get the array value first to avoid indirect modification error
+            $selectedBoothIds = $booking->selected_booth_ids;
+            if ($selectedBoothIds && is_array($selectedBoothIds) && !empty($selectedBoothIds)) {
+                // Check if it's array of objects: [{'id': 1, 'name': 'B001'}, ...]
+                $firstItem = reset($selectedBoothIds);
+                if (is_array($firstItem) && isset($firstItem['id'])) {
+                    // Array of objects format - extract IDs
+                    foreach ($selectedBoothIds as $item) {
+                        if (isset($item['id'])) {
+                            $bookedBoothIds[] = $item['id'];
+                        }
+                    }
+                } else {
+                    // Simple array format: [1, 2, 3] - use directly
+                    foreach ($selectedBoothIds as $boothId) {
+                        if ($boothId) {
+                            $bookedBoothIds[] = $boothId;
+                        }
+                    }
+                }
+            }
+        }
+        $bookedBoothIds = array_values(array_unique(array_filter($bookedBoothIds)));
+
         $dbBooths = Booth::where('exhibition_id', $exhibitionId)
             ->whereIn('name', $boothNames)
             ->get()
@@ -342,6 +423,18 @@ class FloorplanController extends Controller
             $dbBooth = $dbBooths[$name];
             if (!empty($dbBooth->exhibition_booth_size_id)) {
                 $boothData['sizeId'] = $dbBooth->exhibition_booth_size_id;
+            }
+            
+            // Update status based on actual booking status from database
+            $boothId = $dbBooth->id;
+            if (in_array($boothId, $bookedBoothIds) || $dbBooth->is_booked) {
+                $boothData['status'] = 'booked';
+            } elseif (in_array($boothId, $reservedBoothIds) || (!$dbBooth->is_available && !$dbBooth->is_booked)) {
+                $boothData['status'] = 'reserved';
+            } elseif ($dbBooth->is_merged) {
+                $boothData['status'] = 'merged';
+            } else {
+                $boothData['status'] = 'available';
             }
         }
         unset($boothData);
