@@ -388,6 +388,12 @@
                     @enderror
                 </div>
                 
+                <div style="text-align: right; margin-bottom: 12px;">
+                    <a href="{{ route('password.request') }}" style="color: #a5b4fc; text-decoration: none; font-size: 0.9rem; font-weight: 500;">
+                        Forgot Password?
+                    </a>
+                </div>
+                
                 <button type="submit" class="btn-submit">Submit</button>
             </form>
             
