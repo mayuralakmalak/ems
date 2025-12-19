@@ -152,6 +152,10 @@
         color: #f59e0b;
     }
     
+    .status-rejected {
+        color: #991b1b;
+    }
+    
     .summary-card {
         background: white;
         border-radius: 12px;
@@ -548,28 +552,79 @@
             
             <!-- Document Status -->
             <div class="detail-section">
-                <h5 class="section-header">Document Status</h5>
-                
-                @php
-                    $requiredDocs = [
-                        'Exhibitor Agreement' => $booking->documents->where('type', 'Exhibitor Agreement')->first(),
-                        'Company Registration' => $booking->documents->where('type', 'Company Registration')->first(),
-                        'Product Catalog' => $booking->documents->where('type', 'Product Catalog')->first(),
-                        'Insurance Certificate' => $booking->documents->where('type', 'Insurance Certificate')->first(),
-                    ];
-                @endphp
-                
-                @foreach($requiredDocs as $docName => $document)
-                <div class="document-status-item">
-                    <div class="document-name">
-                        <i class="bi bi-circle-fill" style="color: {{ $document && $document->status === 'approved' ? '#1e40af' : '#f59e0b' }}; font-size: 0.5rem;"></i>
-                        {{ $docName }}
-                    </div>
-                    <div class="document-status {{ $document && $document->status === 'approved' ? 'status-uploaded' : 'status-pending-doc' }}">
-                        {{ $document && $document->status === 'approved' ? 'Uploaded' : 'Pending' }}
-                    </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="section-header mb-0">Document Status</h5>
+                    @if($booking->exhibition && $booking->exhibition->requiredDocuments && $booking->exhibition->requiredDocuments->count() > 0)
+                        <a href="{{ route('bookings.required-documents', $booking->id) }}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-file-earmark-text me-1"></i>Manage Documents
+                        </a>
+                    @endif
                 </div>
-                @endforeach
+                
+                @if($booking->exhibition && $booking->exhibition->requiredDocuments && $booking->exhibition->requiredDocuments->count() > 0)
+                    @php
+                        $requiredDocsList = $booking->exhibition->requiredDocuments;
+                    @endphp
+                    
+                    @foreach($requiredDocsList as $requiredDoc)
+                        @php
+                            // Get the latest document for this required document (most recent upload)
+                            $document = $booking->documents
+                                ->where('required_document_id', $requiredDoc->id)
+                                ->sortByDesc('created_at')
+                                ->first();
+                            $status = $document ? $document->status : 'pending';
+                        @endphp
+                        <div class="document-status-item">
+                            <div class="document-name">
+                                <i class="bi bi-circle-fill" style="color: {{ $status === 'approved' ? '#10b981' : ($status === 'rejected' ? '#ef4444' : '#f59e0b') }}; font-size: 0.5rem;"></i>
+                                {{ $requiredDoc->document_name }}
+                                <small class="text-muted d-block" style="font-size: 0.75rem;">
+                                    Type: {{ $requiredDoc->document_type === 'both' ? 'Image or PDF' : strtoupper($requiredDoc->document_type) }}
+                                </small>
+                            </div>
+                            <div class="document-status {{ $status === 'approved' ? 'status-uploaded' : ($status === 'rejected' ? 'status-rejected' : 'status-pending-doc') }}">
+                                @if($status === 'approved')
+                                    Approved
+                                @elseif($status === 'rejected')
+                                    Rejected
+                                @elseif($status === 'pending' && $document)
+                                    Pending Verification
+                                @else
+                                    Not Uploaded
+                                @endif
+                            </div>
+                        </div>
+                        @if($document && $status === 'rejected' && $document->rejection_reason)
+                            <div class="text-danger small ms-3 mb-2" style="font-size: 0.75rem;">
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                Reason: {{ $document->rejection_reason }}
+                            </div>
+                        @endif
+                    @endforeach
+                @else
+                    @php
+                        // Fallback to old document types if no required documents
+                        $requiredDocs = [
+                            'Exhibitor Agreement' => $booking->documents->where('type', 'Exhibitor Agreement')->first(),
+                            'Company Registration' => $booking->documents->where('type', 'Company Registration')->first(),
+                            'Product Catalog' => $booking->documents->where('type', 'Product Catalog')->first(),
+                            'Insurance Certificate' => $booking->documents->where('type', 'Insurance Certificate')->first(),
+                        ];
+                    @endphp
+                    
+                    @foreach($requiredDocs as $docName => $document)
+                    <div class="document-status-item">
+                        <div class="document-name">
+                            <i class="bi bi-circle-fill" style="color: {{ $document && $document->status === 'approved' ? '#1e40af' : '#f59e0b' }}; font-size: 0.5rem;"></i>
+                            {{ $docName }}
+                        </div>
+                        <div class="document-status {{ $document && $document->status === 'approved' ? 'status-uploaded' : 'status-pending-doc' }}">
+                            {{ $document && $document->status === 'approved' ? 'Uploaded' : 'Pending' }}
+                        </div>
+                    </div>
+                    @endforeach
+                @endif
             </div>
         </div>
         

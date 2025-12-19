@@ -122,11 +122,27 @@
         text-decoration: underline;
     }
     
+    .panel-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        display: none;
+        transition: opacity 0.3s ease;
+    }
+    
+    .panel-backdrop.show {
+        display: block;
+    }
+    
     .right-panel {
         position: fixed;
         right: 0;
         top: 0;
-        width: 400px;
+        width: 450px;
         height: 100vh;
         background: white;
         box-shadow: -2px 0 10px rgba(0,0,0,0.1);
@@ -261,7 +277,7 @@
         <h5 class="mb-0"><i class="bi bi-funnel me-2"></i>Filters</h5>
     </div>
     <div class="card-body">
-        <form class="filter-bar" id="documentsFilterForm" method="GET" action="{{ route('admin.documents.index') }}">
+        <form class="filter-bar" id="documentsFilterForm" method="GET" action="{{ route('documents.index') }}">
             <select class="filter-select" name="type">
                 <option value="">Filter by Type</option>
                 <option value="Certification" {{ request('type')==='Certification' ? 'selected' : '' }}>Certification</option>
@@ -301,7 +317,7 @@
                 Apply Filters
             </button>
 
-            <a href="{{ route('admin.documents.index') }}" class="btn-filter">
+            <a href="{{ route('documents.index') }}" class="btn-filter">
                 Reset
             </a>
 
@@ -330,6 +346,9 @@
     @endif
 </div>
 
+<!-- Backdrop -->
+<div class="panel-backdrop" id="panelBackdrop" onclick="closeDocumentPanel()"></div>
+
 <!-- Right Panel - Document Details -->
 <div class="right-panel" id="documentDetailsPanel">
     <div id="documentDetailsContent">
@@ -340,6 +359,123 @@
 @push('scripts')
 <script>
 let selectedDocuments = [];
+
+// Set up event delegation for document panel forms (works for dynamically loaded content)
+// Attach to document body so it works for dynamically loaded content
+document.addEventListener('submit', function(e) {
+    const form = e.target;
+    // Only handle forms inside the document panel
+    const documentPanel = document.getElementById('documentDetailsPanel');
+    if (!documentPanel || !documentPanel.contains(form)) {
+        return;
+    }
+    
+    if (form && form.id === 'approveDocumentForm') {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        
+        const formData = new FormData(form);
+        const button = form.querySelector('button[type="submit"]');
+        const originalText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Approving...';
+        
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(data => Promise.reject(data));
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success !== false) {
+                alert(data.message || 'Document approved successfully.');
+                closeDocumentPanel();
+                location.reload();
+            } else {
+                alert(data.message || 'Failed to approve document. Please try again.');
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            const message = error.message || 'An error occurred. Please try again.';
+            alert(message);
+            button.disabled = false;
+            button.innerHTML = originalText;
+        });
+        
+        return false;
+    }
+    
+    // Reject form - event delegation
+    if (form && form.id === 'rejectDocumentForm') {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        
+        const rejectionReason = form.querySelector('textarea[name="rejection_reason"]').value;
+        
+        if (!rejectionReason || rejectionReason.trim() === '') {
+            alert('Please provide a rejection reason.');
+            return false;
+        }
+        
+        if (!confirm('Are you sure you want to reject this document?')) {
+            return false;
+        }
+        
+        const formData = new FormData(form);
+        const button = form.querySelector('button[type="submit"]');
+        const originalText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Rejecting...';
+        
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(data => Promise.reject(data));
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success !== false) {
+                alert(data.message || 'Document rejected successfully.');
+                closeDocumentPanel();
+                location.reload();
+            } else {
+                alert(data.message || 'Failed to reject document. Please try again.');
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            const message = error.message || 'An error occurred. Please try again.';
+            alert(message);
+            button.disabled = false;
+            button.innerHTML = originalText;
+        });
+        
+        return false;
+    }
+});
 
 // Select all checkbox
 document.getElementById('selectAll')?.addEventListener('change', function() {
@@ -380,16 +516,40 @@ function updateBulkApproveButton() {
 }
 
 function showDocumentDetails(documentId) {
-    fetch(`/ems-laravel/public/admin/documents/${documentId}`)
-        .then(response => response.text())
-        .then(html => {
-            document.getElementById('documentDetailsContent').innerHTML = html;
-            document.getElementById('documentDetailsPanel').classList.add('open');
-        });
+    const panel = document.getElementById('documentDetailsPanel');
+    const backdrop = document.getElementById('panelBackdrop');
+    const content = document.getElementById('documentDetailsContent');
+    
+    // Show loading
+    content.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-3 text-muted">Loading document details...</p></div>';
+    panel.classList.add('open');
+    backdrop.classList.add('show');
+    
+    fetch(`{{ url('/admin/documents') }}/${documentId}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Failed to load document details');
+        }
+        return response.json();
+    })
+    .then(data => {
+        content.innerHTML = data.html;
+        // Event delegation is already set up, no need to rebind
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        content.innerHTML = '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>Failed to load document details. Please try again.</div>';
+    });
 }
 
 function closeDocumentPanel() {
     document.getElementById('documentDetailsPanel').classList.remove('open');
+    document.getElementById('panelBackdrop').classList.remove('show');
 }
 
 // Bulk approve
@@ -397,11 +557,13 @@ document.getElementById('bulkApproveBtn')?.addEventListener('click', function() 
     if (selectedDocuments.length === 0) return;
     
     if (confirm(`Approve ${selectedDocuments.length} selected documents?`)) {
-        fetch('/ems-laravel/public/admin/documents/bulk-approve', {
+        fetch('{{ url("/admin/documents/bulk-approve") }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
             },
             body: JSON.stringify({
                 document_ids: selectedDocuments

@@ -201,6 +201,54 @@
         </div>
     </div>
 
+    <!-- Required Documents -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="mb-0">Required Documents</h6>
+            <button type="button" class="btn btn-sm btn-primary" onclick="addRequiredDocument()">
+                <i class="bi bi-plus-circle"></i> Add Document
+            </button>
+        </div>
+        <div class="card-body">
+            <div id="requiredDocumentsContainer">
+                @php
+                    $requiredDocs = $exhibition->requiredDocuments ?? collect();
+                @endphp
+                @if($requiredDocs->count() > 0)
+                    @foreach($requiredDocs as $index => $doc)
+                        <div class="required-document-item mb-3 p-3 border rounded" data-index="{{ $index }}">
+                            <div class="row">
+                                <div class="col-md-5">
+                                    <label class="form-label">Document Name</label>
+                                    <input type="text" name="required_documents[{{ $index }}][document_name]" 
+                                           class="form-control" value="{{ $doc->document_name }}" required>
+                                    <input type="hidden" name="required_documents[{{ $index }}][id]" value="{{ $doc->id }}">
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label">Document Type</label>
+                                    <select name="required_documents[{{ $index }}][document_type]" class="form-select" required>
+                                        <option value="">Select Type</option>
+                                        <option value="image" {{ $doc->document_type === 'image' ? 'selected' : '' }}>Image</option>
+                                        <option value="pdf" {{ $doc->document_type === 'pdf' ? 'selected' : '' }}>PDF</option>
+                                        <option value="both" {{ $doc->document_type === 'both' ? 'selected' : '' }}>Both (Image/PDF)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2 d-flex align-items-end">
+                                    <button type="button" class="btn btn-sm btn-danger w-100" onclick="removeRequiredDocument(this)">
+                                        <i class="bi bi-trash"></i> Remove
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                @endif
+            </div>
+            <div id="emptyRequiredDocuments" class="text-muted text-center py-3" style="{{ $requiredDocs->count() > 0 ? 'display:none;' : '' }}">
+                No required documents added yet. Click "Add Document" to add one.
+            </div>
+        </div>
+    </div>
+
     <!-- Stall Variation Management -->
     <div class="card mb-4">
         <div class="card-header">
@@ -265,6 +313,59 @@
 
 @push('scripts')
 <script>
+let requiredDocumentIndex = {{ $requiredDocs->count() ?? 0 }};
+
+function addRequiredDocument() {
+    const container = document.getElementById('requiredDocumentsContainer');
+    const emptyMessage = document.getElementById('emptyRequiredDocuments');
+    
+    const item = document.createElement('div');
+    item.className = 'required-document-item mb-3 p-3 border rounded';
+    item.setAttribute('data-index', requiredDocumentIndex);
+    item.innerHTML = `
+        <div class="row">
+            <div class="col-md-5">
+                <label class="form-label">Document Name</label>
+                <input type="text" name="required_documents[${requiredDocumentIndex}][document_name]" 
+                       class="form-control" required>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Document Type</label>
+                <select name="required_documents[${requiredDocumentIndex}][document_type]" class="form-select" required>
+                    <option value="">Select Type</option>
+                    <option value="image">Image</option>
+                    <option value="pdf">PDF</option>
+                    <option value="both">Both (Image/PDF)</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="button" class="btn btn-sm btn-danger w-100" onclick="removeRequiredDocument(this)">
+                    <i class="bi bi-trash"></i> Remove
+                </button>
+            </div>
+        </div>
+    `;
+    
+    container.appendChild(item);
+    requiredDocumentIndex++;
+    
+    if (emptyMessage) {
+        emptyMessage.style.display = 'none';
+    }
+}
+
+function removeRequiredDocument(button) {
+    const item = button.closest('.required-document-item');
+    item.remove();
+    
+    const container = document.getElementById('requiredDocumentsContainer');
+    const emptyMessage = document.getElementById('emptyRequiredDocuments');
+    
+    if (container.children.length === 0 && emptyMessage) {
+        emptyMessage.style.display = 'block';
+    }
+}
+
 function updateFileName(input) {
     const fileName = input.files[0]?.name || '';
     document.getElementById('file_name').textContent = fileName;

@@ -211,17 +211,23 @@
 
             <div class="mb-3">
                 <label class="form-label fw-bold">Document Name <span class="text-danger">*</span></label>
-                <input type="text" name="name" class="form-control" value="{{ old('name', $document->name) }}" readonly>
+                @if($document->requiredDocument)
+                    <input type="text" name="name" class="form-control" value="{{ old('name', $document->requiredDocument->document_name) }}" readonly>
+                    <input type="hidden" name="required_document_id" value="{{ $document->required_document_id }}">
+                    <small class="text-muted">This is a required document: {{ $document->requiredDocument->document_name }} (Type: {{ $document->requiredDocument->document_type === 'both' ? 'Image or PDF' : strtoupper($document->requiredDocument->document_type) }})</small>
+                @else
+                    <input type="text" name="name" class="form-control" value="{{ old('name', $document->name) }}" required>
+                @endif
             </div>
 
-            <!-- Document Category -->
-            <div class="mb-4">
+            <!-- Document Category (only show if not a required document) -->
+            <div class="mb-4" id="categorySection" style="{{ $document->requiredDocument ? 'display: none;' : '' }}">
                 <label class="form-label fw-bold mb-3">Document Category <span class="text-danger">*</span></label>
                 @if($categories->count() > 0)
                     <div class="category-radio-group">
                         @foreach($categories as $category)
                             <div class="category-radio-item">
-                                <input type="radio" name="category" value="{{ $category->slug }}" id="cat_{{ $category->id }}" class="category-radio" {{ old('category', $document->type) === $category->slug ? 'checked' : '' }} required>
+                                <input type="radio" name="category" value="{{ $category->slug }}" id="cat_{{ $category->id }}" class="category-radio" {{ old('category', $document->type) === $category->slug ? 'checked' : '' }} {{ !$document->requiredDocument ? 'required' : '' }}>
                                 <label for="cat_{{ $category->id }}">{{ $category->name }}</label>
                             </div>
                     @endforeach
@@ -392,11 +398,17 @@ window.removeFile = removeFile;
 
 // Form validation
 uploadForm.addEventListener('submit', (e) => {
-    const selectedCategory = document.querySelector('.category-radio:checked');
-    if (!selectedCategory) {
-        e.preventDefault();
-        categoryError.style.display = 'block';
-        return false;
+    const requiredDocId = document.querySelector('input[name="required_document_id"]');
+    const categorySection = document.getElementById('categorySection');
+    
+    // Only validate category if it's not a required document
+    if (!requiredDocId || !requiredDocId.value) {
+        const selectedCategory = document.querySelector('.category-radio:checked');
+        if (!selectedCategory) {
+            e.preventDefault();
+            categoryError.style.display = 'block';
+            return false;
+        }
     }
     categoryError.style.display = 'none';
     

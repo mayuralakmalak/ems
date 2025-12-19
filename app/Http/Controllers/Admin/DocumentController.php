@@ -83,7 +83,15 @@ class DocumentController extends Controller
     
     public function show($id)
     {
-        $document = Document::with(['user', 'booking.exhibition'])->findOrFail($id);
+        $document = Document::with(['user', 'booking.exhibition', 'requiredDocument'])->findOrFail($id);
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'html' => view('admin.documents.show', compact('document'))->render()
+            ]);
+        }
+        
         return view('admin.documents.show', compact('document'));
     }
     
@@ -109,6 +117,14 @@ class DocumentController extends Controller
             'notifiable_type' => Document::class,
             'notifiable_id' => $document->id,
         ]);
+        
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Document approved successfully.',
+                'document' => $document->fresh(['user', 'booking.exhibition', 'requiredDocument'])
+            ]);
+        }
         
         return back()->with('success', 'Document approved successfully.');
     }
@@ -136,18 +152,51 @@ class DocumentController extends Controller
             'notifiable_id' => $document->id,
         ]);
         
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Document rejected successfully.',
+                'document' => $document->fresh(['user', 'booking.exhibition', 'requiredDocument'])
+            ]);
+        }
+        
         return back()->with('success', 'Document rejected.');
     }
     
     public function bulkApprove(Request $request)
     {
+        // Handle JSON input from AJAX
+        $documentIds = $request->input('document_ids', []);
+        
+        // If it's a JSON string, decode it
+        if (is_string($documentIds)) {
+            $decoded = json_decode($documentIds, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $documentIds = $decoded;
+            }
+        }
+        
+        // Ensure it's an array
+        if (!is_array($documentIds)) {
+            $documentIds = [];
+        }
+        
+        $request->merge(['document_ids' => $documentIds]);
+        
         $request->validate([
-            'document_ids' => 'required|array',
-            'document_ids.*' => 'exists:documents,id',
+            'document_ids' => 'required|array|min:1',
+            'document_ids.*' => 'required|exists:documents,id',
         ]);
         
-        Document::whereIn('id', $request->document_ids)
+        Document::whereIn('id', $documentIds)
             ->update(['status' => 'approved']);
+        
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => count($documentIds) . ' document(s) approved successfully.'
+            ]);
+        }
         
         return back()->with('success', 'Documents approved successfully.');
     }

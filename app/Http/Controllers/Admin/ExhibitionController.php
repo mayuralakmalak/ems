@@ -9,6 +9,7 @@ use App\Models\PaymentSchedule;
 use App\Models\BadgeConfiguration;
 use App\Models\StallVariation;
 use App\Models\ExhibitionAddonService;
+use App\Models\ExhibitionRequiredDocument;
 use App\Models\Service;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -403,7 +404,7 @@ class ExhibitionController extends Controller
 
     public function step4($id)
     {
-        $exhibition = Exhibition::with(['badgeConfigurations', 'stallVariations'])->findOrFail($id);
+        $exhibition = Exhibition::with(['badgeConfigurations', 'stallVariations', 'requiredDocuments'])->findOrFail($id);
         return view('admin.exhibitions.step4', compact('exhibition'));
     }
 
@@ -416,6 +417,9 @@ class ExhibitionController extends Controller
             'exhibition_manual_pdf' => 'nullable|file|mimes:pdf|max:10240',
             'stall_variations' => 'nullable|array',
             'stall_variations.*' => 'image|max:5120',
+            'required_documents' => 'nullable|array',
+            'required_documents.*.document_name' => 'required|string|max:255',
+            'required_documents.*.document_type' => 'required|string|in:image,pdf,both',
         ]);
 
         if ($request->hasFile('exhibition_manual_pdf')) {
@@ -461,6 +465,36 @@ class ExhibitionController extends Controller
                 ]);
             }
         }
+
+        // Handle required documents
+        $requiredDocuments = $request->input('required_documents', []);
+        $existingIds = [];
+        
+        foreach ($requiredDocuments as $docData) {
+            if (isset($docData['id'])) {
+                // Update existing document
+                ExhibitionRequiredDocument::where('id', $docData['id'])
+                    ->where('exhibition_id', $exhibition->id)
+                    ->update([
+                        'document_name' => $docData['document_name'],
+                        'document_type' => $docData['document_type'],
+                    ]);
+                $existingIds[] = $docData['id'];
+            } else {
+                // Create new document
+                $newDoc = ExhibitionRequiredDocument::create([
+                    'exhibition_id' => $exhibition->id,
+                    'document_name' => $docData['document_name'],
+                    'document_type' => $docData['document_type'],
+                ]);
+                $existingIds[] = $newDoc->id;
+            }
+        }
+        
+        // Delete documents that were removed
+        ExhibitionRequiredDocument::where('exhibition_id', $exhibition->id)
+            ->whereNotIn('id', $existingIds)
+            ->delete();
 
         $exhibition->update(['status' => 'active']);
         return redirect()->route('admin.exhibitions.index')->with('success', 'Exhibition created successfully!');

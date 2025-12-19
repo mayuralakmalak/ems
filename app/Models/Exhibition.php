@@ -71,4 +71,9 @@ class Exhibition extends Model
     {
         return $this->hasMany(ExhibitionAddonService::class);
     }
+
+    public function requiredDocuments()
+    {
+        return $this->hasMany(ExhibitionRequiredDocument::class);
+    }
 }
