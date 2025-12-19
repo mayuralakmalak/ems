@@ -22,7 +22,7 @@ class RegisteredUserController extends Controller
      */
     public function create(): View
     {
-        $countries = Country::active()->ordered()->get();
+        $countries = Country::active()->ordered()->get(['id', 'name', 'code', 'phone_code', 'phonecode', 'emoji', 'is_active', 'sort_order']);
         return view('auth.register', compact('countries'));
     }
 
@@ -41,7 +41,9 @@ class RegisteredUserController extends Controller
             // Contact Person
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+            'mobile_phone_code' => ['required', 'string', 'max:10'],
             'mobile_number' => ['required', 'string', 'max:20'],
+            'phone_phone_code' => ['nullable', 'string', 'max:10'],
             'phone_number' => ['nullable', 'string', 'max:20'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             
@@ -60,10 +62,40 @@ class RegisteredUserController extends Controller
         $country = Country::find($request->country);
         $state = State::find($request->state);
         
+        // Get phone codes from separate dropdowns
+        $mobilePhoneCode = $request->mobile_phone_code ?? '';
+        $phonePhoneCode = $request->phone_phone_code ?? '';
+        
+        // Format mobile number with country code prefix
+        $mobileNumber = $request->mobile_number;
+        if ($mobilePhoneCode && !empty($mobileNumber)) {
+            // Remove any existing country code if present
+            $mobileNumber = preg_replace('/^\+?' . preg_quote($mobilePhoneCode, '/') . '/', '', $mobileNumber);
+            // Add country code prefix
+            $mobileNumber = '+' . $mobilePhoneCode . $mobileNumber;
+        } elseif (!empty($mobileNumber) && !str_starts_with($mobileNumber, '+')) {
+            // If no country code but number doesn't start with +, keep as is
+            $mobileNumber = $mobileNumber;
+        }
+        
+        // Format phone number with country code prefix
+        $phoneNumber = $request->phone_number;
+        if ($phoneNumber && $phonePhoneCode) {
+            // Remove any existing country code if present
+            $phoneNumber = preg_replace('/^\+?' . preg_quote($phonePhoneCode, '/') . '/', '', $phoneNumber);
+            // Add country code prefix
+            $phoneNumber = '+' . $phonePhoneCode . $phoneNumber;
+        } elseif ($phoneNumber && !str_starts_with($phoneNumber, '+')) {
+            // If no country code but number doesn't start with +, keep as is
+            $phoneNumber = $phoneNumber;
+        }
+        
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
-            'phone' => $request->mobile_number,
+            'phone' => $mobileNumber, // Keep for backward compatibility
+            'mobile_number' => $mobileNumber,
+            'phone_number' => $phoneNumber,
             'password' => Hash::make($request->password),
             'company_name' => $request->company_name,
             'website' => $request->company_website,

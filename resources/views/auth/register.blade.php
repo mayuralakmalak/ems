@@ -144,6 +144,21 @@
         padding-left: 45px;
     }
     
+    .input-group-text {
+        min-width: 60px;
+        text-align: center;
+        font-weight: 500;
+    }
+    
+    .input-group select.form-select {
+        font-size: 0.95rem;
+    }
+    
+    .input-group select.form-select option {
+        color: #0f172a;
+        background: #ffffff;
+    }
+    
     .btn-register {
         width: 100%;
         padding: 14px;
@@ -351,7 +366,42 @@
                     <div class="form-group">
                         <label for="mobile_number" class="form-label">Mobile Number</label>
                         <div class="input-group">
-                            <i class="bi bi-phone-fill input-icon"></i>
+                            <select 
+                                class="form-select @error('mobile_phone_code') is-invalid @enderror" 
+                                id="mobile_phone_code" 
+                                name="mobile_phone_code" 
+                                required
+                                style="max-width: 200px; background: rgba(255,255,255,0.04); border: 1px solid rgba(226, 232, 240, 0.35); color: #ffffff; border-right: none; border-radius: 10px 0 0 10px;">
+                                <option value="">Phone Code</option>
+                                @foreach($countries as $country)
+                                    @php
+                                        $phoneCode = !empty($country->phone_code) ? $country->phone_code : (!empty($country->phonecode) ? $country->phonecode : '');
+                                        $emoji = $country->emoji ?? '';
+                                        $countryName = $country->name ?? '';
+                                        $displayText = '';
+                                        if ($phoneCode) {
+                                            if ($emoji && $countryName) {
+                                                $displayText = $emoji . ' ' . $countryName . ' +' . $phoneCode;
+                                            } elseif ($emoji) {
+                                                $displayText = $emoji . ' +' . $phoneCode;
+                                            } elseif ($countryName) {
+                                                $displayText = $countryName . ' +' . $phoneCode;
+                                            } else {
+                                                $displayText = '+' . $phoneCode;
+                                            }
+                                        }
+                                    @endphp
+                                    @if($phoneCode)
+                                        <option
+                                            value="{{ $phoneCode }}"
+                                            data-emoji="{{ $emoji }}"
+                                            {{ old('mobile_phone_code') == $phoneCode ? 'selected' : '' }}
+                                        >
+                                            {{ $displayText }}
+                                        </option>
+                                    @endif
+                                @endforeach
+                            </select>
                             <input 
                                 type="tel" 
                                 class="form-control @error('mobile_number') is-invalid @enderror" 
@@ -359,9 +409,13 @@
                                 name="mobile_number" 
                                 value="{{ old('mobile_number') }}" 
                                 required
-                                placeholder="mobile number should start with +91">
+                                placeholder="mobile number"
+                                style="border-left: none; border-radius: 0 10px 10px 0;">
                         </div>
                         @error('mobile_number')
+                            <div class="text-danger">{{ $message }}</div>
+                        @enderror
+                        @error('mobile_phone_code')
                             <div class="text-danger">{{ $message }}</div>
                         @enderror
                     </div>
@@ -373,16 +427,54 @@
                     <div class="form-group">
                         <label for="phone_number" class="form-label">Phone Number</label>
                         <div class="input-group">
-                            <i class="bi bi-telephone-fill input-icon"></i>
+                            <select 
+                                class="form-select @error('phone_phone_code') is-invalid @enderror" 
+                                id="phone_phone_code" 
+                                name="phone_phone_code" 
+                                style="max-width: 200px; background: rgba(255,255,255,0.04); border: 1px solid rgba(226, 232, 240, 0.35); color: #ffffff; border-right: none; border-radius: 10px 0 0 10px;">
+                                <option value="">Phone Code</option>
+                                @foreach($countries as $country)
+                                    @php
+                                        $phoneCode = !empty($country->phone_code) ? $country->phone_code : (!empty($country->phonecode) ? $country->phonecode : '');
+                                        $emoji = $country->emoji ?? '';
+                                        $countryName = $country->name ?? '';
+                                        $displayText = '';
+                                        if ($phoneCode) {
+                                            if ($emoji && $countryName) {
+                                                $displayText = $emoji . ' ' . $countryName . ' +' . $phoneCode;
+                                            } elseif ($emoji) {
+                                                $displayText = $emoji . ' +' . $phoneCode;
+                                            } elseif ($countryName) {
+                                                $displayText = $countryName . ' +' . $phoneCode;
+                                            } else {
+                                                $displayText = '+' . $phoneCode;
+                                            }
+                                        }
+                                    @endphp
+                                    @if($phoneCode)
+                                        <option
+                                            value="{{ $phoneCode }}"
+                                            data-emoji="{{ $emoji }}"
+                                            {{ old('phone_phone_code') == $phoneCode ? 'selected' : '' }}
+                                        >
+                                            {{ $displayText }}
+                                        </option>
+                                    @endif
+                                @endforeach
+                            </select>
                             <input 
                                 type="tel" 
                                 class="form-control @error('phone_number') is-invalid @enderror" 
                                 id="phone_number" 
                                 name="phone_number" 
                                 value="{{ old('phone_number') }}" 
-                                placeholder="phone number">
+                                placeholder="phone number"
+                                style="border-left: none; border-radius: 0 10px 10px 0;">
                         </div>
                         @error('phone_number')
+                            <div class="text-danger">{{ $message }}</div>
+                        @enderror
+                        @error('phone_phone_code')
                             <div class="text-danger">{{ $message }}</div>
                         @enderror
                     </div>
@@ -445,12 +537,19 @@
                             required>
                             <option value="">Select Country</option>
                             @foreach($countries as $country)
+                                @php
+                                    $phoneCode = !empty($country->phone_code) ? $country->phone_code : (!empty($country->phonecode) ? $country->phonecode : '');
+                                    $emoji = $country->emoji ?? '';
+                                    $displayName = $emoji ? $emoji . ' ' . $country->name : $country->name;
+                                @endphp
                                 <option
                                     value="{{ $country->id }}"
                                     data-id="{{ $country->id }}"
+                                    data-phone-code="{{ $phoneCode }}"
+                                    data-emoji="{{ $emoji }}"
                                     {{ old('country') == $country->id ? 'selected' : '' }}
                                 >
-                                    {{ $country->name }}
+                                    {{ $displayName }}
                                 </option>
                             @endforeach
                         </select>
@@ -579,6 +678,23 @@ $(function() {
         applyCountryState();
     }
 
+    // Prevent user from typing + in phone inputs
+    $('#mobile_number, #phone_number').on('keypress', function(e) {
+        if (e.key === '+') {
+            e.preventDefault();
+        }
+    });
+    
+    // Also prevent pasting + at the start
+    $('#mobile_number, #phone_number').on('paste', function(e) {
+        const paste = (e.originalEvent || e).clipboardData.getData('text');
+        if (paste.startsWith('+')) {
+            e.preventDefault();
+            const currentValue = $(this).val();
+            $(this).val(currentValue + paste.substring(1));
+        }
+    });
+
     $('#registerForm').validate({
         ignore: [],
         errorElement: 'div',
@@ -587,6 +703,7 @@ $(function() {
             company_name: { required: true, minlength: 2 },
             name: { required: true, minlength: 2 },
             email: { required: true, email: true },
+            mobile_phone_code: { required: true },
             mobile_number: { required: true, minlength: 8 },
             phone_number: { minlength: 6 },
             password: { required: true, minlength: 6 },
@@ -603,6 +720,7 @@ $(function() {
             company_name: { required: 'Company name is required' },
             name: { required: 'Full name is required' },
             email: { required: 'Email is required', email: 'Enter a valid email' },
+            mobile_phone_code: { required: 'Please select phone code' },
             mobile_number: { required: 'Mobile number is required' },
             password: { required: 'Password is required', minlength: 'Minimum 6 characters' },
             password_confirmation: { equalTo: 'Passwords must match' },

@@ -11,6 +11,8 @@ class Country extends Model
         'code',
         'iso3',
         'phone_code',
+        'phonecode',
+        'emoji',
         'is_active',
         'sort_order',
     ];
