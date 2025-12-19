@@ -15,12 +15,14 @@ class ExhibitionBoothSize extends Model
         'row_price',
         'orphan_price',
         'category',
+        'images',
     ];
 
     protected $casts = [
         'size_sqft' => 'float',
         'row_price' => 'float',
         'orphan_price' => 'float',
+        'images' => 'array',
     ];
 
     public function exhibition()

@@ -60,6 +60,42 @@
                                         </select>
                                     </div>
                                 </div>
+                                <div class="row g-3 mt-2">
+                                    <div class="col-12">
+                                        <label class="form-label">Size Images</label>
+                                        <input type="file" name="booth_sizes[{{ $sizeIndex }}][images][]" class="form-control size-images-input" multiple accept="image/*" data-size-index="{{ $sizeIndex }}">
+                                        <div class="size-images-preview mt-2" data-size-index="{{ $sizeIndex }}"></div>
+                                        @if(!empty($boothSize->images))
+                                            <div class="mt-1 small">
+                                                <span class="text-muted d-block mb-1">Existing images:</span>
+                                                <div class="d-flex flex-wrap gap-2 size-existing-images-container">
+                                                    @foreach((array) $boothSize->images as $imgPath)
+                                                        <div class="size-image-wrapper d-flex align-items-center gap-2 mb-1">
+                                                            <img
+                                                                src="{{ asset('storage/' . ltrim($imgPath, '/')) }}"
+                                                                alt="{{ basename($imgPath) }}"
+                                                                style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #dee2e6;"
+                                                            >
+                                                            <button
+                                                                type="button"
+                                                                class="btn btn-sm btn-link text-danger p-0 size-image-remove-btn"
+                                                                data-size-index="{{ $sizeIndex }}"
+                                                                data-image-path="{{ $imgPath }}"
+                                                            >
+                                                                Remove
+                                                            </button>
+                                                            <input
+                                                                type="hidden"
+                                                                name="booth_sizes[{{ $sizeIndex }}][existing_images][]"
+                                                                value="{{ $imgPath }}"
+                                                            >
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
                                 <div class="mt-3">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <span class="fw-semibold">Items for this size</span>
@@ -103,7 +139,7 @@
                                                                             alt="{{ basename($imgPath) }}"
                                                                             style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #dee2e6;"
                                                                         >
-                                                                        <span>{{ basename($imgPath) }}</span>
+                                                                        {{-- <span>{{ basename($imgPath) }}</span> --}}
                                                                         <span class="text-danger ms-1">(Remove)</span>
                                                                     </span>
                                                                 </label>
@@ -174,6 +210,13 @@
                                             <option value="2">Standard</option>
                                             <option value="3">Economy</option>
                                         </select>
+                                    </div>
+                                </div>
+                                <div class="row g-3 mt-2">
+                                    <div class="col-12">
+                                        <label class="form-label">Size Images</label>
+                                        <input type="file" name="booth_sizes[0][images][]" class="form-control size-images-input" multiple accept="image/*" data-size-index="0">
+                                        <div class="size-images-preview mt-2" data-size-index="0"></div>
                                     </div>
                                 </div>
                                 <div class="mt-3">
@@ -321,6 +364,7 @@
 </div>
 @endsection
 
+
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
@@ -384,6 +428,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     </select>
                 </div>
             </div>
+            <div class="row g-3 mt-2">
+                <div class="col-12">
+                    <label class="form-label">Size Images</label>
+                    <input type="file" name="booth_sizes[${sizeIndex}][images][]" class="form-control size-images-input" multiple accept="image/*" data-size-index="${sizeIndex}">
+                    <div class="size-images-preview mt-2" data-size-index="${sizeIndex}"></div>
+                </div>
+            </div>
             <div class="mt-3">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <span class="fw-semibold">Items for this size</span>
@@ -396,10 +447,64 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
     `;
 
+    // Function to handle image preview
+    const handleImagePreview = (input) => {
+        const sizeIndex = input.getAttribute('data-size-index');
+        const previewContainer = document.querySelector(`.size-images-preview[data-size-index="${sizeIndex}"]`);
+        
+        if (!previewContainer) return;
+        
+        // Clear previous previews
+        previewContainer.innerHTML = '';
+        
+        if (input.files && input.files.length > 0) {
+            const previewTitle = document.createElement('div');
+            previewTitle.className = 'text-muted small mb-2';
+            previewTitle.textContent = `Selected images (${input.files.length}):`;
+            previewContainer.appendChild(previewTitle);
+            
+            const previewWrapper = document.createElement('div');
+            previewWrapper.className = 'd-flex flex-wrap gap-2';
+            
+            Array.from(input.files).forEach((file, index) => {
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const imgWrapper = document.createElement('div');
+                        imgWrapper.className = 'position-relative d-inline-block';
+                        imgWrapper.innerHTML = `
+                            <img
+                                src="${e.target.result}"
+                                alt="${file.name}"
+                                style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #dee2e6;"
+                                class="img-thumbnail"
+                            >
+                            <span class="badge bg-secondary position-absolute bottom-0 start-0 m-1" style="font-size: 0.7rem;">${file.name.length > 15 ? file.name.substring(0, 15) + '...' : file.name}</span>
+                        `;
+                        previewWrapper.appendChild(imgWrapper);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+            
+            previewContainer.appendChild(previewWrapper);
+        }
+    };
+
     const addSizeCard = () => {
         const wrapper = document.createElement('div');
         wrapper.innerHTML = sizeTemplate(sizeCounter).trim();
-        sizesContainer.appendChild(wrapper.firstElementChild);
+        const newCard = wrapper.firstElementChild;
+        sizesContainer.appendChild(newCard);
+        
+        // Attach preview handler to newly added size image input
+        const newInput = newCard.querySelector('.size-images-input');
+        if (newInput) {
+            newInput.addEventListener('change', function() {
+                handleImagePreview(this);
+            });
+        }
+        
         sizeCounter += 1;
     };
 
@@ -412,6 +517,13 @@ document.addEventListener('DOMContentLoaded', () => {
         itemsContainer.appendChild(wrapper.firstElementChild);
     };
 
+    // Add event listeners for image preview on existing inputs
+    document.querySelectorAll('.size-images-input').forEach(input => {
+        input.addEventListener('change', function() {
+            handleImagePreview(this);
+        });
+    });
+
     if (addSizeButtons && addSizeButtons.length && sizesContainer) {
         addSizeButtons.forEach((btn) => btn.addEventListener('click', () => addSizeCard()));
     }
@@ -422,6 +534,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const button = event.target.closest('.add-item-btn');
                 const sizeCard = button.closest('.booth-size-card');
                 addItemRow(sizeCard);
+                return;
             }
 
             if (event.target.closest('.remove-item-btn')) {
@@ -432,6 +545,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const sizeCard = itemsContainer.closest('.booth-size-card');
                     addItemRow(sizeCard);
                 }
+                return;
             }
 
             if (event.target.closest('.remove-size-btn')) {
@@ -440,6 +554,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!sizesContainer.querySelector('.booth-size-card')) {
                     sizeCounter = 0;
                     addSizeCard();
+                }
+                return;
+            }
+
+            // Handle existing size image remove (clicking the Remove button under existing images)
+            const removeBtn = event.target.closest('.size-image-remove-btn');
+            if (removeBtn) {
+                const sizeIndex = removeBtn.getAttribute('data-size-index');
+                const imagePath = removeBtn.getAttribute('data-image-path');
+                const wrapper = removeBtn.closest('.size-image-wrapper');
+                const form = document.getElementById('step2Form');
+
+                if (form && sizeIndex !== null && imagePath) {
+                    // Add a hidden field to indicate this image should be removed
+                    const hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.name = `booth_sizes[${sizeIndex}][remove_existing_images][]`;
+                    hidden.value = imagePath;
+                    form.appendChild(hidden);
+                }
+
+                // Immediately hide the image row from UI so the user sees it's removed
+                if (wrapper) {
+                    wrapper.remove();
                 }
             }
         });

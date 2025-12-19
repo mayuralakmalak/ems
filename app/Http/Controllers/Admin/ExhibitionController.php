@@ -93,6 +93,8 @@ class ExhibitionController extends Controller
             'booth_sizes.*.row_price' => 'nullable|numeric|min:0',
             'booth_sizes.*.orphan_price' => 'nullable|numeric|min:0',
             'booth_sizes.*.category' => 'nullable|string|max:255',
+            'booth_sizes.*.images' => 'nullable|array',
+            'booth_sizes.*.images.*' => 'nullable|image|max:10240',
             'booth_sizes.*.items' => 'nullable|array',
             'booth_sizes.*.items.*.name' => 'nullable|string|max:255',
             'booth_sizes.*.items.*.quantity' => 'nullable|integer|min:0',
@@ -125,8 +127,43 @@ class ExhibitionController extends Controller
         $exhibition->update($updateData);
 
         // Handle booth size blocks and included items
-        $exhibition->boothSizes()->delete();
+        // Collect all existing images from current booth sizes before deletion
+        $allExistingSizeImages = [];
+        foreach ($exhibition->boothSizes as $existingSize) {
+            if (!empty($existingSize->images) && is_array($existingSize->images)) {
+                $allExistingSizeImages = array_merge($allExistingSizeImages, $existingSize->images);
+            }
+        }
+
         $boothSizes = $request->input('booth_sizes', []);
+        
+        // Collect all images that should be kept from the form
+        $allKeptImages = [];
+        $allRemovedImages = [];
+        foreach ($boothSizes as $sizeIndex => $boothSizeData) {
+            $existingImages = $boothSizeData['existing_images'] ?? [];
+            $removeImages = $boothSizeData['remove_existing_images'] ?? [];
+            
+            if (!is_array($existingImages)) {
+                $existingImages = [];
+            }
+            if (!is_array($removeImages)) {
+                $removeImages = [];
+            }
+            
+            $keptImages = array_values(array_diff($existingImages, $removeImages));
+            $allKeptImages = array_merge($allKeptImages, $keptImages);
+            $allRemovedImages = array_merge($allRemovedImages, $removeImages);
+        }
+
+        // Delete images that are not being kept (either explicitly removed or not in the form)
+        $imagesToDelete = array_diff($allExistingSizeImages, $allKeptImages);
+        if (!empty($imagesToDelete)) {
+            Storage::disk('public')->delete($imagesToDelete);
+        }
+
+        // Now delete all booth sizes (will be recreated)
+        $exhibition->boothSizes()->delete();
 
         foreach ($boothSizes as $sizeIndex => $boothSizeData) {
             $sizeSqft = $boothSizeData['size_sqft'] ?? null;
@@ -138,11 +175,37 @@ class ExhibitionController extends Controller
                 continue;
             }
 
+            // Handle size images for this specific size
+            $existingImages = $boothSizeData['existing_images'] ?? [];
+            $removeImages = $boothSizeData['remove_existing_images'] ?? [];
+
+            if (!is_array($existingImages)) {
+                $existingImages = [];
+            }
+            if (!is_array($removeImages)) {
+                $removeImages = [];
+            }
+
+            // Compute which existing images should be kept for this size
+            $keptImages = array_values(array_diff($existingImages, $removeImages));
+
+            // New uploads for this size
+            $sizeFiles = $request->file("booth_sizes.$sizeIndex.images") ?? [];
+            $uploadedImages = [];
+            foreach ($sizeFiles as $imageFile) {
+                if ($imageFile) {
+                    $uploadedImages[] = $imageFile->store('booth-sizes', 'public');
+                }
+            }
+
+            $finalImages = array_merge($keptImages, $uploadedImages);
+
             $boothSize = $exhibition->boothSizes()->create([
                 'size_sqft' => $sizeSqft,
                 'row_price' => $rowPrice,
                 'orphan_price' => $orphanPrice,
                 'category' => $category,
+                'images' => !empty($finalImages) ? $finalImages : null,
             ]);
 
             $items = $boothSizeData['items'] ?? [];
