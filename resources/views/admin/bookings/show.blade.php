@@ -74,6 +74,52 @@
                 </ul>
                 @endif
 
+                {{-- Company Assets: Logo + Promotional Brochures uploaded during booking --}}
+                <hr>
+                <h6>Company Assets</h6>
+
+                {{-- Company Logo --}}
+                <div class="mb-3">
+                    <strong>Company Logo:</strong><br>
+                    @if($booking->logo)
+                        <img src="{{ asset('storage/' . $booking->logo) }}"
+                             alt="Company Logo"
+                             style="max-width: 220px; max-height: 120px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; background: #f8fafc;">
+                    @else
+                        <span class="text-muted">No logo uploaded</span>
+                    @endif
+                </div>
+
+                {{-- Promotional Brochures --}}
+                @php
+                    $promotionalBrochures = $booking->documents->where('type', 'Promotional Brochure');
+                @endphp
+                <div class="mb-2">
+                    <strong>Promotional Brochures:</strong><br>
+                    @if($promotionalBrochures->count() > 0)
+                        <ul class="mt-2">
+                            @foreach($promotionalBrochures as $brochure)
+                                <li>
+                                    <i class="bi bi-file-earmark-pdf me-1 text-danger"></i>
+                                    <a href="{{ asset('storage/' . $brochure->file_path) }}" target="_blank">
+                                        {{ $brochure->name ?? 'Brochure' }}
+                                    </a>
+                                    @if($brochure->file_size)
+                                        <small class="text-muted ms-1">
+                                            ({{ number_format($brochure->file_size / 1024, 0) }} KB)
+                                        </small>
+                                    @endif
+                                    <span class="badge bg-{{ $brochure->status === 'approved' ? 'success' : ($brochure->status === 'rejected' ? 'danger' : 'warning') }} ms-2">
+                                        {{ ucfirst($brochure->status ?? 'pending') }}
+                                    </span>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @else
+                        <span class="text-muted">No brochures uploaded</span>
+                    @endif
+                </div>
+
                 @if($booking->cancellation_reason)
                 <hr>
                 <div class="alert alert-warning">

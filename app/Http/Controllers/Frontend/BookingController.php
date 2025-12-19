@@ -381,7 +381,7 @@ class BookingController extends Controller
             'included_item_extras.*.quantity' => 'required_with:included_item_extras|integer|min:1',
             'included_item_extras.*.unit_price' => 'required_with:included_item_extras|numeric|min:0',
             'logo' => 'nullable|image|max:5120', // 5MB
-            'brochures' => 'nullable|array|max:3',
+            'brochures' => 'nullable|array|max:5',
             'brochures.*' => 'file|mimes:pdf|max:5120', // 5MB each
             'terms' => 'required|accepted',
         ]);
@@ -834,18 +834,98 @@ class BookingController extends Controller
 
     public function update(Request $request, string $id)
     {
-        $booking = Booking::where('user_id', auth()->id())->findOrFail($id);
+        $booking = Booking::with('documents')
+            ->where('user_id', auth()->id())
+            ->findOrFail($id);
         
         $request->validate([
             'contact_emails' => 'nullable|array|max:5',
             'contact_emails.*' => 'email',
             'contact_numbers' => 'nullable|array|max:5',
+            'logo' => 'nullable|image|max:5120', // 5MB
+            'brochures' => 'nullable|array|max:5',
+            'brochures.*' => 'file|mimes:pdf|max:5120', // 5MB each
+            'remove_brochure_ids' => 'nullable|array',
+            'remove_brochure_ids.*' => 'integer',
         ]);
 
+        // Update basic contact info if provided
         $booking->update([
-            'contact_emails' => $request->contact_emails ?? $booking->contact_emails,
-            'contact_numbers' => $request->contact_numbers ?? $booking->contact_numbers,
+            'contact_emails' => $request->has('contact_emails')
+                ? ($request->contact_emails ?? [])
+                : $booking->contact_emails,
+            'contact_numbers' => $request->has('contact_numbers')
+                ? ($request->contact_numbers ?? [])
+                : $booking->contact_numbers,
         ]);
+
+        // Handle removal of existing promotional brochures if requested
+        $removeIds = collect($request->input('remove_brochure_ids', []))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if (!empty($removeIds)) {
+            $brochuresToRemove = $booking->documents()
+                ->where('type', 'Promotional Brochure')
+                ->whereIn('id', $removeIds)
+                ->get();
+
+            foreach ($brochuresToRemove as $doc) {
+                if ($doc->file_path && Storage::disk('public')->exists($doc->file_path)) {
+                    Storage::disk('public')->delete($doc->file_path);
+                }
+                $doc->delete();
+            }
+        }
+
+        // Update company logo if a new file is uploaded
+        if ($request->hasFile('logo')) {
+            // Delete old logo file if it exists
+            if ($booking->logo && Storage::disk('public')->exists($booking->logo)) {
+                Storage::disk('public')->delete($booking->logo);
+            }
+
+            $logoPath = $request->file('logo')->store('bookings/logos', 'public');
+            $booking->update([
+                'logo' => $logoPath,
+            ]);
+        }
+
+        // Allow exhibitor to upload additional promotional brochures (max 5 in total)
+        if ($request->hasFile('brochures')) {
+            $existingCount = $booking->documents()
+                ->where('type', 'Promotional Brochure')
+                ->count();
+
+            $newFiles = $request->file('brochures', []);
+            $newCount = is_array($newFiles) ? count($newFiles) : 0;
+
+            if ($existingCount + $newCount > 5) {
+                return back()
+                    ->withInput()
+                    ->with('error', 'You can upload a maximum of 5 promotional brochures per booking. You already have ' . $existingCount . ' uploaded.');
+            }
+
+            foreach ($newFiles as $brochure) {
+                if (!$brochure) {
+                    continue;
+                }
+
+                $brochurePath = $brochure->store('bookings/brochures', 'public');
+
+                \App\Models\Document::create([
+                    'booking_id' => $booking->id,
+                    'user_id' => auth()->id(),
+                    'name' => 'Promotional Brochure - ' . $brochure->getClientOriginalName(),
+                    'type' => 'Promotional Brochure',
+                    'file_path' => $brochurePath,
+                    'file_size' => $brochure->getSize(),
+                    'status' => 'pending',
+                ]);
+            }
+        }
 
         return redirect()->route('bookings.show', $booking->id)
             ->with('success', 'Booking updated successfully.');
