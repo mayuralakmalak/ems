@@ -824,7 +824,7 @@
                         $mergedNames = implode(', ', $originalBooths);
                     }
 
-                    // Resolve row/orphan prices for this booth from configured sizes
+                    // Resolve row/orphan prices and size images for this booth from configured sizes
                     $sizeConfig = null;
                     if ($booth->exhibition_booth_size_id) {
                         $sizeConfig = $exhibition->boothSizes->firstWhere('id', $booth->exhibition_booth_size_id);
@@ -839,6 +839,24 @@
 
                     $rowPriceForBooth = (float) ($sizeConfig->row_price ?? 0);
                     $orphanPriceForBooth = (float) ($sizeConfig->orphan_price ?? 0);
+
+                    // Normalise size-level images for this booth size (used for preview thumbnails)
+                    $sizeImages = [];
+                    if ($sizeConfig && !empty($sizeConfig->images)) {
+                        $imagesValue = $sizeConfig->images;
+                        if (is_array($imagesValue)) {
+                            $sizeImages = $imagesValue;
+                        } elseif (is_string($imagesValue)) {
+                            $decoded = json_decode($imagesValue, true);
+                            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                                $sizeImages = $decoded;
+                            } else {
+                                $sizeImages = array_filter(array_map('trim', explode(',', $imagesValue)));
+                            }
+                        } elseif (is_object($imagesValue)) {
+                            $sizeImages = array_values((array) $imagesValue);
+                        }
+                    }
                 @endphp
                 <div class="booth-item {{ $statusClass }}" 
                      data-booth-id="{{ $booth->id }}"
@@ -854,6 +872,7 @@
                      data-booth-status="{{ $status }}"
                      data-booth-merged="{{ $booth->is_merged ? 'true' : 'false' }}"
                      data-merged-originals="{{ $mergedNames }}"
+                     data-booth-size-images='@json($sizeImages)'
                      style="left: {{ $booth->position_x ?? ($loop->index % 5) * 120 }}px; 
                             top: {{ $booth->position_y ?? floor($loop->index / 5) * 100 }}px; 
                             width: {{ $booth->width ?? 100 }}px; 
@@ -989,6 +1008,7 @@
                     <span class="detail-value price" id="boothCalculatedPrice">₹0</span>
                 </div>
             </div>
+            <div id="boothSizeImagesPreview" class="included-items-images" style="margin-top: 10px;"></div>
             <div class="action-buttons">
                 <button class="btn-action btn-select" id="selectBoothBtn">
                     <i class="bi bi-check-circle me-1"></i>Select Booth
@@ -1357,6 +1377,7 @@ function showBoothDetails(boothId) {
     
     renderBoothSelectionControls(boothId);
     renderIncludedItemsSection(booth);
+    renderBoothSizeImagesPreview(booth);
     
     // Calculate and display initial price
     syncBoothSelectionDisplay(boothId);
@@ -1368,6 +1389,63 @@ function showBoothDetails(boothId) {
     document.getElementById('selectBoothBtn').textContent = isSelected ? 'Deselect Booth' : 'Select Booth';
     document.getElementById('mergeBoothBtn').disabled = selectedBooths.length < 2;
     document.getElementById('splitBoothBtn').disabled = selectedBooths.length !== 1;
+}
+
+function renderBoothSizeImagesPreview(booth) {
+    const container = document.getElementById('boothSizeImagesPreview');
+    if (!container) return;
+
+    if (!booth) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const raw = booth.getAttribute('data-booth-size-images');
+    if (!raw) {
+        container.innerHTML = '';
+        return;
+    }
+
+    let paths = [];
+    try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+            paths = parsed;
+        }
+    } catch (e) {
+        // ignore parse errors
+    }
+
+    if (!paths.length) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const thumbs = paths.map((p, idx) => {
+        if (!p) return '';
+        const normalized = String(p).replace(/^\/+/, '');
+        const src = normalized.startsWith('http')
+            ? normalized
+            : storageBaseUrl + normalized;
+        const label = `Booth size image ${idx + 1}`;
+        return `
+            <div class="included-item-thumb" onclick="openImageGallery(null, '${src}', '${label}')">
+                <img src="${src}" alt="${label}">
+            </div>
+        `;
+    }).join('');
+
+    if (!thumbs) {
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="included-items-header" style="margin-bottom: 6px;">Booth visuals</div>
+        <div class="included-items-images">
+            ${thumbs}
+        </div>
+    `;
 }
 
 function getBoothIncluded(boothSizeSqft, boothSizeId) {
@@ -1403,8 +1481,8 @@ function getBoothIncluded(boothSizeSqft, boothSizeId) {
         }
     }
 
-    if (matched && matched.items && matched.items.length > 0) {
-        const items = matched.items.map((item) => ({
+    if (matched) {
+        const items = (matched.items || []).map((item) => ({
             key: item.id,
             label: `${item.quantity || 1} ${item.item_name || 'Item'}`,
             includedQuantity: item.quantity || 0,
@@ -1412,7 +1490,25 @@ function getBoothIncluded(boothSizeSqft, boothSizeId) {
             images: Array.isArray(item.images) ? item.images : [],
         }));
 
-        return { items, images: [] };
+        // Normalise size-level images array from the booth size record
+        let sizeImages = [];
+        if (Array.isArray(matched.images)) {
+            sizeImages = matched.images;
+        } else if (matched.images) {
+            // In case it's stored as an object or comma-separated string
+            if (typeof matched.images === 'string') {
+                try {
+                    const parsed = JSON.parse(matched.images);
+                    sizeImages = Array.isArray(parsed) ? parsed : Object.values(parsed || {});
+                } catch (e) {
+                    sizeImages = matched.images.split(',').map(s => s.trim()).filter(Boolean);
+                }
+            } else if (typeof matched.images === 'object') {
+                sizeImages = Object.values(matched.images || {});
+            }
+        }
+
+        return { items, images: sizeImages };
     }
 
     return {
@@ -1425,11 +1521,14 @@ function renderIncludedItemsSection(booth) {
     const panel = document.getElementById('includedItemsPanel');
     const textContainer = document.getElementById('includedItemsText');
     const subtitle = document.getElementById('includedItemsSubtitle');
+    const imagesContainer = document.getElementById('includedItemsImages');
 
-    if (!panel || !textContainer || !subtitle) return;
+    if (!panel || !textContainer || !subtitle || !imagesContainer) return;
 
     if (!booth) {
         panel.style.display = 'none';
+        textContainer.innerHTML = '';
+        imagesContainer.innerHTML = '';
         return;
     }
 
@@ -1439,9 +1538,13 @@ function renderIncludedItemsSection(booth) {
     );
 
     const items = (included && included.items) ? included.items : [];
+    const sizeImages = (included && included.images) ? included.images : [];
 
-    if (!items.length) {
+    // If there are neither items nor images, hide the panel
+    if (!items.length && !sizeImages.length) {
         panel.style.display = 'none';
+        textContainer.innerHTML = '';
+        imagesContainer.innerHTML = '';
         return;
     }
 
@@ -1494,8 +1597,33 @@ function renderIncludedItemsSection(booth) {
         `;
     }).join('');
 
-    textContainer.innerHTML = `<ul class="included-items-list">${itemsHtml}</ul>`;
-    subtitle.textContent = 'These items are included for the selected booth size:';
+    if (itemsHtml) {
+        textContainer.innerHTML = `<ul class="included-items-list">${itemsHtml}</ul>`;
+    } else {
+        textContainer.innerHTML = '';
+    }
+
+    // Render size-level images (booth size preview thumbnails)
+    if (sizeImages.length) {
+        const thumbs = sizeImages.map((rawPath, idx) => {
+            if (!rawPath) return '';
+            const normalized = String(rawPath).replace(/^\/+/, '');
+            const src = normalized.startsWith('http')
+                ? normalized
+                : storageBaseUrl + normalized;
+            const label = `Size image ${idx + 1}`;
+            return `
+                <div class="included-item-thumb" onclick="openImageGallery(null, '${src}', '${label}')">
+                    <img src="${src}" alt="${label}">
+                </div>
+            `;
+        }).join('');
+        imagesContainer.innerHTML = thumbs;
+    } else {
+        imagesContainer.innerHTML = '';
+    }
+
+    subtitle.textContent = 'These items and booth previews are associated with the selected booth size:';
 
     // Attach listeners for quantity changes
     textContainer.querySelectorAll('.included-item-qty').forEach(input => {
