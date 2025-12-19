@@ -394,12 +394,12 @@
     <!-- Promotional Brochures Upload -->
     <div class="form-section">
         <h3 class="section-title">Promotional Brochures</h3>
-        <p class="section-description">Upload promotional brochures (PDF, max 3 files, 5MB each).</p>
+        <p class="section-description">Upload promotional brochures (PDF, max 5 files, 5MB each).</p>
         
         <div class="upload-area" id="brochureUploadArea">
             <i class="bi bi-file-earmark-pdf upload-icon"></i>
             <div class="upload-text">Drag & drop brochures here</div>
-            <div class="upload-hint">or click to browse (max 3 files)</div>
+            <div class="upload-hint">or click to browse (max 5 files)</div>
             <input type="file" id="brochureFiles" name="brochures[]" accept="application/pdf" multiple style="display: none;">
         </div>
         <div id="brochurePreview"></div>

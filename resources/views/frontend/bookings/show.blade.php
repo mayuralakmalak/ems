@@ -363,24 +363,37 @@
                     </div>
                 </div>
 
-                <!-- Brochures Section -->
                 @php
                     $brochures = $booking->documents->where('type', 'Promotional Brochure');
                 @endphp
 
+                <!-- Existing brochures with one-click remove -->
                 <div class="detail-item">
                     <div class="detail-label">Brochures</div>
                     <div class="detail-value">
                         @if($brochures->count() > 0)
                             @foreach($brochures as $brochure)
-                            <div class="contact-item">
-                                <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>
-                                <a href="{{ asset('storage/' . $brochure->file_path) }}" target="_blank" class="text-decoration-none">
-                                    {{ $brochure->name ?? 'Brochure' }}
-                                </a>
-                                @if($brochure->file_size)
-                                    <small class="text-muted ms-2">({{ number_format($brochure->file_size / 1024, 0) }} KB)</small>
-                                @endif
+                            <div class="d-flex align-items-center justify-content-between contact-item">
+                                <div>
+                                    <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>
+                                    <a href="{{ asset('storage/' . $brochure->file_path) }}" target="_blank" class="text-decoration-none">
+                                        {{ $brochure->name ?? 'Brochure' }}
+                                    </a>
+                                    @if($brochure->file_size)
+                                        <small class="text-muted ms-2">({{ number_format($brochure->file_size / 1024, 0) }} KB)</small>
+                                    @endif
+                                </div>
+                                <form action="{{ route('bookings.update', $booking->id) }}" method="POST" class="ms-3">
+                                    @csrf
+                                    @method('PUT')
+                                    <input type="hidden" name="remove_brochure_ids[]" value="{{ $brochure->id }}">
+                                    <button type="submit"
+                                            class="btn btn-sm btn-outline-danger"
+                                            onclick="return confirm('Remove this brochure?');"
+                                            title="Remove brochure">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </form>
                             </div>
                             @endforeach
                         @else
@@ -390,6 +403,55 @@
                             </div>
                         @endif
                     </div>
+                </div>
+
+                <!-- Edit Assets (Logo + Brochures) -->
+                <div class="mt-3">
+                    <h6 class="detail-label mb-2">Update Company Assets</h6>
+                    @if(session('error'))
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            {{ session('error') }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    @endif
+                    @if($errors->any())
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <ul class="mb-0">
+                                @foreach($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    @endif
+                    <form action="{{ route('bookings.update', $booking->id) }}" method="POST" enctype="multipart/form-data">
+                        @csrf
+                        @method('PUT')
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="detail-label d-block">Change Company Logo</label>
+                                <input type="file"
+                                       name="logo"
+                                       class="form-control"
+                                       accept="image/png,image/jpeg,image/jpg">
+                                <small class="text-muted d-block mt-1">PNG, JPG, max 5MB</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="detail-label d-block">Add Promotional Brochures</label>
+                                <input type="file"
+                                       name="brochures[]"
+                                       class="form-control"
+                                       accept="application/pdf"
+                                       multiple>
+                                <small class="text-muted d-block mt-1">
+                                    PDF only, max 5MB each, up to 5 brochures total per booking.
+                                </small>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm mt-2">
+                            <i class="bi bi-upload me-1"></i>Save Assets
+                        </button>
+                    </form>
                 </div>
             </div>
             

@@ -163,9 +163,9 @@
                             <small class="text-muted">PNG, JPG, max 5MB</small>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Promotional Brochures (Max 3)</label>
+                            <label class="form-label">Promotional Brochures (Max 5)</label>
                             <input type="file" class="form-control" name="brochures[]" accept="application/pdf" multiple>
-                            <small class="text-muted">PDF files, max 5MB each</small>
+                            <small class="text-muted">PDF files, max 5MB each, up to 5 files</small>
                         </div>
 
                         <div class="form-check mb-4">
