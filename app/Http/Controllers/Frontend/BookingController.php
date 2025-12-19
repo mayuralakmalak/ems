@@ -25,7 +25,7 @@ class BookingController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $query = Booking::with(['exhibition', 'booth'])
+        $query = Booking::with(['exhibition.requiredDocuments', 'booth'])
             ->where('user_id', $user->id);
         
         // Filter by status
@@ -869,7 +869,18 @@ class BookingController extends Controller
 
     public function show(string $id)
     {
-        $booking = Booking::with(['exhibition.booths', 'booth', 'payments', 'bookingServices.service', 'documents', 'badges'])
+        $booking = Booking::with([
+            'exhibition.booths', 
+            'exhibition.requiredDocuments',
+            'booth', 
+            'payments', 
+            'bookingServices.service', 
+            'documents' => function($query) {
+                $query->orderBy('created_at', 'desc'); // Get latest documents first
+            },
+            'documents.requiredDocument', 
+            'badges'
+        ])
             ->where('user_id', auth()->id())
             ->findOrFail($id);
 

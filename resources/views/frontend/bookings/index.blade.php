@@ -265,6 +265,11 @@
                 <td>₹{{ number_format($booking->total_amount, 2) }}</td>
                 <td>
                     <a href="{{ route('bookings.show', $booking->id) }}" class="btn-action btn-view">View Details</a>
+                    @if($booking->exhibition && $booking->exhibition->requiredDocuments && $booking->exhibition->requiredDocuments->count() > 0)
+                        <a href="{{ route('bookings.required-documents', $booking->id) }}" class="btn-action" style="background: #10b981; color: white;">
+                            <i class="bi bi-file-earmark-text me-1"></i>Required Documents
+                        </a>
+                    @endif
                     @if($booking->status === 'confirmed' && $booking->exhibition->end_date >= now())
                         <a href="{{ route('bookings.show', $booking->id) }}" class="btn-action btn-modify">Modify</a>
                         <a href="{{ route('bookings.cancel.show', $booking->id) }}" class="btn-action btn-cancel">Cancel</a>

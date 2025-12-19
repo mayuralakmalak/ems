@@ -31,10 +31,12 @@ class DocumentController extends Controller
         
         $documents = $query->latest()->get();
         
-        // Get bookings for upload form
+        // Get bookings for upload form with required documents and uploaded documents
         $bookings = Booking::where('user_id', auth()->id())
             ->where('status', '!=', 'cancelled')
-            ->with('exhibition')
+            ->with(['exhibition.requiredDocuments', 'documents' => function($query) {
+                $query->whereNotNull('required_document_id');
+            }])
             ->orderBy('created_at', 'desc')
             ->get();
         
@@ -66,7 +68,8 @@ class DocumentController extends Controller
             
             $request->validate([
                 'booking_id' => 'required|exists:bookings,id',
-                'category' => 'required|string|in:' . implode(',', $validCategories),
+                'category' => 'nullable|string|in:' . implode(',', $validCategories),
+                'required_document_id' => 'nullable|exists:exhibition_required_documents,id',
                 'files' => 'required|array|min:1',
                 'files.*' => 'required|file|max:' . self::MAX_FILE_SIZE . '|mimes:pdf,doc,docx,jpg,jpeg,png',
             ], [
@@ -82,7 +85,42 @@ class DocumentController extends Controller
             ]);
 
             $booking = Booking::where('user_id', auth()->id())
+                ->with('exhibition.requiredDocuments')
                 ->findOrFail($request->booking_id);
+
+            // If required_document_id is provided, validate it belongs to the booking's exhibition
+            $requiredDocumentId = $request->input('required_document_id');
+            if ($requiredDocumentId) {
+                $requiredDoc = $booking->exhibition->requiredDocuments->firstWhere('id', $requiredDocumentId);
+                if (!$requiredDoc) {
+                    return back()->withInput()->with('error', 'Invalid required document selected.');
+                }
+                
+                // Validate file type based on required document type
+                $requiredDocType = $requiredDoc->document_type;
+                $files = $request->file('files');
+                foreach ($files as $file) {
+                    if ($file && $file->isValid()) {
+                        $mimeType = $file->getMimeType();
+                        $extension = strtolower($file->getClientOriginalExtension());
+                        
+                        if ($requiredDocType === 'image' && !in_array($extension, ['jpg', 'jpeg', 'png'])) {
+                            return back()->withInput()->with('error', 'This document requires an image file (JPG, JPEG, PNG).');
+                        }
+                        if ($requiredDocType === 'pdf' && $extension !== 'pdf') {
+                            return back()->withInput()->with('error', 'This document requires a PDF file.');
+                        }
+                        if ($requiredDocType === 'both' && !in_array($extension, ['jpg', 'jpeg', 'png', 'pdf'])) {
+                            return back()->withInput()->with('error', 'This document requires an image (JPG, JPEG, PNG) or PDF file.');
+                        }
+                    }
+                }
+            } else {
+                // If no required_document_id, category is required
+                if (empty($request->input('category'))) {
+                    return back()->withInput()->with('error', 'Please select either a document category or a required document.');
+                }
+            }
 
             // Get files array
             $files = $request->file('files');
@@ -113,7 +151,7 @@ class DocumentController extends Controller
             $uploadedCount = 0;
             $errors = [];
 
-            // For each file, create a document with the selected category
+            // For each file, create or update a document with the selected category
             foreach ($files as $fileIndex => $file) {
                 try {
                     if (!$file->isValid()) {
@@ -126,26 +164,71 @@ class DocumentController extends Controller
                     // Use original filename without extension as document name
                     $fileName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
 
-                    $document = Document::create([
-                        'booking_id' => $booking->id,
-                        'user_id' => auth()->id(),
-                        'name' => $fileName,
-                        'type' => $category,
-                        'file_path' => $path,
-                        'file_size' => $file->getSize(),
-                        'status' => 'pending',
-                    ]);
+                    // If this is a required document, check if there's an existing document to update
+                    $isUpdate = false;
+                    if ($requiredDocumentId && $fileIndex === 0) {
+                        // Find existing document for this required_document_id and booking
+                        $existingDocument = Document::where('booking_id', $booking->id)
+                            ->where('required_document_id', $requiredDocumentId)
+                            ->where('user_id', auth()->id())
+                            ->latest() // Get the most recent one
+                            ->first();
+                        
+                        if ($existingDocument) {
+                            $isUpdate = true;
+                            // Delete old file if it exists and is different
+                            if ($existingDocument->file_path && \Storage::disk('public')->exists($existingDocument->file_path) && $existingDocument->file_path !== $path) {
+                                \Storage::disk('public')->delete($existingDocument->file_path);
+                            }
+                            
+                            // Update existing document (reset status to pending when re-uploading)
+                            $existingDocument->update([
+                                'name' => $requiredDoc->document_name,
+                                'type' => 'required_document',
+                                'file_path' => $path,
+                                'file_size' => $file->getSize(),
+                                'status' => 'pending', // Reset to pending when re-uploading
+                                'rejection_reason' => null, // Clear rejection reason
+                            ]);
+                            
+                            $document = $existingDocument;
+                        } else {
+                            // Create new document if none exists
+                            $document = Document::create([
+                                'booking_id' => $booking->id,
+                                'user_id' => auth()->id(),
+                                'required_document_id' => $requiredDocumentId,
+                                'name' => $requiredDoc->document_name,
+                                'type' => 'required_document',
+                                'file_path' => $path,
+                                'file_size' => $file->getSize(),
+                                'status' => 'pending',
+                            ]);
+                        }
+                    } else {
+                        // Regular document (not required) - always create new
+                        $document = Document::create([
+                            'booking_id' => $booking->id,
+                            'user_id' => auth()->id(),
+                            'required_document_id' => $requiredDocumentId,
+                            'name' => $requiredDocumentId ? $requiredDoc->document_name : $fileName,
+                            'type' => $requiredDocumentId ? 'required_document' : $category,
+                            'file_path' => $path,
+                            'file_size' => $file->getSize(),
+                            'status' => 'pending',
+                        ]);
+                    }
                     
                     $uploadedCount++;
                     
-                    // Notify all admins about new document
+                    // Notify all admins about new/updated document
                     $admins = User::role('Admin')->orWhere('id', 1)->get();
                     foreach ($admins as $admin) {
                         Notification::create([
                             'user_id' => $admin->id,
                             'type' => 'document',
-                            'title' => 'New Document Uploaded',
-                            'message' => auth()->user()->name . ' has uploaded a new document: ' . $fileName . ' (' . ucfirst($category) . ') for booking #' . $booking->booking_number,
+                            'title' => $isUpdate ? 'Document Re-uploaded' : 'New Document Uploaded',
+                            'message' => auth()->user()->name . ' has ' . ($isUpdate ? 're-uploaded' : 'uploaded') . ' a document: ' . ($requiredDocumentId ? $requiredDoc->document_name : $fileName) . ' for booking #' . $booking->booking_number,
                             'notifiable_type' => Document::class,
                             'notifiable_id' => $document->id,
                         ]);
@@ -171,9 +254,25 @@ class DocumentController extends Controller
                 $message .= ' However, some files failed: ' . implode(' ', $errors);
             }
 
+            // Return JSON response for AJAX requests
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $message,
+                    'uploaded_count' => $uploadedCount
+                ]);
+            }
+            
             return redirect()->route('documents.index')->with('success', $message);
             
         } catch (\Illuminate\Validation\ValidationException $e) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => implode(' ', $e->errors()['files'] ?? ['Validation failed']),
+                    'errors' => $e->errors()
+                ], 422);
+            }
             return back()->withInput()->withErrors($e->errors());
         } catch (\Exception $e) {
             \Log::error('Document upload error: ' . $e->getMessage(), [
@@ -181,6 +280,14 @@ class DocumentController extends Controller
                 'request' => $request->all(),
                 'trace' => $e->getTraceAsString()
             ]);
+            
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'An error occurred while uploading documents: ' . $e->getMessage()
+                ], 500);
+            }
+            
             return back()->withInput()->with('error', 'An error occurred while uploading documents: ' . $e->getMessage());
         }
     }
@@ -195,7 +302,16 @@ class DocumentController extends Controller
 
     public function edit(string $id)
     {
-        $document = Document::where('user_id', auth()->id())->findOrFail($id);
+        $document = Document::where('user_id', auth()->id())
+            ->with(['booking.exhibition.requiredDocuments', 'requiredDocument'])
+            ->findOrFail($id);
+        
+        // Prevent editing if document is approved
+        if (!$document->canBeEdited()) {
+            return redirect()->route('documents.index')
+                ->with('error', 'You cannot edit an approved document. Please contact admin if you need to make changes.');
+        }
+        
         $bookings = Booking::where('user_id', auth()->id())->get();
         
         // Get active document categories
@@ -206,20 +322,58 @@ class DocumentController extends Controller
 
     public function update(Request $request, string $id)
     {
-        $document = Document::where('user_id', auth()->id())->findOrFail($id);
+        $document = Document::where('user_id', auth()->id())
+            ->with(['booking.exhibition.requiredDocuments', 'requiredDocument'])
+            ->findOrFail($id);
+
+        // Prevent editing if document is approved
+        if (!$document->canBeEdited()) {
+            return redirect()->route('documents.index')
+                ->with('error', 'You cannot edit an approved document. Please contact admin if you need to make changes.');
+        }
 
         // Get valid category slugs
         $validCategories = DocumentCategory::active()->pluck('slug')->toArray();
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'category' => 'required|string|in:' . implode(',', $validCategories),
+            'category' => 'nullable|string|in:' . implode(',', $validCategories),
+            'required_document_id' => 'nullable|exists:exhibition_required_documents,id',
             'files' => 'nullable|array|min:1',
             'files.*' => 'required|file|max:' . self::MAX_FILE_SIZE . '|mimes:pdf,doc,docx,jpg,jpeg,png',
         ], [
-            'category.required' => 'Please select a category.',
             'category.in' => 'Invalid category selected.',
         ]);
+
+        // If it's a required document, validate file type
+        $requiredDocumentId = $request->input('required_document_id') ?? $document->required_document_id;
+        if ($requiredDocumentId) {
+            $requiredDoc = $document->booking->exhibition->requiredDocuments->firstWhere('id', $requiredDocumentId);
+            if ($requiredDoc) {
+                $files = $request->hasFile('files') ? $request->file('files') : [];
+                foreach ($files as $file) {
+                    if ($file && $file->isValid()) {
+                        $extension = strtolower($file->getClientOriginalExtension());
+                        $requiredDocType = $requiredDoc->document_type;
+                        
+                        if ($requiredDocType === 'image' && !in_array($extension, ['jpg', 'jpeg', 'png'])) {
+                            return back()->withInput()->with('error', 'This document requires an image file (JPG, JPEG, PNG).');
+                        }
+                        if ($requiredDocType === 'pdf' && $extension !== 'pdf') {
+                            return back()->withInput()->with('error', 'This document requires a PDF file.');
+                        }
+                        if ($requiredDocType === 'both' && !in_array($extension, ['jpg', 'jpeg', 'png', 'pdf'])) {
+                            return back()->withInput()->with('error', 'This document requires an image (JPG, JPEG, PNG) or PDF file.');
+                        }
+                    }
+                }
+            }
+        } else {
+            // If not a required document, category is required
+            if (empty($request->input('category'))) {
+                return back()->withInput()->with('error', 'Please select a document category.');
+            }
+        }
 
         $category = $request->input('category');
         $files = $request->hasFile('files') ? $request->file('files') : [];
@@ -231,13 +385,21 @@ class DocumentController extends Controller
             });
         }
 
-        // If no files uploaded, just update category for existing document
+        // If no files uploaded, just update name/category for existing document
         if (empty($files)) {
-            $document->update([
-            'name' => $request->name,
-                'type' => $category,
-            'status' => 'pending', // Always re-verify after any edit
-            ]);
+            $updateData = [
+                'name' => $request->name,
+                'status' => 'pending', // Always re-verify after any edit
+            ];
+            
+            if ($requiredDocumentId) {
+                $updateData['required_document_id'] = $requiredDocumentId;
+                $updateData['type'] = 'required_document';
+            } else {
+                $updateData['type'] = $category;
+            }
+            
+            $document->update($updateData);
 
             return redirect()->route('documents.index')->with('success', 'Document updated successfully.');
         }
@@ -263,21 +425,30 @@ class DocumentController extends Controller
                 \Storage::disk('public')->delete($document->file_path);
             }
                     
-                    $document->update([
-                        'name' => $fileName ?: $request->name,
-                        'type' => $category,
+                    $updateData = [
+                        'name' => $requiredDocumentId ? ($document->requiredDocument->document_name ?? $fileName) : ($fileName ?: $request->name),
                         'file_path' => $path,
                         'file_size' => $file->getSize(),
                         'status' => 'pending',
-                    ]);
+                    ];
+                    
+                    if ($requiredDocumentId) {
+                        $updateData['required_document_id'] = $requiredDocumentId;
+                        $updateData['type'] = 'required_document';
+                    } else {
+                        $updateData['type'] = $category;
+                    }
+                    
+                    $document->update($updateData);
                     $uploadedCount++;
                 } else {
                     // Create new document for additional files
                     Document::create([
                         'booking_id' => $document->booking_id,
                         'user_id' => auth()->id(),
-                        'name' => $fileName ?: $request->name,
-                        'type' => $category,
+                        'required_document_id' => $requiredDocumentId,
+                        'name' => $requiredDocumentId ? ($document->requiredDocument->document_name ?? $fileName) : ($fileName ?: $request->name),
+                        'type' => $requiredDocumentId ? 'required_document' : $category,
                         'file_path' => $path,
                         'file_size' => $file->getSize(),
                         'status' => 'pending',
@@ -308,6 +479,11 @@ class DocumentController extends Controller
     {
         $document = Document::where('user_id', auth()->id())->findOrFail($id);
         
+        // Prevent deletion if document is approved
+        if (!$document->canBeEdited()) {
+            return back()->with('error', 'You cannot delete an approved document. Please contact admin if you need to remove it.');
+        }
+        
         // Delete file
         if ($document->file_path && \Storage::disk('public')->exists($document->file_path)) {
             \Storage::disk('public')->delete($document->file_path);
@@ -316,5 +492,17 @@ class DocumentController extends Controller
         $document->delete();
 
         return back()->with('success', 'Document deleted successfully.');
+    }
+
+    public function requiredDocuments($bookingId)
+    {
+        $booking = Booking::where('user_id', auth()->id())
+            ->with(['exhibition.requiredDocuments', 'documents' => function($query) {
+                $query->whereNotNull('required_document_id')
+                      ->orderBy('created_at', 'desc'); // Get latest documents first
+            }])
+            ->findOrFail($bookingId);
+
+        return view('frontend.documents.required', compact('booking'));
     }
 }

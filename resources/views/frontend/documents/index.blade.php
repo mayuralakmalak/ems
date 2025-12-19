@@ -347,14 +347,39 @@
     <form method="POST" action="{{ route('documents.store') }}" enctype="multipart/form-data" id="uploadForm">
         @csrf
         
-        <!-- Document Category -->
+
+        <!-- Booking Selection -->
         <div class="mb-4">
+            <label class="form-label fw-bold">Booking <span class="text-danger">*</span></label>
+            <select name="booking_id" id="bookingSelect" class="form-select @error('booking_id') is-invalid @enderror" required onchange="loadRequiredDocuments(this.value)">
+                <option value="">Select Booking</option>
+                @foreach($bookings as $booking)
+                    <option value="{{ $booking->id }}" data-exhibition-id="{{ $booking->exhibition_id }}" {{ old('booking_id') == $booking->id ? 'selected' : '' }}>
+                        {{ $booking->booking_number }} - {{ $booking->exhibition->name ?? '' }}
+                    </option>
+                @endforeach
+            </select>
+            @error('booking_id')
+                <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
+        </div>
+
+        <!-- Required Documents Section -->
+        <div id="requiredDocumentsSection" class="mb-4" style="display: none;">
+            <label class="form-label fw-bold mb-3">Required Documents</label>
+            <div id="requiredDocumentsList" class="border rounded p-3" style="background-color: #f8f9fa;">
+                <!-- Required documents will be loaded here via JavaScript -->
+            </div>
+        </div>
+
+        <!-- Document Category (only show if no required document selected) -->
+        <div class="mb-4" id="categorySection">
             <label class="form-label fw-bold mb-3">Document Category <span class="text-danger">*</span></label>
             @if($categories->count() > 0)
                 <div class="category-radio-group">
                     @foreach($categories as $category)
                         <div class="category-radio-item">
-                            <input type="radio" name="category" value="{{ $category->slug }}" id="cat_{{ $category->id }}" class="category-radio" required>
+                            <input type="radio" name="category" value="{{ $category->slug }}" id="cat_{{ $category->id }}" class="category-radio">
                             <label for="cat_{{ $category->id }}">{{ $category->name }}</label>
                         </div>
                     @endforeach
@@ -367,31 +392,15 @@
             <div class="text-danger small mt-2" id="categoryError" style="display: none;">Please select a category.</div>
         </div>
 
-        <!-- Booking Selection -->
-        <div class="mb-4">
-            <label class="form-label fw-bold">Booking <span class="text-danger">*</span></label>
-            <select name="booking_id" class="form-select @error('booking_id') is-invalid @enderror" required>
-                <option value="">Select Booking</option>
-                @foreach($bookings as $booking)
-                    <option value="{{ $booking->id }}" {{ old('booking_id') == $booking->id ? 'selected' : '' }}>
-                        {{ $booking->booking_number }} - {{ $booking->exhibition->name ?? '' }}
-                    </option>
-                @endforeach
-            </select>
-            @error('booking_id')
-                <div class="invalid-feedback">{{ $message }}</div>
-            @enderror
-        </div>
-
-        <!-- Drag and Drop Upload Zone -->
-        <div class="upload-zone" id="uploadZone">
+        <!-- Drag and Drop Upload Zone (only show if no required documents or category selected) -->
+        <div class="upload-zone" id="uploadZone" style="display: none;">
             <div class="upload-icon">
                 <i class="bi bi-cloud-upload"></i>
             </div>
             <div class="upload-text">
                 Drag and drop your files here
             </div>
-            <input type="file" name="files[]" id="fileInput" multiple required>
+            <input type="file" name="files[]" id="fileInput" multiple>
             <div class="file-requirements">
                 File type requirements: PDF, DOCX, DOC, JPG, JPEG, PNG<br>
                 Maximum file size: 5 MB
@@ -458,8 +467,18 @@
                 <tbody>
                     @forelse($documents as $document)
                     <tr>
-                        <td><strong>{{ $document->name }}</strong></td>
-                        <td>{{ ucfirst($document->type) }}</td>
+                        <td><strong>{{ $document->name }}</strong>
+                            @if($document->requiredDocument)
+                                <br><small class="text-muted">(Required Document)</small>
+                            @endif
+                        </td>
+                        <td>
+                            @if($document->requiredDocument)
+                                {{ $document->requiredDocument->document_name }}
+                            @else
+                                {{ ucfirst($document->type) }}
+                            @endif
+                        </td>
                         <td>{{ $document->created_at->format('Y-m-d') }}</td>
                         <td>
                             <span class="status-badge {{ $document->status === 'approved' ? 'status-approved' : ($document->status === 'rejected' ? 'status-rejected' : 'status-pending') }}">
@@ -481,16 +500,28 @@
                                 <a href="{{ asset('storage/' . $document->file_path) }}" download class="action-icon download" title="Download">
                                     <i class="bi bi-download"></i>
                                 </a>
-                                <a href="{{ route('documents.edit', $document->id) }}" class="action-icon edit" title="Edit">
-                                    <i class="bi bi-pencil"></i>
-                                </a>
-                                <form action="{{ route('documents.destroy', $document->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this document?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="action-icon delete" title="Delete" style="border: none; background: none; padding: 0;">
+                                @if($document->canBeEdited())
+                                    <a href="{{ route('documents.edit', $document->id) }}" class="action-icon edit" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                @else
+                                    <span class="action-icon edit" title="Cannot edit approved document" style="opacity: 0.5; cursor: not-allowed;">
+                                        <i class="bi bi-pencil"></i>
+                                    </span>
+                                @endif
+                                @if($document->canBeEdited())
+                                    <form action="{{ route('documents.destroy', $document->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this document?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="action-icon delete" title="Delete" style="border: none; background: none; padding: 0;">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                @else
+                                    <span class="action-icon delete" title="Cannot delete approved document" style="opacity: 0.5; cursor: not-allowed;">
                                         <i class="bi bi-trash"></i>
-                                    </button>
-                                </form>
+                                    </span>
+                                @endif
                             </div>
                         </td>
                     </tr>
@@ -628,8 +659,203 @@ function renderFileList() {
     });
 }
 
+// Store bookings data for JavaScript
+@php
+$bookingsData = $bookings->map(function($booking) {
+    return [
+        'id' => $booking->id,
+        'exhibition_id' => $booking->exhibition_id,
+        'required_documents' => ($booking->exhibition && $booking->exhibition->requiredDocuments ? $booking->exhibition->requiredDocuments->map(function($doc) {
+            return [
+                'id' => $doc->id,
+                'document_name' => $doc->document_name,
+                'document_type' => $doc->document_type,
+            ];
+        })->values()->toArray() : []),
+        'uploaded_documents' => ($booking->documents ? $booking->documents->where('required_document_id', '!=', null)->map(function($doc) {
+            return [
+                'id' => $doc->id,
+                'required_document_id' => $doc->required_document_id,
+                'status' => $doc->status,
+                'file_path' => $doc->file_path,
+            ];
+        })->values()->toArray() : []),
+    ];
+})->values()->toArray();
+@endphp
+const bookingsData = @json($bookingsData);
+
+function loadRequiredDocuments(bookingId) {
+    const booking = bookingsData.find(b => parseInt(b.id) === parseInt(bookingId));
+    const requiredDocsSection = document.getElementById('requiredDocumentsSection');
+    const requiredDocsList = document.getElementById('requiredDocumentsList');
+    const categorySection = document.getElementById('categorySection');
+    
+    const uploadZone = document.getElementById('uploadZone');
+    
+    if (!booking || !booking.required_documents || booking.required_documents.length === 0) {
+        requiredDocsSection.style.display = 'none';
+        categorySection.style.display = 'block';
+        uploadZone.style.display = 'block';
+        uploadZone.querySelector('input').required = true;
+        // Make category required
+        document.querySelectorAll('.category-radio').forEach(radio => {
+            radio.required = true;
+        });
+        return;
+    }
+    
+    // Show required documents section
+    requiredDocsSection.style.display = 'block';
+    categorySection.style.display = 'none';
+    uploadZone.style.display = 'none';
+    uploadZone.querySelector('input').required = false;
+    // Make category not required
+    document.querySelectorAll('.category-radio').forEach(radio => {
+        radio.required = false;
+        radio.checked = false;
+    });
+    
+    // Build required documents list
+    let html = '';
+    booking.required_documents.forEach(reqDoc => {
+        const uploadedDoc = booking.uploaded_documents.find(ud => parseInt(ud.required_document_id) === parseInt(reqDoc.id));
+        const isApproved = uploadedDoc && uploadedDoc.status === 'approved';
+        const hasUpload = uploadedDoc && uploadedDoc.status !== null;
+        
+        html += `
+            <div class="mb-3 p-3 border rounded bg-white required-doc-item" data-required-doc-id="${reqDoc.id}">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${reqDoc.document_name}</strong>
+                        <small class="text-muted d-block">Type: ${reqDoc.document_type === 'both' ? 'Image or PDF' : reqDoc.document_type.toUpperCase()}</small>
+                    </div>
+                    <div>
+                        ${hasUpload ? `
+                            <span class="badge ${isApproved ? 'bg-success' : (uploadedDoc.status === 'rejected' ? 'bg-danger' : 'bg-warning')}">
+                                ${isApproved ? 'Approved' : (uploadedDoc.status === 'rejected' ? 'Rejected' : 'Pending')}
+                            </span>
+                            ${!isApproved ? `
+                                <input type="file" id="fileInput_${reqDoc.id}" accept="${reqDoc.document_type === 'image' ? 'image/*' : (reqDoc.document_type === 'pdf' ? '.pdf' : 'image/*,.pdf')}" style="display: none;" onchange="uploadRequiredDocument(${reqDoc.id}, this.files[0])">
+                                <button type="button" class="btn btn-sm btn-primary ms-2" onclick="document.getElementById('fileInput_${reqDoc.id}').click()">
+                                    ${hasUpload ? 'Change' : 'Upload'}
+                                </button>
+                            ` : '<span class="text-muted ms-2">(Cannot change after approval)</span>'}
+                        ` : `
+                            <input type="file" id="fileInput_${reqDoc.id}" accept="${reqDoc.document_type === 'image' ? 'image/*' : (reqDoc.document_type === 'pdf' ? '.pdf' : 'image/*,.pdf')}" style="display: none;" onchange="uploadRequiredDocument(${reqDoc.id}, this.files[0])">
+                            <button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById('fileInput_${reqDoc.id}').click()">
+                                Upload
+                            </button>
+                        `}
+                    </div>
+                </div>
+                ${hasUpload && uploadedDoc.file_path ? `
+                    <div class="mt-2">
+                        <a href="{{ asset('storage/') }}/${uploadedDoc.file_path}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-eye"></i> View Current Document
+                        </a>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    });
+    
+    requiredDocsList.innerHTML = html || '<p class="text-muted mb-0">No required documents for this booking.</p>';
+}
+
+function uploadRequiredDocument(requiredDocId, file) {
+    if (!file) return;
+    
+    const bookingId = document.getElementById('bookingSelect').value;
+    if (!bookingId) {
+        alert('Please select a booking first.');
+        return;
+    }
+    
+    // Validate file type
+    const requiredDoc = bookingsData.find(b => parseInt(b.id) === parseInt(bookingId))
+        ?.required_documents.find(d => parseInt(d.id) === parseInt(requiredDocId));
+    
+    if (requiredDoc) {
+        const extension = file.name.split('.').pop().toLowerCase();
+        const docType = requiredDoc.document_type;
+        
+        if (docType === 'image' && !['jpg', 'jpeg', 'png'].includes(extension)) {
+            alert('This document requires an image file (JPG, JPEG, PNG).');
+            return;
+        }
+        if (docType === 'pdf' && extension !== 'pdf') {
+            alert('This document requires a PDF file.');
+            return;
+        }
+        if (docType === 'both' && !['jpg', 'jpeg', 'png', 'pdf'].includes(extension)) {
+            alert('This document requires an image (JPG, JPEG, PNG) or PDF file.');
+            return;
+        }
+    }
+    
+    // Create form data
+    const formData = new FormData();
+    formData.append('booking_id', bookingId);
+    formData.append('required_document_id', requiredDocId);
+    formData.append('files[]', file);
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || document.querySelector('input[name="_token"]')?.value;
+    if (!csrfToken) {
+        alert('CSRF token not found. Please refresh the page.');
+        return;
+    }
+    formData.append('_token', csrfToken);
+    
+    // Show loading
+    const button = document.querySelector(`#fileInput_${requiredDocId}`).nextElementSibling;
+    const originalText = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Uploading...';
+    
+    // Upload
+    fetch('{{ route("documents.store") }}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json().catch(() => ({ success: false, message: 'Upload failed' })))
+    .then(data => {
+        if (data.success !== false) {
+            alert('Document uploaded successfully!');
+            location.reload();
+        } else {
+            alert(data.message || 'Failed to upload document. Please try again.');
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred. Please try again.');
+        button.disabled = false;
+        button.innerHTML = originalText;
+    });
+}
+
+function selectRequiredDocument(requiredDocId) {
+    // This function is kept for backward compatibility but uploadRequiredDocument is used instead
+    document.getElementById(`fileInput_${requiredDocId}`).click();
+}
+
 // Form validation
 uploadForm.addEventListener('submit', (e) => {
+    const requiredDocsSection = document.getElementById('requiredDocumentsSection');
+    const categorySection = document.getElementById('categorySection');
+    
+    // If required documents section is visible, don't submit this form
+    if (requiredDocsSection && requiredDocsSection.style.display !== 'none') {
+        e.preventDefault();
+        alert('Please use the Upload button next to each required document to upload files.');
+        return false;
+    }
+    
     const selectedCategory = document.querySelector('.category-radio:checked');
     if (!selectedCategory) {
         e.preventDefault();
@@ -646,6 +872,14 @@ uploadForm.addEventListener('submit', (e) => {
     
     // Ensure file input is updated before submit
     updateFileInput();
+});
+
+// Load required documents on page load if booking is pre-selected
+document.addEventListener('DOMContentLoaded', function() {
+    const bookingSelect = document.getElementById('bookingSelect');
+    if (bookingSelect && bookingSelect.value) {
+        loadRequiredDocuments(bookingSelect.value);
+    }
 });
 
 // Category radio change

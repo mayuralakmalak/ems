@@ -213,6 +213,7 @@ Route::middleware('auth')->group(function () {
     
     // Documents
     Route::resource('documents', DocumentController::class);
+    Route::get('/bookings/{bookingId}/required-documents', [DocumentController::class, 'requiredDocuments'])->name('bookings.required-documents');
     
     // Document Categories (Read-only for exhibitors - only active categories)
     Route::get('/document-categories', [\App\Http\Controllers\Frontend\DocumentCategoryController::class, 'index'])->name('document-categories.index');
