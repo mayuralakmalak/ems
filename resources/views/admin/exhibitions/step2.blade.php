@@ -21,6 +21,99 @@
         <form id="step2Form" action="{{ route('admin.exhibitions.step2.store', $exhibition->id) }}" method="POST" enctype="multipart/form-data">
             @csrf
 
+              <!-- Floor Management Section -->
+              <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-building me-2"></i>Floor Management</h6>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="addFloorBtn">
+                        <i class="bi bi-plus-circle me-1"></i>Add Floor
+                    </button>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">Manage multiple floors for this exhibition. Each floor can have its own floor plan and booth configuration.</p>
+                    <div id="floorsContainer">
+                        @forelse($exhibition->floors as $floorIndex => $floor)
+                        <div class="border rounded p-3 mb-3 floor-item" data-floor-id="{{ $floor->id }}">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-layers me-2"></i>{{ $floor->name }}
+                                    @if(!$floor->is_active)
+                                        <span class="badge bg-secondary ms-2">Inactive</span>
+                                    @endif
+                                </h6>
+                                <button type="button" class="btn btn-sm btn-link text-danger remove-floor-btn" data-floor-id="{{ $floor->id }}">
+                                    <i class="bi bi-trash"></i> Remove
+                                </button>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Floor Name <span class="text-danger">*</span></label>
+                                    <input type="text" name="floors[{{ $floorIndex }}][name]" class="form-control floor-name-input" 
+                                           value="{{ $floor->name }}" required>
+                                    <input type="hidden" name="floors[{{ $floorIndex }}][id]" value="{{ $floor->id }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Floor Number <span class="text-danger">*</span></label>
+                                    <input type="number" name="floors[{{ $floorIndex }}][floor_number]" class="form-control" 
+                                           value="{{ $floor->floor_number }}" min="0" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Description</label>
+                                    <input type="text" name="floors[{{ $floorIndex }}][description]" class="form-control" 
+                                           value="{{ $floor->description }}" placeholder="Optional description">
+                                </div>
+                                <div class="col-md-1">
+                                    <label class="form-label">Active</label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" name="floors[{{ $floorIndex }}][is_active]" 
+                                               value="1" {{ $floor->is_active ? 'checked' : '' }}>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        @empty
+                        <div class="border rounded p-3 mb-3 floor-item" data-floor-id="new-0">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="mb-0"><i class="bi bi-layers me-2"></i>Floor #1</h6>
+                                <button type="button" class="btn btn-sm btn-link text-danger remove-floor-btn">
+                                    <i class="bi bi-trash"></i> Remove
+                                </button>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Floor Name <span class="text-danger">*</span></label>
+                                    <input type="text" name="floors[0][name]" class="form-control floor-name-input" 
+                                           value="Ground Floor" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Floor Number <span class="text-danger">*</span></label>
+                                    <input type="number" name="floors[0][floor_number]" class="form-control" 
+                                           value="0" min="0" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Description</label>
+                                    <input type="text" name="floors[0][description]" class="form-control" 
+                                           placeholder="Optional description">
+                                </div>
+                                <div class="col-md-1">
+                                    <label class="form-label">Active</label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" name="floors[0][is_active]" 
+                                               value="1" checked>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        @endforelse
+                    </div>
+                    <div class="d-flex justify-content-end mt-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="addFloorBtnBottom">
+                            <i class="bi bi-plus-circle me-1"></i>Add Floor
+                        </button>
+                    </div>
+                </div>
+              </div>
+
               <!-- Booth & Pricing Configuration Section -->
               <div class="card mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
@@ -368,6 +461,75 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    // Floor Management
+    const floorsContainer = document.getElementById('floorsContainer');
+    const addFloorButtons = document.querySelectorAll('#addFloorBtn, #addFloorBtnBottom');
+    let floorCounter = floorsContainer ? floorsContainer.querySelectorAll('.floor-item').length : 0;
+
+    const floorTemplate = (floorIndex) => `
+        <div class="border rounded p-3 mb-3 floor-item" data-floor-id="new-${floorIndex}">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0"><i class="bi bi-layers me-2"></i>Floor #${floorIndex + 1}</h6>
+                <button type="button" class="btn btn-sm btn-link text-danger remove-floor-btn">
+                    <i class="bi bi-trash"></i> Remove
+                </button>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Floor Name <span class="text-danger">*</span></label>
+                    <input type="text" name="floors[${floorIndex}][name]" class="form-control floor-name-input" 
+                           value="Floor ${floorIndex + 1}" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Floor Number <span class="text-danger">*</span></label>
+                    <input type="number" name="floors[${floorIndex}][floor_number]" class="form-control" 
+                           value="${floorIndex}" min="0" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Description</label>
+                    <input type="text" name="floors[${floorIndex}][description]" class="form-control" 
+                           placeholder="Optional description">
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label">Active</label>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="floors[${floorIndex}][is_active]" 
+                               value="1" checked>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const addFloor = () => {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = floorTemplate(floorCounter).trim();
+        floorsContainer.appendChild(wrapper.firstElementChild);
+        floorCounter += 1;
+    };
+
+    if (addFloorButtons && addFloorButtons.length && floorsContainer) {
+        addFloorButtons.forEach((btn) => btn.addEventListener('click', () => addFloor()));
+    }
+
+    if (floorsContainer) {
+        floorsContainer.addEventListener('click', (event) => {
+            if (event.target.closest('.remove-floor-btn')) {
+                const floorItem = event.target.closest('.floor-item');
+                const floorId = floorItem.getAttribute('data-floor-id');
+                
+                // Don't allow removing if it's the only floor
+                if (floorsContainer.querySelectorAll('.floor-item').length <= 1) {
+                    alert('You must have at least one floor.');
+                    return;
+                }
+                
+                floorItem.remove();
+            }
+        });
+    }
+
+    // Booth Sizes Management
     const sizesContainer = document.getElementById('boothSizesContainer');
     const addSizeButtons = document.querySelectorAll('.add-size-btn');
     let sizeCounter = sizesContainer ? sizesContainer.querySelectorAll('.booth-size-card').length : 0;

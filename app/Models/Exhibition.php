@@ -76,4 +76,17 @@ class Exhibition extends Model
     {
         return $this->hasMany(ExhibitionRequiredDocument::class);
     }
+
+    public function floors()
+    {
+        return $this->hasMany(Floor::class)->orderBy('floor_number', 'asc');
+    }
+
+    /**
+     * Get the default floor (first floor) for backward compatibility
+     */
+    public function getDefaultFloor()
+    {
+        return $this->floors()->first() ?? null;
+    }
 }

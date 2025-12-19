@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Exhibition;
 use App\Models\Booth;
+use App\Models\Floor;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -170,7 +171,7 @@ class FloorplanController extends Controller
     }
 
     /**
-     * Save floorplan configuration (hall, grid, booths) as JSON per exhibition.
+     * Save floorplan configuration (hall, grid, booths) as JSON per exhibition and floor.
      */
     public function saveConfig(Request $request, $exhibitionId)
     {
@@ -178,55 +179,79 @@ class FloorplanController extends Controller
             'hall' => 'required|array',
             'grid' => 'required|array',
             'booths' => 'required|array',
+            'floor_id' => 'nullable|exists:floors,id',
         ]);
 
         $exhibition = Exhibition::findOrFail($exhibitionId);
+        $floorId = $request->input('floor_id');
 
         $payload = $request->all();
         $payload['lastUpdated'] = now()->toDateTimeString();
 
-        // Persist JSON where frontend and admin both expect it (original path)
-        $path = "floorplans/exhibition_{$exhibition->id}.json";
+        // Determine the path based on whether floor_id is provided
+        if ($floorId) {
+            $floor = Floor::where('id', $floorId)
+                ->where('exhibition_id', $exhibitionId)
+                ->firstOrFail();
+            $path = $floor->getFloorplanConfigPath();
+        } else {
+            // Backward compatibility: use old path for exhibitions without floors
+            $path = "floorplans/exhibition_{$exhibition->id}.json";
+        }
+
         Storage::disk('local')->put($path, json_encode($payload, JSON_PRETTY_PRINT));
 
-        $this->syncBoothsFromPayload($payload, $exhibitionId);
+        $this->syncBoothsFromPayload($payload, $exhibitionId, $floorId);
 
         return response()->json(['success' => true]);
     }
 
     /**
-     * Load floorplan configuration JSON per exhibition.
+     * Load floorplan configuration JSON per exhibition and floor.
      */
-    public function loadConfig($exhibitionId)
+    public function loadConfig($exhibitionId, $floorId = null)
     {
         $exhibition = Exhibition::findOrFail($exhibitionId);
-        // Primary (original) path
+        
+        // If floor_id is provided, load floor-specific config
+        if ($floorId) {
+            $floor = Floor::where('id', $floorId)
+                ->where('exhibition_id', $exhibitionId)
+                ->firstOrFail();
+            $path = $floor->getFloorplanConfigPath();
+            
+            if (Storage::disk('local')->exists($path)) {
+                $json = Storage::disk('local')->get($path);
+                $payload = json_decode($json, true) ?: [];
+                $this->syncBoothsFromPayload($payload, $exhibitionId, $floorId);
+                $payload = $this->applySizeIdsFromDatabase($payload, $exhibitionId);
+                $json = json_encode($payload, JSON_PRETTY_PRINT);
+                Storage::disk('local')->put($path, $json);
+                return response($json, 200)->header('Content-Type', 'application/json');
+            }
+        }
+        
+        // Backward compatibility: try old path for exhibitions without floors
         $primaryPath = "floorplans/exhibition_{$exhibition->id}.json";
-        // Legacy/fallback path (in case existing data was saved to private/)
         $fallbackPath = "private/floorplans/exhibition_{$exhibition->id}.json";
 
         if (Storage::disk('local')->exists($primaryPath)) {
             $json = Storage::disk('local')->get($primaryPath);
             $payload = json_decode($json, true) ?: [];
-            $this->syncBoothsFromPayload($payload, $exhibitionId);
-            // Ensure booth size IDs from DB are reflected in the payload so UI can preselect correctly
+            $this->syncBoothsFromPayload($payload, $exhibitionId, null);
             $payload = $this->applySizeIdsFromDatabase($payload, $exhibitionId);
             $json = json_encode($payload, JSON_PRETTY_PRINT);
-            // Persist updated payload (with sizeId) for future loads
             Storage::disk('local')->put($primaryPath, $json);
             return response($json, 200)->header('Content-Type', 'application/json');
         }
 
         if (Storage::disk('local')->exists($fallbackPath)) {
-            // Optionally promote fallback file to primary location for future loads
             $json = Storage::disk('local')->get($fallbackPath);
             Storage::disk('local')->put($primaryPath, $json);
             $payload = json_decode($json, true) ?: [];
-            $this->syncBoothsFromPayload($payload, $exhibitionId);
-            // Ensure booth size IDs from DB are reflected in the payload so UI can preselect correctly
+            $this->syncBoothsFromPayload($payload, $exhibitionId, null);
             $payload = $this->applySizeIdsFromDatabase($payload, $exhibitionId);
             $json = json_encode($payload, JSON_PRETTY_PRINT);
-            // Persist updated payload (with sizeId) for future loads
             Storage::disk('local')->put($primaryPath, $json);
             return response($json, 200)->header('Content-Type', 'application/json');
         }
@@ -251,15 +276,24 @@ class FloorplanController extends Controller
     /**
      * Sync booth payload into DB for frontend consumption.
      */
-    private function syncBoothsFromPayload(array $payload, int $exhibitionId): void
+    private function syncBoothsFromPayload(array $payload, int $exhibitionId, ?int $floorId = null): void
     {
         $boothsData = collect($payload['booths'] ?? []);
         if ($boothsData->isEmpty()) {
             return;
         }
 
-        $existingBooths = Booth::where('exhibition_id', $exhibitionId)
-            ->whereIn('name', $boothsData->pluck('id')->filter())
+        $query = Booth::where('exhibition_id', $exhibitionId);
+        
+        // If floor_id is provided, only sync booths for that floor
+        if ($floorId) {
+            $query->where('floor_id', $floorId);
+        } else {
+            // For backward compatibility: only sync booths without floor_id
+            $query->whereNull('floor_id');
+        }
+        
+        $existingBooths = $query->whereIn('name', $boothsData->pluck('id')->filter())
             ->get()
             ->keyBy('name');
 
@@ -278,6 +312,7 @@ class FloorplanController extends Controller
 
             $booth = $existingBooths[$boothName] ?? new Booth([
                 'exhibition_id' => $exhibitionId,
+                'floor_id' => $floorId,
                 'name' => $boothName,
             ]);
 
@@ -298,6 +333,11 @@ class FloorplanController extends Controller
             $booth->position_y = $boothData['y'] ?? $booth->position_y;
             $booth->width = $boothData['width'] ?? $booth->width;
             $booth->height = $boothData['height'] ?? $booth->height;
+            
+            // Set floor_id if provided
+            if ($floorId) {
+                $booth->floor_id = $floorId;
+            }
 
             // Determine size ID:
             // 1) Use explicit sizeId from payload if valid

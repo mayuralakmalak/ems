@@ -43,6 +43,10 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     Route::get('/exhibitions/{id}/step4', [ExhibitionController::class, 'step4'])->name('exhibitions.step4');
     Route::post('/exhibitions/{id}/step4', [ExhibitionController::class, 'storeStep4'])->name('exhibitions.step4.store');
     
+    // Floor Management
+    Route::post('/exhibitions/{id}/floors', [ExhibitionController::class, 'storeFloors'])->name('exhibitions.floors.store');
+    Route::get('/exhibitions/{id}/floors', [ExhibitionController::class, 'getFloors'])->name('exhibitions.floors.get');
+    
     // User Management
     Route::resource('users', UserController::class);
     
@@ -117,6 +121,7 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     // Floorplan Management
         Route::get('/exhibitions/{id}/floorplan', [\App\Http\Controllers\Admin\FloorplanController::class, 'show'])->name('floorplan.show');
         Route::get('/exhibitions/{id}/floorplan/config', [\App\Http\Controllers\Admin\FloorplanController::class, 'loadConfig'])->name('floorplan.config.load');
+        Route::get('/exhibitions/{id}/floorplan/config/{floorId}', [\App\Http\Controllers\Admin\FloorplanController::class, 'loadConfig'])->name('floorplan.config.load.floor');
         Route::post('/exhibitions/{id}/floorplan/config', [\App\Http\Controllers\Admin\FloorplanController::class, 'saveConfig'])->name('floorplan.config.save');
         Route::post('/exhibitions/{exhibitionId}/booths/{boothId}/position', [\App\Http\Controllers\Admin\FloorplanController::class, 'updateBoothPosition'])->name('floorplan.update-position');
         Route::post('/exhibitions/{exhibitionId}/booths/merge', [\App\Http\Controllers\Admin\FloorplanController::class, 'mergeBooths'])->name('floorplan.merge');

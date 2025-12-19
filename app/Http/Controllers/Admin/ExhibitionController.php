@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Exhibition;
 use App\Models\Booth;
+use App\Models\Floor;
 use App\Models\PaymentSchedule;
 use App\Models\BadgeConfiguration;
 use App\Models\StallVariation;
@@ -67,7 +68,7 @@ class ExhibitionController extends Controller
 
     public function step2($id)
     {
-        $exhibition = Exhibition::with(['stallSchemes', 'booths', 'boothSizes.items', 'addonServices'])->findOrFail($id);
+        $exhibition = Exhibition::with(['stallSchemes', 'booths', 'boothSizes.items', 'addonServices', 'floors'])->findOrFail($id);
         $services = Service::where('is_active', true)->orderBy('name')->get();
 
         return view('admin.exhibitions.step2', compact('exhibition', 'services'));
@@ -89,6 +90,12 @@ class ExhibitionController extends Controller
             'premium_price' => 'nullable|numeric|min:0',
             'standard_price' => 'nullable|numeric|min:0',
             'economy_price' => 'nullable|numeric|min:0',
+            'floors' => 'nullable|array',
+            'floors.*.id' => 'nullable|exists:floors,id',
+            'floors.*.name' => 'required_with:floors|string|max:255',
+            'floors.*.floor_number' => 'required_with:floors|integer|min:0',
+            'floors.*.description' => 'nullable|string',
+            'floors.*.is_active' => 'nullable|boolean',
             'booth_sizes' => 'nullable|array',
             'booth_sizes.*.size_sqft' => 'nullable|numeric|min:0',
             'booth_sizes.*.row_price' => 'nullable|numeric|min:0',
@@ -286,6 +293,56 @@ class ExhibitionController extends Controller
             ]);
         }
 
+        // Handle floor management
+        if ($request->has('floors') && is_array($request->floors)) {
+            $existingFloorIds = [];
+            
+            foreach ($request->floors as $floorData) {
+                if (isset($floorData['id']) && $floorData['id']) {
+                    // Update existing floor
+                    $floor = Floor::where('id', $floorData['id'])
+                        ->where('exhibition_id', $exhibition->id)
+                        ->first();
+                    
+                    if ($floor) {
+                        $floor->update([
+                            'name' => $floorData['name'],
+                            'floor_number' => $floorData['floor_number'],
+                            'description' => $floorData['description'] ?? null,
+                            'is_active' => isset($floorData['is_active']) ? (bool)$floorData['is_active'] : true,
+                        ]);
+                        $existingFloorIds[] = $floor->id;
+                    }
+                } else {
+                    // Create new floor
+                    $floor = Floor::create([
+                        'exhibition_id' => $exhibition->id,
+                        'name' => $floorData['name'],
+                        'floor_number' => $floorData['floor_number'],
+                        'description' => $floorData['description'] ?? null,
+                        'is_active' => isset($floorData['is_active']) ? (bool)$floorData['is_active'] : true,
+                    ]);
+                    $existingFloorIds[] = $floor->id;
+                }
+            }
+
+            // Delete floors that were removed (only if they have no booths)
+            Floor::where('exhibition_id', $exhibition->id)
+                ->whereNotIn('id', $existingFloorIds)
+                ->whereDoesntHave('booths')
+                ->delete();
+        } else {
+            // If no floors provided and exhibition has no floors, create a default floor
+            if ($exhibition->floors()->count() === 0) {
+                Floor::create([
+                    'exhibition_id' => $exhibition->id,
+                    'name' => 'Ground Floor',
+                    'floor_number' => 0,
+                    'is_active' => true,
+                ]);
+            }
+        }
+
         return redirect()->route('admin.exhibitions.step3', $exhibition->id);
     }
 
@@ -322,7 +379,7 @@ class ExhibitionController extends Controller
 
     public function step3($id)
     {
-        $exhibition = Exhibition::with(['paymentSchedules', 'boothSizes'])->findOrFail($id);
+        $exhibition = Exhibition::with(['paymentSchedules', 'boothSizes', 'floors'])->findOrFail($id);
         return view('admin.exhibitions.step3', compact('exhibition'));
     }
 
@@ -338,6 +395,9 @@ class ExhibitionController extends Controller
             'document_upload_deadline' => 'nullable|date',
             'floorplan_images' => 'nullable|array',
             'floorplan_images.*' => 'nullable|image|max:10240',
+            'current_floor_id' => 'nullable|exists:floors,id',
+            'existing_floorplan_images' => 'nullable|array',
+            'remove_floorplan_images' => 'nullable|array',
         ]);
 
         // Delete existing schedules
@@ -353,51 +413,101 @@ class ExhibitionController extends Controller
             ]);
         }
 
-        // Update cut-off dates
+        // Update cut-off dates - always update these on the exhibition
+        // Convert empty strings to null to properly handle form submissions
         $updateData = [
-            'addon_services_cutoff_date' => $request->addon_services_cutoff_date,
-            'document_upload_deadline' => $request->document_upload_deadline,
+            'addon_services_cutoff_date' => $request->addon_services_cutoff_date ?: null,
+            'document_upload_deadline' => $request->document_upload_deadline ?: null,
         ];
 
-        // Handle multiple floorplan images (admin can upload, preview, and remove)
-        $existingImages = $request->input('existing_floorplan_images', []);
-        $removeImages = $request->input('remove_floorplan_images', []);
+        // Handle floor-specific floorplan images
+        $currentFloorId = $request->input('current_floor_id');
+        
+        if ($currentFloorId) {
+            // Handle floor-specific images
+            $floor = Floor::where('id', $currentFloorId)
+                ->where('exhibition_id', $exhibition->id)
+                ->firstOrFail();
+            
+            $existingImages = $request->input("existing_floorplan_images.{$currentFloorId}", []);
+            $removeImages = $request->input("remove_floorplan_images.{$currentFloorId}", []);
 
-        if (!is_array($existingImages)) {
-            $existingImages = [];
-        }
-        if (!is_array($removeImages)) {
-            $removeImages = [];
-        }
+            if (!is_array($existingImages)) {
+                $existingImages = [];
+            }
+            if (!is_array($removeImages)) {
+                $removeImages = [];
+            }
 
-        // Keep only those existing images that are not marked for removal
-        $keptImages = array_values(array_diff($existingImages, $removeImages));
+            // Keep only those existing images that are not marked for removal
+            $keptImages = array_values(array_diff($existingImages, $removeImages));
 
-        // Physically delete removed images from storage
-        if (!empty($removeImages)) {
-            Storage::disk('public')->delete($removeImages);
-        }
+            // Physically delete removed images from storage
+            if (!empty($removeImages)) {
+                Storage::disk('public')->delete($removeImages);
+            }
 
-        // Handle newly uploaded images
-        $newImages = [];
-        if ($request->hasFile('floorplan_images')) {
-            foreach ($request->file('floorplan_images') as $imageFile) {
-                if ($imageFile) {
-                    $newImages[] = $imageFile->store('floorplans', 'public');
+            // Handle newly uploaded images
+            $newImages = [];
+            if ($request->hasFile('floorplan_images')) {
+                foreach ($request->file('floorplan_images') as $imageFile) {
+                    if ($imageFile) {
+                        $newImages[] = $imageFile->store('floorplans', 'public');
+                    }
                 }
             }
+
+            // Merge kept existing and new images
+            $finalFloorplanImages = array_merge($keptImages, $newImages);
+            
+            $floor->update([
+                'floorplan_images' => !empty($finalFloorplanImages) ? $finalFloorplanImages : null,
+                'floorplan_image' => !empty($finalFloorplanImages) ? $finalFloorplanImages[0] : null,
+            ]);
+            
+            // Always update cut-off dates on exhibition
+            $exhibition->update($updateData);
+        } else {
+            // Backward compatibility: handle exhibition-level floorplan images
+            $existingImages = $request->input('existing_floorplan_images', []);
+            $removeImages = $request->input('remove_floorplan_images', []);
+
+            if (!is_array($existingImages)) {
+                $existingImages = [];
+            }
+            if (!is_array($removeImages)) {
+                $removeImages = [];
+            }
+
+            // Keep only those existing images that are not marked for removal
+            $keptImages = array_values(array_diff($existingImages, $removeImages));
+
+            // Physically delete removed images from storage
+            if (!empty($removeImages)) {
+                Storage::disk('public')->delete($removeImages);
+            }
+
+            // Handle newly uploaded images
+            $newImages = [];
+            if ($request->hasFile('floorplan_images')) {
+                foreach ($request->file('floorplan_images') as $imageFile) {
+                    if ($imageFile) {
+                        $newImages[] = $imageFile->store('floorplans', 'public');
+                    }
+                }
+            }
+
+            // Merge kept existing and new images
+            $finalFloorplanImages = array_merge($keptImages, $newImages);
+            $updateData['floorplan_images'] = $finalFloorplanImages;
+
+            // For backward compatibility, keep single floorplan_image as the first image (if any)
+            if (!empty($finalFloorplanImages)) {
+                $updateData['floorplan_image'] = $finalFloorplanImages[0];
+            }
+
+            $exhibition->update($updateData);
         }
-
-        // Merge kept existing and new images
-        $finalFloorplanImages = array_merge($keptImages, $newImages);
-        $updateData['floorplan_images'] = $finalFloorplanImages;
-
-        // For backward compatibility, keep single floorplan_image as the first image (if any)
-        if (!empty($finalFloorplanImages)) {
-            $updateData['floorplan_image'] = $finalFloorplanImages[0];
-        }
-
-        $exhibition->update($updateData);
 
         return redirect()->route('admin.exhibitions.step4', $exhibition->id);
     }
@@ -557,5 +667,73 @@ class ExhibitionController extends Controller
     {
         Exhibition::findOrFail($id)->delete();
         return redirect()->route('admin.exhibitions.index')->with('success', 'Exhibition deleted!');
+    }
+
+    /**
+     * Store or update floors for an exhibition
+     */
+    public function storeFloors(Request $request, $id)
+    {
+        $exhibition = Exhibition::findOrFail($id);
+        
+        $validated = $request->validate([
+            'floors' => 'required|array|min:1',
+            'floors.*.id' => 'nullable|exists:floors,id',
+            'floors.*.name' => 'required|string|max:255',
+            'floors.*.floor_number' => 'required|integer|min:0',
+            'floors.*.description' => 'nullable|string',
+            'floors.*.is_active' => 'nullable|boolean',
+        ]);
+
+        $existingFloorIds = [];
+        
+        foreach ($validated['floors'] as $floorData) {
+            if (isset($floorData['id'])) {
+                // Update existing floor
+                $floor = Floor::where('id', $floorData['id'])
+                    ->where('exhibition_id', $exhibition->id)
+                    ->firstOrFail();
+                
+                $floor->update([
+                    'name' => $floorData['name'],
+                    'floor_number' => $floorData['floor_number'],
+                    'description' => $floorData['description'] ?? null,
+                    'is_active' => $floorData['is_active'] ?? true,
+                ]);
+                
+                $existingFloorIds[] = $floor->id;
+            } else {
+                // Create new floor
+                $floor = Floor::create([
+                    'exhibition_id' => $exhibition->id,
+                    'name' => $floorData['name'],
+                    'floor_number' => $floorData['floor_number'],
+                    'description' => $floorData['description'] ?? null,
+                    'is_active' => $floorData['is_active'] ?? true,
+                ]);
+                
+                $existingFloorIds[] = $floor->id;
+            }
+        }
+
+        // Delete floors that were removed
+        Floor::where('exhibition_id', $exhibition->id)
+            ->whereNotIn('id', $existingFloorIds)
+            ->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Floors updated successfully',
+            'floors' => $exhibition->fresh()->floors
+        ]);
+    }
+
+    /**
+     * Get floors for an exhibition
+     */
+    public function getFloors($id)
+    {
+        $exhibition = Exhibition::with('floors')->findOrFail($id);
+        return response()->json($exhibition->floors);
     }
 }

@@ -10,7 +10,7 @@ class Booth extends Model
     use HasFactory;
 
     protected $fillable = [
-        'exhibition_id', 'name', 'category', 'booth_type', 'size_sqft',
+        'exhibition_id', 'floor_id', 'name', 'category', 'booth_type', 'size_sqft',
         'sides_open', 'price', 'is_free', 'is_available', 'is_booked',
         'logo', 'coordinates', 'merged_booths', 'is_merged', 'is_split', 'parent_booth_id',
         'exhibition_booth_size_id', 'position_x', 'position_y', 'width', 'height'
@@ -44,5 +44,10 @@ class Booth extends Model
     public function childBooths()
     {
         return $this->hasMany(Booth::class, 'parent_booth_id');
+    }
+
+    public function floor()
+    {
+        return $this->belongsTo(Floor::class);
     }
 }

@@ -43,6 +43,10 @@ class AdminFloorplanManager {
 
         const idEl = document.getElementById('exhibitionId');
         this.exhibitionId = idEl ? idEl.value : null;
+
+        // Get current floor ID
+        const floorIdEl = document.getElementById('currentFloorId');
+        this.currentFloorId = floorIdEl ? floorIdEl.value : null;
         this.init();
     }
 
@@ -65,8 +69,10 @@ class AdminFloorplanManager {
             this.updateGrid();
         }, 100);
 
-        // Optional: load saved config if available
-        await this.loadConfiguration();
+        // Optional: load saved config if available (only if no floor_id is set, otherwise it will be loaded when floor is selected)
+        if (!this.currentFloorId) {
+            await this.loadConfiguration();
+        }
     }
 
     // Draw hall outline - aligned to grid
@@ -1450,6 +1456,11 @@ class AdminFloorplanManager {
             booths: this.booths
         };
 
+        // Include floor_id if available
+        if (this.currentFloorId) {
+            config.floor_id = this.currentFloorId;
+        }
+
         try {
             if (!this.exhibitionId) return;
 
@@ -1474,12 +1485,24 @@ class AdminFloorplanManager {
     }
 
     // Load configuration from JSON file
-    async loadConfiguration() {
+    async loadConfiguration(floorId = null, showConfirm = true) {
         if (!this.exhibitionId) return;
-        if (!confirm('Load floor plan from server? This will replace current setup.')) return;
+
+        if (showConfirm && !confirm('Load floor plan from server? This will replace current setup.')) {
+            return;
+        }
+
+        // Use provided floorId or get from currentFloorId
+        const floorIdToUse = floorId || this.currentFloorId;
+
+        // Build URL
+        let url = `/admin/exhibitions/${this.exhibitionId}/floorplan/config`;
+        if (floorIdToUse) {
+            url = `/admin/exhibitions/${this.exhibitionId}/floorplan/config/${floorIdToUse}`;
+        }
 
         try {
-            const response = await fetch(`/admin/exhibitions/${this.exhibitionId}/floorplan/config`, {
+            const response = await fetch(url, {
                 headers: { 'Accept': 'application/json' }
             });
             const config = await response.json();
@@ -1547,5 +1570,12 @@ class AdminFloorplanManager {
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    new AdminFloorplanManager();
+    window.floorplanEditor = new AdminFloorplanManager();
+
+    // Load configuration for current floor if available
+    const floorIdEl = document.getElementById('currentFloorId');
+    if (floorIdEl && floorIdEl.value && window.floorplanEditor) {
+        window.floorplanEditor.currentFloorId = floorIdEl.value;
+        window.floorplanEditor.loadConfiguration(floorIdEl.value);
+    }
 });

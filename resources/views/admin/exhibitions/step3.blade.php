@@ -9,6 +9,7 @@
 
 @section('content')
 <input type="hidden" id="exhibitionId" value="{{ $exhibition->id }}">
+<input type="hidden" id="currentFloorId" value="{{ $selectedFloorId ?? '' }}">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 
 <div class="row">
@@ -26,50 +27,58 @@
 <form action="{{ route('admin.exhibitions.step3.store', $exhibition->id) }}" method="POST" id="paymentScheduleForm" enctype="multipart/form-data">
     @csrf
 
-    <!-- Floorplan Management Section -->
+    <!-- Floor Selection Section -->
     <div class="card mb-4">
         <div class="card-header">
-            <h5 class="mb-0">Floor Plan Management</h5>
+            <h5 class="mb-0"><i class="bi bi-layers me-2"></i>Select Floor for Floor Plan Management</h5>
+        </div>
+        <div class="card-body">
+            @php
+                $floors = $exhibition->floors ?? collect();
+                $selectedFloorId = request()->get('floor_id', $floors->first()?->id);
+            @endphp
+            
+            @if($floors->count() > 0)
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Select Floor:</label>
+                    <select id="floorSelector" class="form-select" style="max-width: 400px;">
+                        @foreach($floors as $floor)
+                            <option value="{{ $floor->id }}" {{ $selectedFloorId == $floor->id ? 'selected' : '' }}>
+                                {{ $floor->name }} (Floor #{{ $floor->floor_number }})
+                                @if(!$floor->is_active)
+                                    - Inactive
+                                @endif
+                            </option>
+                        @endforeach
+                    </select>
+                    <small class="text-muted d-block mt-2">Select a floor to manage its floor plan and booths. Each floor has its own independent floor plan.</small>
+                </div>
+            @else
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    No floors configured. Please go back to <a href="{{ route('admin.exhibitions.step2', $exhibition->id) }}">Step 2</a> to add floors first.
+                </div>
+            @endif
+        </div>
+    </div>
+
+    <!-- Floorplan Management Section -->
+    <div class="card mb-4" id="floorplanCard">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <span id="floorplanTitle">Floor Plan Management</span>
+                <span id="selectedFloorName" class="badge bg-primary ms-2"></span>
+            </h5>
         </div>
         <div class="card-body" style="padding: 0;">
-            <div class="p-3">
-                <label class="form-label mb-2">Upload Floorplan Background Images (Optional)</label>
+            <div class="p-3" id="floorplanImagesSection">
+                <label class="form-label mb-2">Upload Floorplan Background Images for <span id="currentFloorName">Selected Floor</span> (Optional)</label>
                 <input type="file" name="floorplan_images[]" class="form-control" accept="image/*" multiple id="floorplanImagesInput">
+                <input type="hidden" id="currentFloorIdForm" name="current_floor_id" value="{{ $selectedFloorId }}">
                 <div id="floorplanNewPreview" class="d-flex flex-wrap gap-3 mt-2"></div>
-                @php
-                    $floorplanImages = is_array($exhibition->floorplan_images ?? null)
-                        ? $exhibition->floorplan_images
-                        : (array) ($exhibition->floorplan_image ? [$exhibition->floorplan_image] : []);
-                @endphp
-                @if(!empty($floorplanImages))
-                    <div class="mt-2">
-                        <span class="text-muted d-block mb-1">Existing images:</span>
-                        <div class="d-flex flex-wrap gap-3">
-                            @foreach($floorplanImages as $imgPath)
-                                <div class="border rounded p-2 text-center" style="width: 120px;">
-                                    <img
-                                        src="{{ asset('storage/' . ltrim($imgPath, '/')) }}"
-                                        alt="Floorplan"
-                                        style="width: 100%; height: 80px; object-fit: cover; border-radius: 4px;"
-                                    >
-                                    <div class="form-check mt-1">
-                                        <input
-                                            class="form-check-input"
-                                            type="checkbox"
-                                            name="remove_floorplan_images[]"
-                                            value="{{ $imgPath }}"
-                                            id="remove_floorplan_{{ md5($imgPath) }}"
-                                        >
-                                        <label class="form-check-label small" for="remove_floorplan_{{ md5($imgPath) }}">
-                                            Remove
-                                        </label>
-                                    </div>
-                                    <input type="hidden" name="existing_floorplan_images[]" value="{{ $imgPath }}">
-                                </div>
-                            @endforeach
-                        </div>
-                    </div>
-                @endif
+                <div id="existingFloorplanImages" class="mt-2">
+                    <!-- Existing images will be loaded dynamically based on selected floor -->
+                </div>
             </div>
 
             <div class="admin-container" style="height: 80vh;">
@@ -384,36 +393,163 @@
 <script src="{{ asset('js/admin-floorplan-step2.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    const exhibitionId = {{ $exhibition->id }};
+    const floorSelector = document.getElementById('floorSelector');
+    const currentFloorIdInput = document.getElementById('currentFloorId');
+    const currentFloorNameSpan = document.getElementById('currentFloorName');
+    const selectedFloorNameBadge = document.getElementById('selectedFloorName');
+    const existingImagesContainer = document.getElementById('existingFloorplanImages');
+    const floorplanCard = document.getElementById('floorplanCard');
+    
+    // Floor data cache
+    const floorsData = @json($exhibition->floors ?? []);
+    
+    // Initialize floor selector
+    if (floorSelector && floorsData.length > 0) {
+        const initialFloorId = floorSelector.value;
+        loadFloorData(initialFloorId);
+        
+        floorSelector.addEventListener('change', function() {
+            const selectedFloorId = this.value;
+            loadFloorData(selectedFloorId);
+        });
+    }
+    
+    function loadFloorData(floorId) {
+        const floor = floorsData.find(f => f.id == floorId);
+        if (!floor) return;
+        
+        // Update UI
+        const currentFloorIdEl = document.getElementById('currentFloorId');
+        if (currentFloorIdEl) currentFloorIdEl.value = floorId;
+        if (currentFloorIdInput) currentFloorIdInput.value = floorId;
+        if (currentFloorNameSpan) currentFloorNameSpan.textContent = floor.name;
+        if (selectedFloorNameBadge) selectedFloorNameBadge.textContent = floor.name;
+        
+        // Update floorplan editor's currentFloorId
+        if (window.floorplanEditor) {
+            window.floorplanEditor.currentFloorId = floorId;
+        }
+        
+        // Load existing images for this floor
+        loadFloorImages(floorId, floor);
+        
+        // Update floorplan editor to load this floor's config
+        loadFloorplanConfig(floorId);
+    }
+    
+    function loadFloorImages(floorId, floor) {
+        if (!existingImagesContainer) return;
+        
+        const floorplanImages = floor.floorplan_images ?? [];
+        const floorplanImage = floor.floorplan_image;
+        
+        let allImages = [];
+        if (Array.isArray(floorplanImages) && floorplanImages.length > 0) {
+            allImages = floorplanImages;
+        } else if (floorplanImage) {
+            allImages = [floorplanImage];
+        }
+        
+        if (allImages.length > 0) {
+            let html = '<div class="mt-2"><span class="text-muted d-block mb-1">Existing images:</span><div class="d-flex flex-wrap gap-3">';
+            allImages.forEach((imgPath, index) => {
+                html += `
+                    <div class="border rounded p-2 text-center" style="width: 120px;">
+                        <img src="{{ asset('storage/') }}/${imgPath.replace(/^\/+/, '')}" alt="Floorplan" 
+                             style="width: 100%; height: 80px; object-fit: cover; border-radius: 4px;">
+                        <div class="form-check mt-1">
+                            <input class="form-check-input" type="checkbox" 
+                                   name="remove_floorplan_images[${floorId}][]" 
+                                   value="${imgPath}" 
+                                   id="remove_floorplan_${floorId}_${index}">
+                            <label class="form-check-label small" for="remove_floorplan_${floorId}_${index}">
+                                Remove
+                            </label>
+                        </div>
+                        <input type="hidden" name="existing_floorplan_images[${floorId}][]" value="${imgPath}">
+                    </div>
+                `;
+            });
+            html += '</div></div>';
+            existingImagesContainer.innerHTML = html;
+        } else {
+            existingImagesContainer.innerHTML = '<p class="text-muted small mt-2">No existing images for this floor.</p>';
+        }
+    }
+    
+    function loadFloorplanConfig(floorId) {
+        // Load floorplan config via AJAX
+        if (window.floorplanEditor && typeof window.floorplanEditor.loadConfiguration === 'function') {
+            // Update currentFloorId
+            window.floorplanEditor.currentFloorId = floorId;
+            // Load the config without confirmation dialog
+            window.floorplanEditor.loadConfiguration(floorId, false);
+        } else {
+            // Fallback: fetch and manually set config
+            fetch(`/admin/exhibitions/${exhibitionId}/floorplan/config/${floorId}`, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (window.floorplanEditor) {
+                    window.floorplanEditor.currentFloorId = floorId;
+                    // Manually set the config if there's a method for it
+                    if (data.hall && window.floorplanEditor.hallConfig) {
+                        window.floorplanEditor.hallConfig = data.hall;
+                    }
+                    if (data.grid && window.floorplanEditor.gridConfig) {
+                        window.floorplanEditor.gridConfig = data.grid;
+                    }
+                    if (data.booths && Array.isArray(data.booths)) {
+                        window.floorplanEditor.booths = data.booths;
+                    }
+                    // Trigger redraw
+                    if (window.floorplanEditor.updateGrid) window.floorplanEditor.updateGrid();
+                    if (window.floorplanEditor.drawHall) window.floorplanEditor.drawHall();
+                    if (window.floorplanEditor.renderBooths) window.floorplanEditor.renderBooths();
+                }
+            })
+            .catch(error => {
+                console.error('Error loading floorplan config:', error);
+            });
+        }
+    }
+    
+    // Image preview handler
     const input = document.getElementById('floorplanImagesInput');
     const previewContainer = document.getElementById('floorplanNewPreview');
 
-    if (!input || !previewContainer) return;
+    if (input && previewContainer) {
+        input.addEventListener('change', function (event) {
+            const files = Array.from(event.target.files || []);
+            previewContainer.innerHTML = '';
 
-    input.addEventListener('change', function (event) {
-        const files = Array.from(event.target.files || []);
-        previewContainer.innerHTML = '';
+            if (!files.length) {
+                return;
+            }
 
-        if (!files.length) {
-            return;
-        }
+            files.forEach((file) => {
+                if (!file.type.startsWith('image/')) return;
 
-        files.forEach((file) => {
-            if (!file.type.startsWith('image/')) return;
-
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                const wrapper = document.createElement('div');
-                wrapper.className = 'border rounded p-2 text-center';
-                wrapper.style.width = '120px';
-                wrapper.innerHTML = `
-                    <img src="${e.target.result}" alt="${file.name}" style="width: 100%; height: 80px; object-fit: cover; border-radius: 4px;">
-                    <div class="small mt-1 text-truncate" title="${file.name}">${file.name}</div>
-                `;
-                previewContainer.appendChild(wrapper);
-            };
-            reader.readAsDataURL(file);
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'border rounded p-2 text-center';
+                    wrapper.style.width = '120px';
+                    wrapper.innerHTML = `
+                        <img src="${e.target.result}" alt="${file.name}" style="width: 100%; height: 80px; object-fit: cover; border-radius: 4px;">
+                        <div class="small mt-1 text-truncate" title="${file.name}">${file.name}</div>
+                    `;
+                    previewContainer.appendChild(wrapper);
+                };
+                reader.readAsDataURL(file);
+            });
         });
-    });
+    }
 });
 </script>
 @endpush
