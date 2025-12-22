@@ -200,7 +200,7 @@ class BookingController extends Controller
 
     public function show($id)
     {
-        $booking = Booking::with(['exhibition', 'booth', 'user', 'payments', 'documents', 'badges', 'bookingServices.service'])
+        $booking = Booking::with(['exhibition', 'booth', 'user', 'payments', 'documents', 'badges', 'bookingServices.service', 'additionalServiceRequests.service', 'additionalServiceRequests.approver'])
             ->findOrFail($id);
         
         return view('admin.bookings.show', compact('booking'));

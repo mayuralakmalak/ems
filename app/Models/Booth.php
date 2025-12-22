@@ -50,4 +50,9 @@ class Booth extends Model
     {
         return $this->belongsTo(Floor::class);
     }
+
+    public function exhibitionBoothSize()
+    {
+        return $this->belongsTo(ExhibitionBoothSize::class, 'exhibition_booth_size_id');
+    }
 }

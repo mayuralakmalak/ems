@@ -14,7 +14,33 @@ class FloorplanController extends Controller
 {
     public function show($id)
     {
-        $exhibition = Exhibition::with('booths')->findOrFail($id);
+        // Load exhibition with floors and booths
+        $exhibition = Exhibition::with(['floors' => function($query) {
+            $query->where('is_active', true)->orderBy('floor_number', 'asc');
+        }, 'booths'])->findOrFail($id);
+        
+        $floors = $exhibition->floors;
+
+        // Get selected floor from request or default to first active floor
+        $selectedFloorId = request()->query('floor_id');
+        $selectedFloor = null;
+        
+        if ($selectedFloorId) {
+            $selectedFloor = $exhibition->floors->firstWhere('id', $selectedFloorId);
+        }
+        
+        // If no floor selected or selected floor not found, use first active floor
+        if (!$selectedFloor && $exhibition->floors->isNotEmpty()) {
+            $selectedFloor = $exhibition->floors->first();
+            $selectedFloorId = $selectedFloor->id;
+        }
+
+        // Filter booths by selected floor if floor is selected
+        if ($selectedFloor) {
+            $exhibition->booths = $exhibition->booths->filter(function($booth) use ($selectedFloorId) {
+                return $booth->floor_id == $selectedFloorId;
+            });
+        }
         
         // Get all booths that are reserved (pending booking - regardless of payment status)
         // A booth is reserved when booking exists with approval_status = 'pending'
@@ -113,9 +139,9 @@ class FloorplanController extends Controller
             ->latest()
             ->get();
             
-            return view('frontend.floorplan.show', compact('exhibition', 'bookings', 'payments', 'reservedBoothIds', 'bookedBoothIds'));
+            return view('frontend.floorplan.show', compact('exhibition', 'bookings', 'payments', 'reservedBoothIds', 'bookedBoothIds', 'floors', 'selectedFloor', 'selectedFloorId'));
         } else {
-            return view('frontend.floorplan.public', compact('exhibition', 'reservedBoothIds', 'bookedBoothIds'));
+            return view('frontend.floorplan.public', compact('exhibition', 'reservedBoothIds', 'bookedBoothIds', 'floors', 'selectedFloor', 'selectedFloorId'));
         }
     }
 

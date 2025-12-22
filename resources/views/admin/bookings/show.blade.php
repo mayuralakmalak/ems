@@ -240,6 +240,101 @@
                 @endif
             </div>
         </div>
+
+        <!-- Additional Service Requests -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Additional Service Requests</h5>
+                <a href="{{ route('admin.additional-service-requests.index') }}" class="btn btn-sm btn-outline-primary">
+                    View All
+                </a>
+            </div>
+            <div class="card-body">
+                @php
+                    $additionalRequests = $booking->additionalServiceRequests;
+                @endphp
+                @if($additionalRequests->count() > 0)
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Service</th>
+                                    <th>Qty</th>
+                                    <th>Price</th>
+                                    <th>Total</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($additionalRequests as $req)
+                                <tr>
+                                    <td>{{ $req->service->name }}</td>
+                                    <td>{{ $req->quantity }}</td>
+                                    <td>₹{{ number_format($req->unit_price, 2) }}</td>
+                                    <td>₹{{ number_format($req->total_price, 2) }}</td>
+                                    <td>
+                                        @if($req->status === 'approved')
+                                            <span class="badge bg-success">Approved</span>
+                                        @elseif($req->status === 'rejected')
+                                            <span class="badge bg-danger">Rejected</span>
+                                        @else
+                                            <span class="badge bg-warning">Pending</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if($req->status === 'pending')
+                                            <form action="{{ route('admin.additional-service-requests.approve', $req->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Approve this request? A payment will be generated.');">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-success">
+                                                    <i class="bi bi-check"></i>
+                                                </button>
+                                            </form>
+                                            <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal{{ $req->id }}">
+                                                <i class="bi bi-x"></i>
+                                            </button>
+                                            
+                                            <!-- Reject Modal -->
+                                            <div class="modal fade" id="rejectModal{{ $req->id }}" tabindex="-1">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title">Reject Request</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                        </div>
+                                                        <form action="{{ route('admin.additional-service-requests.reject', $req->id) }}" method="POST">
+                                                            @csrf
+                                                            <div class="modal-body">
+                                                                <div class="mb-3">
+                                                                    <label class="form-label">Rejection Reason *</label>
+                                                                    <textarea class="form-control" name="rejection_reason" rows="3" required></textarea>
+                                                                </div>
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                                <button type="submit" class="btn btn-danger">Reject</button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @else
+                                            <small class="text-muted">
+                                                {{ $req->approver->name ?? 'Admin' }}<br>
+                                                {{ $req->approved_at->format('d M Y') }}
+                                            </small>
+                                        @endif
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <p class="text-muted mb-0">No additional service requests.</p>
+                @endif
+            </div>
+        </div>
     </div>
 </div>
 

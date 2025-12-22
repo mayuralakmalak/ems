@@ -13,10 +13,12 @@ class ExhibitionAddonService extends Model
         'exhibition_id',
         'item_name',
         'price_per_quantity',
+        'cutoff_date',
     ];
 
     protected $casts = [
         'price_per_quantity' => 'float',
+        'cutoff_date' => 'date',
     ];
 
     public function exhibition()

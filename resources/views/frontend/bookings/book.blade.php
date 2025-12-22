@@ -576,6 +576,19 @@
         opacity: 0.5;
     }
 
+    /* Exhibition Details Banner Responsive */
+    @media (max-width: 768px) {
+        .exhibition-details-banner > div {
+            flex-direction: column !important;
+            text-align: center;
+        }
+        
+        .exhibition-details-banner > div > div:last-child {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+
     /* Included items list inside booth details */
     .included-items-list {
         list-style: disc;
@@ -721,6 +734,78 @@
 @endpush
 
 @section('content')
+<!-- Exhibition Details Banner -->
+<div class="exhibition-details-banner" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 25px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+        <div style="flex: 1; min-width: 300px;">
+            <h3 style="margin: 0 0 10px 0; font-size: 1.5rem; font-weight: 700; color: white;">
+                <i class="bi bi-calendar-event me-2"></i>{{ $exhibition->name }}
+            </h3>
+            @if($exhibition->description)
+            <p style="margin: 0; font-size: 0.95rem; opacity: 0.9; line-height: 1.5;">
+                {{ \Illuminate\Support\Str::limit($exhibition->description, 150) }}
+            </p>
+            @endif
+        </div>
+        <div style="display: flex; gap: 30px; flex-wrap: wrap; align-items: center;">
+            <div style="text-align: center;">
+                <div style="font-size: 0.85rem; opacity: 0.9; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <i class="bi bi-calendar3 me-1"></i>Date
+                </div>
+                <div style="font-size: 1.1rem; font-weight: 600;">
+                    @if($exhibition->start_date && $exhibition->end_date)
+                        @if($exhibition->start_date->format('Y-m-d') === $exhibition->end_date->format('Y-m-d'))
+                            {{ $exhibition->start_date->format('M d, Y') }}
+                        @else
+                            {{ $exhibition->start_date->format('M d') }} - {{ $exhibition->end_date->format('M d, Y') }}
+                        @endif
+                    @elseif($exhibition->start_date)
+                        {{ $exhibition->start_date->format('M d, Y') }}
+                    @else
+                        TBA
+                    @endif
+                </div>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 0.85rem; opacity: 0.9; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <i class="bi bi-clock me-1"></i>Time
+                </div>
+                <div style="font-size: 1.1rem; font-weight: 600;">
+                    @if($exhibition->start_time && $exhibition->end_time)
+                        @php
+                            $startTime = is_string($exhibition->start_time) ? \Carbon\Carbon::parse($exhibition->start_time) : $exhibition->start_time;
+                            $endTime = is_string($exhibition->end_time) ? \Carbon\Carbon::parse($exhibition->end_time) : $exhibition->end_time;
+                        @endphp
+                        {{ $startTime->format('h:i A') }} - {{ $endTime->format('h:i A') }}
+                    @elseif($exhibition->start_time)
+                        @php
+                            $startTime = is_string($exhibition->start_time) ? \Carbon\Carbon::parse($exhibition->start_time) : $exhibition->start_time;
+                        @endphp
+                        {{ $startTime->format('h:i A') }}
+                    @else
+                        TBA
+                    @endif
+                </div>
+            </div>
+            @if($exhibition->venue)
+            <div style="text-align: center;">
+                <div style="font-size: 0.85rem; opacity: 0.9; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <i class="bi bi-geo-alt me-1"></i>Venue
+                </div>
+                <div style="font-size: 1.1rem; font-weight: 600;">
+                    {{ $exhibition->venue }}
+                    @if($exhibition->city)
+                        <div style="font-size: 0.9rem; opacity: 0.85; margin-top: 3px;">
+                            {{ $exhibition->city }}{{ $exhibition->state ? ', ' . $exhibition->state : '' }}
+                        </div>
+                    @endif
+                </div>
+            </div>
+            @endif
+        </div>
+    </div>
+</div>
+
 <div class="booking-container">
     <!-- Left Panel - Filters -->
     <div class="left-panel">
@@ -728,12 +813,26 @@
             <h5 class="filter-title">Filters</h5>
             
             <div class="filter-group">
-                <label>Booth Size</label>
+                <label>Category</label>
+                <select id="filterCategory" class="form-select">
+                    <option value="all">All Categories</option>
+                    @if(isset($categories) && $categories->isNotEmpty())
+                        @foreach($categories as $category)
+                            <option value="{{ $category['value'] }}">{{ $category['label'] }}</option>
+                        @endforeach
+                    @endif
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>Booth Size Category</label>
                 <select id="filterSize" class="form-select">
-                    <option value="all">All Sizes</option>
-                    <option value="small">Small (< 200 sq ft)</option>
-                    <option value="medium">Medium (200-500 sq ft)</option>
-                    <option value="large">Large (> 500 sq ft)</option>
+                    <option value="all">All Categories</option>
+                    @if(isset($categories) && $categories->isNotEmpty())
+                        @foreach($categories as $category)
+                            <option value="{{ $category['value'] }}">{{ $category['label'] }}</option>
+                        @endforeach
+                    @endif
                 </select>
             </div>
             
@@ -769,7 +868,21 @@
     <!-- Center Panel - Floorplan -->
     <div class="center-panel">
         <div class="floorplan-header">
-            <h4 class="floorplan-title">Exhibition Hall Floorplan</h4>
+            <div>
+                <h4 class="floorplan-title">Exhibition Hall Floorplan</h4>
+                @if(isset($floors) && $floors->count() > 1)
+                <div class="floor-selection" style="margin-top: 10px;">
+                    <label for="floorSelect" style="font-size: 0.9rem; color: #64748b; margin-right: 10px;">Select Floor:</label>
+                    <select id="floorSelect" class="form-select" style="display: inline-block; width: auto; min-width: 200px; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem;">
+                        @foreach($floors as $floor)
+                            <option value="{{ $floor->id }}" {{ (isset($selectedFloorId) && $selectedFloorId == $floor->id) ? 'selected' : '' }}>
+                                {{ $floor->name }} @if($floor->description) - {{ $floor->description }} @endif
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                @endif
+            </div>
             <div class="floorplan-controls">
                 <div class="zoom-controls">
                     <button class="zoom-btn" id="zoomIn">
@@ -825,8 +938,9 @@
                     }
 
                     // Resolve row/orphan prices and size images for this booth from configured sizes
-                    $sizeConfig = null;
-                    if ($booth->exhibition_booth_size_id) {
+                    // First try to get from the relationship (eager loaded)
+                    $sizeConfig = $booth->exhibitionBoothSize;
+                    if (!$sizeConfig && $booth->exhibition_booth_size_id) {
                         $sizeConfig = $exhibition->boothSizes->firstWhere('id', $booth->exhibition_booth_size_id);
                     }
                     if (!$sizeConfig && $booth->size_sqft) {
@@ -839,6 +953,16 @@
 
                     $rowPriceForBooth = (float) ($sizeConfig->row_price ?? 0);
                     $orphanPriceForBooth = (float) ($sizeConfig->orphan_price ?? 0);
+                    
+                    // Get category from ExhibitionBoothSize, not from Booth directly
+                    $boothCategory = $sizeConfig->category ?? $booth->category ?? 'Standard';
+                    // Normalize category value (handle both numeric and text)
+                    $normalizedCategory = match(trim((string)$boothCategory)) {
+                        '1', 'Premium' => 'Premium',
+                        '2', 'Standard' => 'Standard',
+                        '3', 'Economy' => 'Economy',
+                        default => $boothCategory,
+                    };
 
                     // Normalise size-level images for this booth size (used for preview thumbnails)
                     $sizeImages = [];
@@ -866,7 +990,7 @@
                      data-booth-price="{{ $booth->price }}"
                      data-row-price="{{ $rowPriceForBooth }}"
                      data-orphan-price="{{ $orphanPriceForBooth }}"
-                     data-booth-category="{{ $booth->category }}"
+                     data-booth-category="{{ $normalizedCategory }}"
                      data-booth-type="{{ $booth->booth_type }}"
                      data-booth-sides="{{ $booth->sides_open }}"
                      data-booth-status="{{ $status }}"
@@ -1175,6 +1299,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupMergeSplit();
     setupPriceRange();
     toggleServicesCard();
+    setupFloorSelection();
     
     // Pre-select booths from query parameter
     const urlParams = new URLSearchParams(window.location.search);
@@ -1190,6 +1315,22 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// Floor Selection Handler
+function setupFloorSelection() {
+    const floorSelect = document.getElementById('floorSelect');
+    if (floorSelect) {
+        floorSelect.addEventListener('change', function() {
+            const selectedFloorId = this.value;
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('floor_id', selectedFloorId);
+            // Remove booth selections when changing floors
+            currentUrl.searchParams.delete('booths');
+            // Reload page with new floor
+            window.location.href = currentUrl.toString();
+        });
+    }
+}
 
 // Booth Selection
 function setupBoothSelection() {
@@ -1844,6 +1985,10 @@ document.getElementById('selectBoothBtn').addEventListener('click', function() {
 
 // Filters
 function setupFilters() {
+    const categoryFilter = document.getElementById('filterCategory');
+    if (categoryFilter) {
+        categoryFilter.addEventListener('change', applyFilters);
+    }
     document.getElementById('filterSize').addEventListener('change', applyFilters);
     document.getElementById('statusAvailable').addEventListener('change', applyFilters);
     document.getElementById('statusReserved').addEventListener('change', applyFilters);
@@ -1851,6 +1996,7 @@ function setupFilters() {
 }
 
 function applyFilters() {
+    const categoryFilter = document.getElementById('filterCategory')?.value || 'all';
     const sizeFilter = document.getElementById('filterSize').value;
     const priceMax = document.getElementById('priceRange').value;
     const showAvailable = document.getElementById('statusAvailable').checked;
@@ -1858,17 +2004,42 @@ function applyFilters() {
     const showBooked = document.getElementById('statusBooked').checked;
     
     document.querySelectorAll('.booth-item').forEach(booth => {
+        const category = booth.getAttribute('data-booth-category') || '';
         const size = parseFloat(booth.getAttribute('data-booth-size'));
         const price = parseFloat(booth.getAttribute('data-booth-price'));
         const status = booth.getAttribute('data-booth-status');
         
         let show = true;
         
-        // Size filter
+        // Normalize category values for comparison
+        const normalizeCategory = (cat) => {
+            if (!cat) return '';
+            const normalized = String(cat).trim();
+            // Map numeric values to text
+            if (normalized === '1') return 'Premium';
+            if (normalized === '2') return 'Standard';
+            if (normalized === '3') return 'Economy';
+            return normalized;
+        };
+        
+        // Category filter (from Category dropdown)
+        if (categoryFilter !== 'all') {
+            const boothCategory = normalizeCategory(category);
+            const filterCategory = normalizeCategory(categoryFilter);
+            
+            if (boothCategory !== filterCategory) {
+                show = false;
+            }
+        }
+        
+        // Booth Size Category filter (now also uses categories from ExhibitionBoothSize)
         if (sizeFilter !== 'all') {
-            if (sizeFilter === 'small' && size >= 200) show = false;
-            if (sizeFilter === 'medium' && (size < 200 || size > 500)) show = false;
-            if (sizeFilter === 'large' && size <= 500) show = false;
+            const boothCategory = normalizeCategory(category);
+            const filterCategory = normalizeCategory(sizeFilter);
+            
+            if (boothCategory !== filterCategory) {
+                show = false;
+            }
         }
         
         // Price filter

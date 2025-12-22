@@ -188,6 +188,11 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     Route::get('/notifications', [AdminNotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/{id}/read', [AdminNotificationController::class, 'markAsRead'])->name('notifications.read');
     Route::post('/notifications/read-all', [AdminNotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
+    
+    // Additional Service Requests
+    Route::get('/additional-service-requests', [\App\Http\Controllers\Admin\AdditionalServiceRequestController::class, 'index'])->name('additional-service-requests.index');
+    Route::post('/additional-service-requests/{id}/approve', [\App\Http\Controllers\Admin\AdditionalServiceRequestController::class, 'approve'])->name('additional-service-requests.approve');
+    Route::post('/additional-service-requests/{id}/reject', [\App\Http\Controllers\Admin\AdditionalServiceRequestController::class, 'reject'])->name('additional-service-requests.reject');
 });
 
 // Frontend Exhibitor Routes
@@ -259,6 +264,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/notifications', [FrontendNotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/{id}/read', [FrontendNotificationController::class, 'markAsRead'])->name('notifications.read');
     Route::post('/notifications/read-all', [FrontendNotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
+    
+    // Additional Service Requests
+    Route::post('/bookings/{bookingId}/additional-service-requests', [\App\Http\Controllers\Frontend\AdditionalServiceRequestController::class, 'store'])->name('additional-service-requests.store');
 });
 
 // OTP Authentication

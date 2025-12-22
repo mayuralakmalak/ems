@@ -344,6 +344,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.additional-service-requests.*') ? 'active' : '' }}" href="{{ route('admin.additional-service-requests.index') }}">
+                                <i class="bi bi-plus-circle me-2"></i> Additional Service Requests
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('admin.documents.*') ? 'active' : '' }}" href="{{ route('admin.documents.index') }}">
                                 <i class="bi bi-file-earmark-check me-2"></i> Document Verification
                             </a>

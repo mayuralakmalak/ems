@@ -124,6 +124,9 @@
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
+                    <a href="{{ route('admin.additional-service-requests.index', ['exhibition' => $exhibition->id]) }}" class="btn btn-info">
+                        <i class="bi bi-plus-circle me-2"></i>Additional Service Requests
+                    </a>
                     <a href="{{ route('admin.exhibitions.edit', $exhibition->id) }}" class="btn btn-warning">
                         <i class="bi bi-pencil me-2"></i>Edit Exhibition
                     </a>

@@ -71,11 +71,13 @@ class BookingController extends Controller
 
     public function book($exhibitionId)
     {
-        // Load exhibition with booth visibility rules:
+        // Load exhibition with floors and booth visibility rules:
         //  - Show main booths (parent_booth_id null) that are NOT split parents
         //  - Show split children (parent_booth_id not null AND is_split true)
         //  - Hide merged originals (parent_booth_id not null AND is_split false)
-        $exhibition = Exhibition::with(['booths' => function($query) {
+        $exhibition = Exhibition::with(['floors' => function($query) {
+            $query->where('is_active', true)->orderBy('floor_number', 'asc');
+        }, 'booths' => function($query) {
             $query->where(function($q) {
                 // Main booths (including merged booth itself) but not split parents
                 $q->whereNull('parent_booth_id')
@@ -86,7 +88,28 @@ class BookingController extends Controller
                   ->where('is_split', true);
             })
             ->orderBy('name', 'asc');
-        }, 'stallSchemes', 'boothSizes', 'stallVariations', 'addonServices'])->findOrFail($exhibitionId);
+        }, 'booths.exhibitionBoothSize', 'stallSchemes', 'boothSizes', 'stallVariations', 'addonServices'])->findOrFail($exhibitionId);
+
+        // Get selected floor from request or default to first active floor
+        $selectedFloorId = request()->query('floor_id');
+        $selectedFloor = null;
+        
+        if ($selectedFloorId) {
+            $selectedFloor = $exhibition->floors->firstWhere('id', $selectedFloorId);
+        }
+        
+        // If no floor selected or selected floor not found, use first active floor
+        if (!$selectedFloor && $exhibition->floors->isNotEmpty()) {
+            $selectedFloor = $exhibition->floors->first();
+            $selectedFloorId = $selectedFloor->id;
+        }
+
+        // Filter booths by selected floor if floor is selected
+        if ($selectedFloor) {
+            $exhibition->booths = $exhibition->booths->filter(function($booth) use ($selectedFloorId) {
+                return $booth->floor_id == $selectedFloorId;
+            });
+        }
 
         // Get all booths that are reserved (pending booking - regardless of payment status)
         // A booth is reserved when:
@@ -185,10 +208,45 @@ class BookingController extends Controller
             }, 'addonServices']);
         }
         
+        // Get unique categories from ExhibitionBoothSize (size sqft management)
+        // NOT from booth category property - use the already loaded boothSizes relationship
+        $categories = $exhibition->boothSizes
+            ->whereNotNull('category')
+            ->where('category', '!=', '')
+            ->pluck('category')
+            ->map(function($category) {
+                // Map category values to readable names
+                $normalized = trim((string)$category);
+                
+                // Map numeric and text values to standard names
+                if (in_array($normalized, ['1', 'Premium'])) {
+                    return 'Premium';
+                } elseif (in_array($normalized, ['2', 'Standard'])) {
+                    return 'Standard';
+                } elseif (in_array($normalized, ['3', 'Economy'])) {
+                    return 'Economy';
+                } else {
+                    return $normalized;
+                }
+            })
+            ->unique()
+            ->sort()
+            ->map(function($category) {
+                return [
+                    'value' => $category,
+                    'label' => $category
+                ];
+            })
+            ->values();
+
         return view('frontend.bookings.book', [
             'exhibition' => $exhibition,
             'reservedBoothIds' => $reservedBoothIds,
             'bookedBoothIds' => $bookedBoothIds,
+            'floors' => $exhibition->floors ?? collect(),
+            'selectedFloor' => $selectedFloor,
+            'selectedFloorId' => $selectedFloorId,
+            'categories' => $categories,
         ]);
     }
 
@@ -872,9 +930,11 @@ class BookingController extends Controller
         $booking = Booking::with([
             'exhibition.booths', 
             'exhibition.requiredDocuments',
+            'exhibition.addonServices',
             'booth', 
             'payments', 
             'bookingServices.service', 
+            'additionalServiceRequests.service',
             'documents' => function($query) {
                 $query->orderBy('created_at', 'desc'); // Get latest documents first
             },

@@ -499,6 +499,166 @@
                 </ul>
             </div>
             
+            <!-- Additional Services Request -->
+            @if($booking->status === 'confirmed' && $booking->approval_status === 'approved')
+            <div class="detail-section">
+                <h5 class="section-header">
+                    <i class="bi bi-plus-circle booth-icon"></i>Request Additional Services
+                </h5>
+                
+                @php
+                    // Get exhibition additional services
+                    $addonServices = $booking->exhibition->addonServices ?? collect();
+                    $serviceNames = $addonServices->pluck('item_name')->filter()->unique()->values();
+                    $servicesByName = \App\Models\Service::whereIn('name', $serviceNames)->get()->keyBy('name');
+                    
+                    $activeServices = $addonServices->map(function ($addon) use ($servicesByName) {
+                        $serviceModel = $servicesByName->get($addon->item_name);
+                        if (!$serviceModel) {
+                            return null;
+                        }
+                        
+                        return (object) [
+                            'id' => $serviceModel->id,
+                            'name' => $serviceModel->name,
+                            'description' => $serviceModel->description,
+                            'image' => $serviceModel->image,
+                            'price' => $addon->price_per_quantity,
+                            'category' => $serviceModel->category ?? null,
+                        ];
+                    })->filter();
+                    
+                    // Get existing service IDs that are already in booking
+                    $existingServiceIds = $booking->bookingServices->pluck('service_id')->toArray();
+                    
+                    // Get pending request service IDs
+                    $pendingRequestServiceIds = $booking->additionalServiceRequests()
+                        ->where('status', 'pending')
+                        ->pluck('service_id')
+                        ->toArray();
+                @endphp
+                
+                @if($activeServices->count() > 0)
+                    @if(session('success'))
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            {{ session('success') }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    @endif
+                    @if(session('error'))
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            {{ session('error') }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    @endif
+                    
+                    <div class="row g-3">
+                        @foreach($activeServices as $service)
+                            @php
+                                $isAlreadyBooked = in_array($service->id, $existingServiceIds);
+                                $hasPendingRequest = in_array($service->id, $pendingRequestServiceIds);
+                                $existingService = $booking->bookingServices->firstWhere('service_id', $service->id);
+                                $existingQty = $existingService?->quantity ?? 0;
+                            @endphp
+                            
+                            <div class="col-md-6">
+                                <div class="card" style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px;">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                            <h6 class="mb-1" style="font-weight: 600; color: #1e293b;">{{ $service->name }}</h6>
+                                            @if($service->description)
+                                                <small class="text-muted" style="font-size: 0.85rem;">{{ $service->description }}</small>
+                                            @endif
+                                        </div>
+                                        @if($service->image)
+                                            <img src="{{ asset('storage/' . $service->image) }}" alt="{{ $service->name }}" style="max-width: 60px; max-height: 60px; border-radius: 4px;">
+                                        @endif
+                                    </div>
+                                    
+                                    <div class="mb-2">
+                                        <strong style="color: #6366f1;">₹{{ number_format($service->price, 2) }}</strong>
+                                        <small class="text-muted">per quantity</small>
+                                    </div>
+                                    
+                                    @if($hasPendingRequest)
+                                        <div class="alert alert-warning mb-0" style="padding: 8px; font-size: 0.85rem;">
+                                            <i class="bi bi-clock me-1"></i>Request pending approval
+                                        </div>
+                                    @else
+                                        @if($isAlreadyBooked && $existingQty > 0)
+                                            <div class="alert alert-info mb-2" style="padding: 8px; font-size: 0.8rem;">
+                                                <i class="bi bi-check-circle me-1"></i>
+                                                Already included in booking (current quantity: {{ $existingQty }}). You can request additional quantity below.
+                                            </div>
+                                        @endif
+                                        <form action="{{ route('additional-service-requests.store', $booking->id) }}" method="POST" class="d-flex gap-2 align-items-end">
+                                            @csrf
+                                            <input type="hidden" name="service_id" value="{{ $service->id }}">
+                                            <div style="flex: 1;">
+                                                <label class="detail-label" style="font-size: 0.8rem;">Additional Quantity</label>
+                                                <input type="number" name="quantity" value="1" min="1" class="form-control form-control-sm" required>
+                                            </div>
+                                            <button type="submit" class="btn btn-sm btn-primary">
+                                                <i class="bi bi-plus-circle me-1"></i>Request
+                                            </button>
+                                        </form>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-muted">No additional services available for this exhibition.</p>
+                @endif
+                
+                <!-- Show existing additional service requests -->
+                @php
+                    $additionalRequests = $booking->additionalServiceRequests()->with('service')->latest()->get();
+                @endphp
+                
+                @if($additionalRequests->count() > 0)
+                    <div class="mt-4">
+                        <h6 class="section-header" style="font-size: 1rem; margin-bottom: 15px;">Additional Service Requests</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm" style="font-size: 0.9rem;">
+                                <thead>
+                                    <tr>
+                                        <th>Service</th>
+                                        <th>Quantity</th>
+                                        <th>Unit Price</th>
+                                        <th>Total</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($additionalRequests as $req)
+                                        <tr>
+                                            <td>{{ $req->service->name }}</td>
+                                            <td>{{ $req->quantity }}</td>
+                                            <td>₹{{ number_format($req->unit_price, 2) }}</td>
+                                            <td>₹{{ number_format($req->total_price, 2) }}</td>
+                                            <td>
+                                                @if($req->status === 'approved')
+                                                    <span class="badge bg-success">Approved</span>
+                                                @elseif($req->status === 'rejected')
+                                                    <span class="badge bg-danger">Rejected</span>
+                                                    @if($req->rejection_reason)
+                                                        <br><small class="text-danger">{{ $req->rejection_reason }}</small>
+                                                    @endif
+                                                @else
+                                                    <span class="badge bg-warning">Pending</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                @endif
+            </div>
+            @endif
+            
             <!-- Payment History -->
             <div class="detail-section">
                 <h5 class="section-header">Payment History</h5>

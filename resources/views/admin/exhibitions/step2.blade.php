@@ -404,7 +404,7 @@
                     <div id="addonServicesContainer">
                         @forelse($exhibition->addonServices as $idx => $service)
                         <div class="row g-3 align-items-end addon-row" data-addon-index="{{ $idx }}">
-                            <div class="col-md-6">
+                            <div class="col-md-5">
                                 <label class="form-label">Service</label>
                                 <select name="addon_services[{{ $idx }}][service_id]" class="form-select">
                                     <option value="">Select service</option>
@@ -415,17 +415,22 @@
                                     @endforeach
                                 </select>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label">Price per quantity</label>
                                 <input type="number" step="0.01" name="addon_services[{{ $idx }}][price_per_quantity]" class="form-control" value="{{ $service->price_per_quantity }}">
                             </div>
-                            <div class="col-md-2 text-end">
+                            <div class="col-md-3">
+                                <label class="form-label">Cut-off date</label>
+                                <input type="date" name="addon_services[{{ $idx }}][cutoff_date]" class="form-control"
+                                       value="{{ $service->cutoff_date ? $service->cutoff_date->format('Y-m-d') : '' }}">
+                            </div>
+                            <div class="col-md-1 text-end">
                                 <button type="button" class="btn btn-sm btn-link text-danger remove-addon-btn">Remove</button>
                             </div>
                         </div>
                         @empty
                         <div class="row g-3 align-items-end addon-row" data-addon-index="0">
-                            <div class="col-md-6">
+                            <div class="col-md-5">
                                 <label class="form-label">Service</label>
                                 <select name="addon_services[0][service_id]" class="form-select">
                                     <option value="">Select service</option>
@@ -434,11 +439,15 @@
                                     @endforeach
                                 </select>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label">Price per quantity</label>
                                 <input type="number" step="0.01" name="addon_services[0][price_per_quantity]" class="form-control" placeholder="0.00">
                             </div>
-                            <div class="col-md-2 text-end">
+                            <div class="col-md-3">
+                                <label class="form-label">Cut-off date</label>
+                                <input type="date" name="addon_services[0][cutoff_date]" class="form-control">
+                            </div>
+                            <div class="col-md-1 text-end">
                                 <button type="button" class="btn btn-sm btn-link text-danger remove-addon-btn">Remove</button>
                             </div>
                         </div>
@@ -747,7 +756,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const addonTemplate = (idx) => `
         <div class="row g-3 align-items-end addon-row" data-addon-index="${idx}">
-            <div class="col-md-6">
+            <div class="col-md-5">
                 <label class="form-label">Service</label>
                 <select name="addon_services[${idx}][service_id]" class="form-select">
                     <option value="">Select service</option>
@@ -756,11 +765,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label class="form-label">Price per quantity</label>
                 <input type="number" step="0.01" name="addon_services[${idx}][price_per_quantity]" class="form-control" placeholder="0.00">
             </div>
-            <div class="col-md-2 text-end">
+            <div class="col-md-3">
+                <label class="form-label">Cut-off date</label>
+                <input type="date" name="addon_services[${idx}][cutoff_date]" class="form-control">
+            </div>
+            <div class="col-md-1 text-end">
                 <button type="button" class="btn btn-sm btn-link text-danger remove-addon-btn">Remove</button>
             </div>
         </div>

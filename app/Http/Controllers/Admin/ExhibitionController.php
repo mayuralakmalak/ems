@@ -43,13 +43,19 @@ class ExhibitionController extends Controller
             'description' => 'nullable|string',
             'venue' => 'required|string|max:255',
             'location' => 'nullable|string|max:255',
-            'start_datetime' => 'required|date',
-            'end_datetime' => 'required|date|after:start_datetime',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'start_time' => 'nullable|date_format:H:i',
+            'end_time' => 'nullable|date_format:H:i',
         ]);
 
-        // Parse datetime fields
-        $startDateTime = \Carbon\Carbon::parse($validated['start_datetime']);
-        $endDateTime = \Carbon\Carbon::parse($validated['end_datetime']);
+        // Build combined datetimes for validation (end must be after start if same day and times provided)
+        $startDateTime = \Carbon\Carbon::parse($validated['start_date'] . ' ' . ($validated['start_time'] ?? '00:00'));
+        $endDateTime = \Carbon\Carbon::parse($validated['end_date'] . ' ' . ($validated['end_time'] ?? '23:59'));
+
+        if ($endDateTime->lessThanOrEqualTo($startDateTime)) {
+            return back()->withInput()->withErrors(['end_date' => 'End date/time must be after start date/time.']);
+        }
 
         $exhibition = Exhibition::create([
             'name' => $validated['name'],
@@ -59,8 +65,8 @@ class ExhibitionController extends Controller
             'country' => 'India', // Default or from form
             'start_date' => $startDateTime->format('Y-m-d'),
             'end_date' => $endDateTime->format('Y-m-d'),
-            'start_time' => $startDateTime->format('H:i:s'),
-            'end_time' => $endDateTime->format('H:i:s'),
+            'start_time' => $validated['start_time'] ? $startDateTime->format('H:i:s') : null,
+            'end_time' => $validated['end_time'] ? $endDateTime->format('H:i:s') : null,
         ]);
 
         return redirect()->route('admin.exhibitions.step2', $exhibition->id);
@@ -273,6 +279,7 @@ class ExhibitionController extends Controller
             $serviceId = $service['service_id'] ?? null;
             $name = $service['item_name'] ?? null;
             $price = $service['price_per_quantity'] ?? null;
+            $cutoffDate = $service['cutoff_date'] ?? null;
 
             // If a configured service is selected, use its name
             if ($serviceId) {
@@ -282,7 +289,7 @@ class ExhibitionController extends Controller
                 }
             }
 
-            if (empty($name) && is_null($price)) {
+            if (empty($name) && is_null($price) && empty($cutoffDate)) {
                 continue;
             }
 
@@ -290,6 +297,7 @@ class ExhibitionController extends Controller
                 'exhibition_id' => $exhibition->id,
                 'item_name' => $name ?? '',
                 'price_per_quantity' => $price ?? 0,
+                'cutoff_date' => $cutoffDate ?: null,
             ]);
         }
 

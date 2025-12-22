@@ -93,7 +93,27 @@ class DocumentController extends Controller
             if ($requiredDocumentId) {
                 $requiredDoc = $booking->exhibition->requiredDocuments->firstWhere('id', $requiredDocumentId);
                 if (!$requiredDoc) {
-                    return back()->withInput()->with('error', 'Invalid required document selected.');
+                    $message = 'Invalid required document selected.';
+                    if ($request->ajax() || $request->wantsJson()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => $message,
+                        ], 422);
+                    }
+                    return back()->withInput()->with('error', $message);
+                }
+
+                // Enforce exhibition-level document upload deadline for required documents
+                $deadline = $booking->exhibition->document_upload_deadline;
+                if ($deadline && now()->greaterThan($deadline->endOfDay())) {
+                    $message = 'The document upload deadline for this exhibition has passed. You can no longer upload required documents.';
+                    if ($request->ajax() || $request->wantsJson()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => $message,
+                        ], 422);
+                    }
+                    return back()->withInput()->with('error', $message);
                 }
                 
                 // Validate file type based on required document type
@@ -350,6 +370,19 @@ class DocumentController extends Controller
         if ($requiredDocumentId) {
             $requiredDoc = $document->booking->exhibition->requiredDocuments->firstWhere('id', $requiredDocumentId);
             if ($requiredDoc) {
+                // Enforce exhibition-level document upload deadline for required documents
+                $deadline = $document->booking->exhibition->document_upload_deadline;
+                if ($deadline && now()->greaterThan($deadline->endOfDay())) {
+                    $message = 'The document upload deadline for this exhibition has passed. You can no longer upload required documents.';
+                    if ($request->ajax() || $request->wantsJson()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => $message,
+                        ], 422);
+                    }
+                    return back()->withInput()->with('error', $message);
+                }
+
                 $files = $request->hasFile('files') ? $request->file('files') : [];
                 foreach ($files as $file) {
                     if ($file && $file->isValid()) {

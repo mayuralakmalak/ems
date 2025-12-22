@@ -47,31 +47,49 @@
                 </div>
                 <div class="col-md-3 mb-3">
                     <label class="form-label fw-bold">
-                        <i class="bi bi-calendar-event text-primary me-1"></i>Start Date and Time <span class="text-danger">*</span>
+                        <i class="bi bi-calendar-event text-primary me-1"></i>Start Date <span class="text-danger">*</span>
                     </label>
-                    <div class="input-group">
-                        <input
-                            type="datetime-local"
-                            name="start_datetime"
-                            class="form-control"
-                            value="{{ old('start_datetime') }}"
-                            required
-                        >
-                    </div>
+                    <input
+                        type="date"
+                        name="start_date"
+                        class="form-control"
+                        value="{{ old('start_date') }}"
+                        required
+                    >
                 </div>
                 <div class="col-md-3 mb-3">
                     <label class="form-label fw-bold">
-                        <i class="bi bi-calendar-check text-primary me-1"></i>End Date and Time <span class="text-danger">*</span>
+                        <i class="bi bi-calendar-check text-primary me-1"></i>End Date <span class="text-danger">*</span>
                     </label>
-                    <div class="input-group">
-                        <input
-                            type="datetime-local"
-                            name="end_datetime"
-                            class="form-control"
-                            value="{{ old('end_datetime') }}"
-                            required
-                        >
-                    </div>
+                    <input
+                        type="date"
+                        name="end_date"
+                        class="form-control"
+                        value="{{ old('end_date') }}"
+                        required
+                    >
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-clock text-primary me-1"></i>Start Time
+                    </label>
+                    <input
+                        type="time"
+                        name="start_time"
+                        class="form-control"
+                        value="{{ old('start_time') }}"
+                    >
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-clock-history text-primary me-1"></i>End Time
+                    </label>
+                    <input
+                        type="time"
+                        name="end_time"
+                        class="form-control"
+                        value="{{ old('end_time') }}"
+                    >
                 </div>
                 <div class="col-md-3 mb-3">
                     <label class="form-label fw-bold">
