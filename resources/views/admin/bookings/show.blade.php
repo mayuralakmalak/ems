@@ -136,13 +136,23 @@
             </div>
         </div>
 
-        @if($booking->status === 'cancelled' && !$booking->cancellation_type)
+        {{-- Process cancellation only after exhibitor has requested it (reason set) and admin has not yet decided type/amount --}}
+        @if($booking->cancellation_reason && !$booking->cancellation_type)
         <div class="card mb-4">
             <div class="card-header bg-warning text-dark">
                 <h5 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Process Cancellation</h5>
             </div>
             <div class="card-body">
-                <form action="{{ route('admin.bookings.process-cancellation', $booking->id) }}" method="POST">
+                @if($errors->any())
+                    <div class="alert alert-danger">
+                        <ul class="mb-0">
+                            @foreach($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+                <form action="{{ route('admin.bookings.process-cancellation', $booking->id) }}" method="POST" id="processCancellationForm">
                     @csrf
                     <div class="mb-3">
                         <label class="form-label">Cancellation Type *</label>
@@ -153,13 +163,39 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Cancellation Amount *</label>
-                        <input type="number" name="cancellation_amount" class="form-control" step="0.01" min="0" max="{{ $booking->paid_amount }}" value="{{ $booking->paid_amount }}" required>
-                        <small class="text-muted">Maximum: ₹{{ number_format($booking->paid_amount, 2) }}</small>
+                        <label class="form-label d-block">Cancellation Amount *</label>
+                        <div class="btn-group mb-2" role="group" aria-label="Quick amount options">
+                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                    onclick="setCancellationAmount({{ $booking->paid_amount }})">
+                                Full Paid (₹{{ number_format($booking->paid_amount, 2) }})
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                    onclick="setCancellationAmount({{ $booking->paid_amount / 2 }})">
+                                50% Paid
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                    onclick="setCancellationAmount('')">
+                                Custom
+                            </button>
+                        </div>
+                        <input type="number"
+                               name="cancellation_amount"
+                               id="cancellation_amount_input"
+                               class="form-control"
+                               step="0.01"
+                               min="0"
+                               max="{{ $booking->total_amount }}"
+                               value="{{ $booking->paid_amount }}"
+                               required>
+                        <small class="text-muted">
+                            You can enter any amount up to the total booking amount:
+                            ₹{{ number_format($booking->total_amount, 2) }}.
+                        </small>
                     </div>
                     <div class="mb-3" id="accountDetailsField" style="display: none;">
                         <label class="form-label">Account Details *</label>
-                        <textarea name="account_details" class="form-control" rows="3" placeholder="Bank account details for refund"></textarea>
+                        <textarea name="account_details" id="account_details_textarea" class="form-control" rows="3" placeholder="Enter bank account details for refund (e.g., Account Number, IFSC Code, Bank Name, Account Holder Name)"></textarea>
+                        <small class="text-muted">Please provide complete bank account details for processing the refund.</small>
                     </div>
                     <button type="submit" class="btn btn-warning">
                         <i class="bi bi-check-circle me-2"></i>Process Cancellation
@@ -342,13 +378,49 @@
 <script>
 $(document).ready(function() {
     $('select[name="cancellation_type"]').on('change', function() {
+        const accountField = $('#accountDetailsField');
+        const accountTextarea = $('#account_details_textarea');
+        
         if ($(this).val() === 'refund') {
-            $('#accountDetailsField').show();
-            $('textarea[name="account_details"]').prop('required', true);
+            accountField.show();
+            accountTextarea.prop('required', true);
+            accountTextarea.val(''); // Clear previous value
         } else {
-            $('#accountDetailsField').hide();
-            $('textarea[name="account_details"]').prop('required', false);
+            accountField.hide();
+            accountTextarea.prop('required', false);
+            accountTextarea.val(''); // Clear value when hidden
         }
+    });
+    
+    // Trigger change on page load if refund is pre-selected
+    if ($('select[name="cancellation_type"]').val() === 'refund') {
+        $('select[name="cancellation_type"]').trigger('change');
+    }
+
+    window.setCancellationAmount = function(amount) {
+        const input = document.getElementById('cancellation_amount_input');
+        if (!input) return;
+        if (amount === '') {
+            input.value = '';
+            input.focus();
+        } else {
+            input.value = parseFloat(amount).toFixed(2);
+        }
+    };
+
+    // Handle form submission
+    $('#processCancellationForm').on('submit', function(e) {
+        const form = $(this);
+        const submitBtn = form.find('button[type="submit"]');
+        const originalText = submitBtn.html();
+        
+        // Disable button and show loading state
+        submitBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split me-2"></i>Processing...');
+        
+        // Re-enable if there's a validation error (form won't submit)
+        setTimeout(function() {
+            submitBtn.prop('disabled', false).html(originalText);
+        }, 5000);
     });
 });
 </script>

@@ -77,6 +77,18 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     // Financial Management
     Route::get('/financial', [FinancialController::class, 'index'])->name('financial.index');
     
+    // Sponsorship Management
+    Route::resource('sponsorships', \App\Http\Controllers\Admin\SponsorshipController::class);
+    Route::post('/sponsorships/{id}/toggle-status', [\App\Http\Controllers\Admin\SponsorshipController::class, 'toggleStatus'])->name('sponsorships.toggle-status');
+    
+    // Sponsorship Booking Management
+    Route::get('/sponsorship-bookings', [\App\Http\Controllers\Admin\SponsorshipBookingController::class, 'index'])->name('sponsorship-bookings.index');
+    Route::get('/sponsorship-bookings/{id}', [\App\Http\Controllers\Admin\SponsorshipBookingController::class, 'show'])->name('sponsorship-bookings.show');
+    Route::post('/sponsorship-bookings/{id}/approve', [\App\Http\Controllers\Admin\SponsorshipBookingController::class, 'approve'])->name('sponsorship-bookings.approve');
+    Route::post('/sponsorship-bookings/{id}/reject', [\App\Http\Controllers\Admin\SponsorshipBookingController::class, 'reject'])->name('sponsorship-bookings.reject');
+    Route::post('/sponsorship-payments/{paymentId}/approve', [\App\Http\Controllers\Admin\SponsorshipBookingController::class, 'approvePayment'])->name('sponsorship-payments.approve');
+    Route::post('/sponsorship-payments/{paymentId}/reject', [\App\Http\Controllers\Admin\SponsorshipBookingController::class, 'rejectPayment'])->name('sponsorship-payments.reject');
+    
     // Payment Management
     Route::get('/payments', [\App\Http\Controllers\Admin\PaymentController::class, 'index'])->name('payments.index');
     Route::get('/payments/create', [\App\Http\Controllers\Admin\PaymentController::class, 'create'])->name('payments.create');
@@ -253,7 +265,19 @@ Route::middleware('auth')->group(function () {
     
     // Sponsorships
     Route::get('/sponsorships', [\App\Http\Controllers\Frontend\SponsorshipController::class, 'index'])->name('sponsorships.index');
-    Route::post('/sponsorships/{id}/select', [\App\Http\Controllers\Frontend\SponsorshipController::class, 'select'])->name('sponsorships.select');
+    // Specific routes must come before parameterized routes
+    Route::get('/sponsorships/bookings', [\App\Http\Controllers\Frontend\SponsorshipController::class, 'myBookings'])->name('sponsorships.my-bookings');
+    Route::get('/sponsorships/bookings/{id}', [\App\Http\Controllers\Frontend\SponsorshipController::class, 'showBooking'])->name('sponsorships.booking');
+    Route::get('/sponsorships/{id}', [\App\Http\Controllers\Frontend\SponsorshipController::class, 'show'])->name('sponsorships.show');
+    Route::get('/sponsorships/{id}/book', [\App\Http\Controllers\Frontend\SponsorshipController::class, 'book'])->name('sponsorships.book');
+    Route::post('/sponsorships/{id}/book', [\App\Http\Controllers\Frontend\SponsorshipController::class, 'store'])->name('sponsorships.store');
+    
+    // Sponsorship Payments
+    Route::get('/sponsorships/{bookingId}/payment', [\App\Http\Controllers\Frontend\SponsorshipPaymentController::class, 'create'])->name('sponsorships.payment');
+    Route::post('/sponsorships/{bookingId}/payment', [\App\Http\Controllers\Frontend\SponsorshipPaymentController::class, 'store'])->name('sponsorships.payment.store');
+    Route::get('/sponsorships/payments/{paymentId}/confirmation', [\App\Http\Controllers\Frontend\SponsorshipPaymentController::class, 'confirmation'])->name('sponsorships.payment.confirmation');
+    Route::get('/sponsorships/payments/{paymentId}/gateway', [\App\Http\Controllers\Frontend\SponsorshipPaymentController::class, 'gateway'])->name('sponsorships.payment.gateway');
+    Route::post('/sponsorships/payments/{paymentId}/callback', [\App\Http\Controllers\Frontend\SponsorshipPaymentController::class, 'callback'])->name('sponsorships.payment.callback');
     
     // Floorplan (Exhibitor)
     Route::get('/exhibitions/{id}/floorplan', [\App\Http\Controllers\Frontend\FloorplanController::class, 'show'])->name('floorplan.show');

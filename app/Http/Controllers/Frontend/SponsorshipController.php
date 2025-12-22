@@ -6,7 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Sponsorship;
 use App\Models\Exhibition;
 use App\Models\Booking;
+use App\Models\SponsorshipBooking;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class SponsorshipController extends Controller
 {
@@ -34,6 +37,8 @@ class SponsorshipController extends Controller
         // Get sponsorships grouped by tier
         $sponsorships = Sponsorship::where('exhibition_id', $exhibitionId)
             ->where('is_active', true)
+            ->orderBy('display_order')
+            ->orderBy('price')
             ->get();
         
         // If no sponsorships exist, create default ones
@@ -44,32 +49,147 @@ class SponsorshipController extends Controller
         return view('frontend.sponsorships.index', compact('exhibition', 'sponsorships'));
     }
     
-    public function select(Request $request, $id)
+    public function show($id)
     {
-        $sponsorship = Sponsorship::findOrFail($id);
+        $sponsorship = Sponsorship::with('exhibition')->findOrFail($id);
         
-        // Get user's booking for this exhibition
+        // Check if user has a booking for this exhibition
         $booking = Booking::where('user_id', auth()->id())
             ->where('exhibition_id', $sponsorship->exhibition_id)
             ->where('status', 'confirmed')
             ->first();
         
-        if (!$booking) {
-            return back()->with('error', 'No confirmed booking found for this exhibition.');
+        return view('frontend.sponsorships.show', compact('sponsorship', 'booking'));
+    }
+    
+    public function book(Request $request, $id)
+    {
+        $sponsorship = Sponsorship::findOrFail($id);
+        
+        // Check if sponsorship is available
+        if (!$sponsorship->isAvailable()) {
+            return back()->with('error', 'This sponsorship package is no longer available.');
         }
         
-        // Create sponsorship booking
-        \App\Models\SponsorshipBooking::create([
-            'booking_id' => $booking->id,
-            'sponsorship_id' => $sponsorship->id,
-            'user_id' => auth()->id(),
-            'exhibition_id' => $sponsorship->exhibition_id,
-            'status' => 'pending',
-            'amount' => $sponsorship->price,
+        // Get user's booking for this exhibition (optional - sponsorships can be standalone)
+        $booking = Booking::where('user_id', auth()->id())
+            ->where('exhibition_id', $sponsorship->exhibition_id)
+            ->where('status', 'confirmed')
+            ->first();
+        
+        return view('frontend.sponsorships.book', compact('sponsorship', 'booking'));
+    }
+    
+    public function store(Request $request, $id)
+    {
+        $sponsorship = Sponsorship::findOrFail($id);
+        
+        // Check if sponsorship is available
+        if (!$sponsorship->isAvailable()) {
+            return back()->with('error', 'This sponsorship package is no longer available.');
+        }
+        
+        // Handle textarea input for emails and numbers
+        $contactEmails = [];
+        if ($request->has('contact_emails_text')) {
+            $emailsText = $request->input('contact_emails_text');
+            $contactEmails = array_filter(array_map('trim', explode("\n", $emailsText)));
+        } elseif ($request->has('contact_emails')) {
+            $contactEmails = is_array($request->contact_emails) ? $request->contact_emails : json_decode($request->contact_emails, true) ?? [];
+        }
+        
+        $contactNumbers = [];
+        if ($request->has('contact_numbers_text')) {
+            $numbersText = $request->input('contact_numbers_text');
+            $contactNumbers = array_filter(array_map('trim', explode("\n", $numbersText)));
+        } elseif ($request->has('contact_numbers')) {
+            $contactNumbers = is_array($request->contact_numbers) ? $request->contact_numbers : json_decode($request->contact_numbers, true) ?? [];
+        }
+        
+        $validated = $request->validate([
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'notes' => 'nullable|string|max:1000',
+            'booking_id' => 'nullable|exists:bookings,id',
         ]);
         
-        return redirect()->route('payments.create', $booking->id)
-            ->with('success', 'Sponsorship package selected. Proceed to payment.');
+        // Validate emails
+        if (empty($contactEmails) || count($contactEmails) > 5) {
+            return back()->withErrors(['contact_emails' => 'Please provide 1-5 email addresses.'])->withInput();
+        }
+        foreach ($contactEmails as $email) {
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                return back()->withErrors(['contact_emails' => 'Invalid email address: ' . $email])->withInput();
+            }
+        }
+        
+        // Validate numbers
+        if (empty($contactNumbers) || count($contactNumbers) > 5) {
+            return back()->withErrors(['contact_numbers' => 'Please provide 1-5 phone numbers.'])->withInput();
+        }
+        
+        $validated['contact_emails'] = array_values($contactEmails);
+        $validated['contact_numbers'] = array_values($contactNumbers);
+        
+        DB::beginTransaction();
+        try {
+            // Handle logo upload
+            $logoPath = null;
+            if ($request->hasFile('logo')) {
+                $logoPath = $request->file('logo')->store('sponsorship-logos', 'public');
+            }
+            
+            // Generate unique booking number
+            $bookingNumber = 'SP' . now()->format('YmdHis') . str_pad(SponsorshipBooking::count() + 1, 6, '0', STR_PAD_LEFT);
+            
+            // Create sponsorship booking
+            $sponsorshipBooking = SponsorshipBooking::create([
+                'sponsorship_id' => $sponsorship->id,
+                'booking_id' => $validated['booking_id'] ?? null,
+                'user_id' => auth()->id(),
+                'exhibition_id' => $sponsorship->exhibition_id,
+                'booking_number' => $bookingNumber,
+                'amount' => $sponsorship->price,
+                'paid_amount' => 0,
+                'status' => 'pending',
+                'payment_status' => 'pending',
+                'approval_status' => 'pending',
+                'contact_emails' => $validated['contact_emails'],
+                'contact_numbers' => $validated['contact_numbers'],
+                'logo' => $logoPath,
+                'notes' => $validated['notes'] ?? null,
+            ]);
+            
+            // Update sponsorship current count
+            $sponsorship->increment('current_count');
+            
+            DB::commit();
+            
+            return redirect()->route('sponsorships.payment', $sponsorshipBooking->id)
+                ->with('success', 'Sponsorship booking created successfully. Please proceed to payment.');
+                
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Failed to create sponsorship booking: ' . $e->getMessage())->withInput();
+        }
+    }
+    
+    public function myBookings()
+    {
+        $bookings = SponsorshipBooking::where('user_id', auth()->id())
+            ->with(['sponsorship', 'exhibition', 'payments'])
+            ->latest()
+            ->paginate(15);
+        
+        return view('frontend.sponsorships.my-bookings', compact('bookings'));
+    }
+    
+    public function showBooking($id)
+    {
+        $booking = SponsorshipBooking::where('user_id', auth()->id())
+            ->with(['sponsorship', 'exhibition', 'payments'])
+            ->findOrFail($id);
+        
+        return view('frontend.sponsorships.booking-details', compact('booking'));
     }
     
     private function createDefaultSponsorships($exhibitionId)

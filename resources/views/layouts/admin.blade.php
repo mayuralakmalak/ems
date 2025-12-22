@@ -322,6 +322,27 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.bookings.cancellations') ? 'active' : '' }}" href="{{ route('admin.bookings.cancellations') }}">
+                                <i class="bi bi-x-octagon me-2"></i> Cancellations
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.sponsorships.*') ? 'active' : '' }}" href="{{ route('admin.sponsorships.index') }}">
+                                <i class="bi bi-trophy me-2"></i> Sponsorships
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.sponsorship-bookings.*') ? 'active' : '' }}" href="{{ route('admin.sponsorship-bookings.index') }}">
+                                <i class="bi bi-trophy-fill me-2"></i> Sponsorship Bookings
+                                @php
+                                    $pendingSponsorshipBookings = \App\Models\SponsorshipBooking::where('approval_status', 'pending')->count();
+                                @endphp
+                                @if($pendingSponsorshipBookings > 0)
+                                    <span class="badge bg-danger ms-2">{{ $pendingSponsorshipBookings }}</span>
+                                @endif
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('admin.payments.*') ? 'active' : '' }}" href="{{ route('admin.payments.index') }}">
                                 <i class="bi bi-credit-card me-2"></i> Payment Approvals
                                 @php

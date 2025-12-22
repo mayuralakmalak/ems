@@ -42,6 +42,7 @@
                         <th>Payment #</th>
                         <th>Exhibitor</th>
                         <th>Exhibition</th>
+                        <th>Booth</th>
                         <th>Amount</th>
                         <th>Method</th>
                         <th>Payment Proof</th>
@@ -56,6 +57,25 @@
                         <td><strong>{{ $payment->payment_number }}</strong></td>
                         <td>{{ $payment->booking->user->name ?? 'N/A' }}</td>
                         <td>{{ $payment->booking->exhibition->name ?? 'N/A' }}</td>
+                        <td>
+                            @if($payment->booking->booth)
+                                <span class="badge bg-info">{{ $payment->booking->booth->name }}</span>
+                            @elseif($payment->booking->selected_booth_ids)
+                                @php
+                                    $boothIds = is_array($payment->booking->selected_booth_ids) 
+                                        ? collect($payment->booking->selected_booth_ids)->pluck('id')->filter()->all()
+                                        : (is_array($payment->booking->selected_booth_ids) ? $payment->booking->selected_booth_ids : []);
+                                    $booths = \App\Models\Booth::whereIn('id', $boothIds)->pluck('name');
+                                @endphp
+                                @if($booths->isNotEmpty())
+                                    <span class="badge bg-info">{{ $booths->implode(', ') }}</span>
+                                @else
+                                    <span class="text-muted">N/A</span>
+                                @endif
+                            @else
+                                <span class="text-muted">N/A</span>
+                            @endif
+                        </td>
                         <td>₹{{ number_format($payment->amount, 2) }}</td>
                         <td>{{ ucfirst($payment->payment_method) }}</td>
                         <td>
@@ -81,7 +101,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="9" class="text-center py-4 text-muted">No payments found</td>
+                        <td colspan="10" class="text-center py-4 text-muted">No payments found</td>
                     </tr>
                     @endforelse
                 </tbody>

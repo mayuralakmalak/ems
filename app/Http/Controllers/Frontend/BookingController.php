@@ -105,9 +105,12 @@ class BookingController extends Controller
         }
 
         // Filter booths by selected floor if floor is selected
-        if ($selectedFloor) {
+        // Only filter if there are floors configured, otherwise show all booths
+        if ($selectedFloor && $exhibition->floors->isNotEmpty()) {
             $exhibition->booths = $exhibition->booths->filter(function($booth) use ($selectedFloorId) {
-                return $booth->floor_id == $selectedFloorId;
+                // If booth has no floor_id, include it (for backward compatibility)
+                // Otherwise, match the selected floor
+                return $booth->floor_id === null || $booth->floor_id == $selectedFloorId;
             });
         }
 
@@ -206,6 +209,13 @@ class BookingController extends Controller
                 })
                 ->orderBy('name', 'asc');
             }, 'addonServices']);
+            
+            // Re-filter by floor after reload
+            if ($selectedFloor) {
+                $exhibition->booths = $exhibition->booths->filter(function($booth) use ($selectedFloorId) {
+                    return $booth->floor_id == $selectedFloorId;
+                });
+            }
         }
         
         // Get unique categories from ExhibitionBoothSize (size sqft management)
@@ -1065,35 +1075,37 @@ class BookingController extends Controller
 
     public function cancel(Request $request, string $id)
     {
-        $booking = Booking::with('booth')->where('user_id', auth()->id())->findOrFail($id);
+        $booking = Booking::with('booth', 'exhibition')
+            ->where('user_id', auth()->id())
+            ->findOrFail($id);
         
         $request->validate([
             'cancellation_reason' => 'required|string|max:1000',
-            'refund_option' => 'nullable|in:full_refund,partial_refund,wallet_credit,bank_refund',
-            'account_details' => 'nullable|string|max:2000',
         ]);
 
-        $cancellationType = $request->refund_option === 'wallet_credit' ? 'wallet_credit' : 'refund';
-
-        // Update booking status
+        // Exhibitor can only REQUEST cancellation.
+        // Do NOT change status or free the booth here.
+        // Just record the reason so admin can review and decide refund / wallet credit.
         $booking->update([
-            'status' => 'cancelled',
             'cancellation_reason' => $request->cancellation_reason,
-            'cancellation_type' => $cancellationType,
-            'account_details' => $request->account_details,
-            'cancellation_amount' => $booking->total_amount ? round($booking->total_amount * 0.15, 2) : null,
         ]);
 
-        // Free up the booth
-        if ($booking->booth) {
-            $booking->booth->update([
-                'is_available' => true,
-                'is_booked' => false,
+        // Notify all admins that a cancellation was requested
+        $admins = \App\Models\User::role('Admin')->orWhere('id', 1)->get();
+        foreach ($admins as $admin) {
+            \App\Models\Notification::create([
+                'user_id' => $admin->id,
+                'type' => 'booking',
+                'title' => 'Booking Cancellation Requested',
+                'message' => auth()->user()->name . ' has requested cancellation for booking #' . $booking->booking_number . ' (' . $booking->exhibition->name . ')',
+                'notifiable_type' => \App\Models\Booking::class,
+                'notifiable_id' => $booking->id,
             ]);
         }
 
-        // Admin will decide on refund later
-        return back()->with('success', 'Booking cancelled. Admin will process refund/wallet credit.');
+        return redirect()
+            ->route('bookings.show', $booking->id)
+            ->with('success', 'Your cancellation request has been submitted. Admin will review and decide the refund or wallet credit.');
     }
 
     public function replace(Request $request, string $id)

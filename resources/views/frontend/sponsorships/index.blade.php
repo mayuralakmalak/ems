@@ -173,8 +173,15 @@
 </div>
 
 <div>
-    <h3 class="section-title">Sponsorship Opportunities</h3>
-    <p class="section-description">Explore our tailored sponsorship packages designed to maximize your brand's visibility and impact.</p>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="section-title mb-2">Sponsorship Opportunities</h3>
+            <p class="section-description mb-0">Explore our tailored sponsorship packages designed to maximize your brand's visibility and impact.</p>
+        </div>
+        <a href="{{ route('sponsorships.my-bookings') }}" class="btn btn-outline-primary">
+            <i class="bi bi-list me-2"></i>My Bookings
+        </a>
+    </div>
     
     <div class="sponsorship-tiers">
         @foreach($sponsorships as $sponsorship)
@@ -213,10 +220,14 @@
                 @endif
             </div>
             
-            <form action="{{ route('sponsorships.select', $sponsorship->id) }}" method="POST">
-                @csrf
-                <button type="submit" class="btn-select">Select Package</button>
-            </form>
+            <div class="d-flex gap-2">
+                <a href="{{ route('sponsorships.show', $sponsorship->id) }}" class="btn btn-outline-primary flex-fill">
+                    View Details
+                </a>
+                <a href="{{ route('sponsorships.book', $sponsorship->id) }}" class="btn btn-primary flex-fill">
+                    Book Now
+                </a>
+            </div>
         </div>
         @endforeach
     </div>

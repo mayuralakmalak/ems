@@ -376,6 +376,12 @@
                         <div class="quick-action-label">View Floorplan</div>
                     </a>
                 </div>
+                <div class="col-6">
+                    <a href="{{ route('sponsorships.index') }}" class="quick-action-btn">
+                        <i class="bi bi-trophy"></i>
+                        <div class="quick-action-label">Sponsorships</div>
+                    </a>
+                </div>
             </div>
         </div>
     </div>

@@ -899,6 +899,16 @@
         </div>
         
         <div class="floorplan-canvas" id="floorplanCanvas">
+            @if($exhibition->booths->isEmpty())
+            <div style="display: flex; align-items: center; justify-content: center; min-height: 400px; flex-direction: column; gap: 15px; color: #64748b;">
+                <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.5;"></i>
+                <div style="text-align: center;">
+                    <h5 style="color: #1e293b; margin-bottom: 8px;">No Booths Available</h5>
+                    <p style="margin: 0;">No booths have been configured for this exhibition yet.</p>
+                    <p style="margin: 8px 0 0 0; font-size: 0.9rem;">Please contact the administrator to set up the floorplan.</p>
+                </div>
+            </div>
+            @else
             <div id="boothsContainer" style="position: relative; min-height: 100%; z-index: 2;">
                 @foreach($exhibition->booths as $booth)
                 @php
@@ -1011,6 +1021,7 @@
                 </div>
                 @endforeach
             </div>
+            @endif
         </div>
         
         <div class="legend">

@@ -129,6 +129,12 @@
         background: #f0f9ff;
     }
     
+    .payment-method-card.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        box-shadow: none;
+    }
+    
     .payment-method-icon {
         font-size: 2.5rem;
         color: #6366f1;
@@ -317,11 +323,21 @@
                                 <div class="payment-method-label">Net Banking</div>
                             </div>
                         </div>
+                        @php
+                            $canUseWallet = $walletBalance >= $payment->amount;
+                        @endphp
                         <div class="col-md-4">
-                            <div class="payment-method-card" data-method="wallet">
+                            <div class="payment-method-card {{ $canUseWallet ? '' : 'disabled' }}"
+                                 data-method="wallet"
+                                 @unless($canUseWallet) data-disabled="1" @endunless>
                                 <i class="bi bi-wallet2 payment-method-icon"></i>
                                 <div class="payment-method-label">Wallet</div>
                                 <small style="color: #64748b;">Balance: ₹{{ number_format($walletBalance, 2) }}</small>
+                                @unless($canUseWallet)
+                                    <small class="d-block mt-1" style="color: #ef4444; font-size: 0.8rem;">
+                                        Wallet balance is lower than this payment amount.
+                                    </small>
+                                @endunless
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -527,6 +543,11 @@ let paymentAmount = {{ $payment->amount }};
 // Payment method selection
 document.querySelectorAll('.payment-method-card').forEach(card => {
     card.addEventListener('click', function() {
+        // Block selection when card is disabled (e.g., wallet with insufficient balance)
+        if (this.dataset.disabled === '1') {
+            alert('Your wallet balance is not enough to pay this amount. Please use another payment method.');
+            return;
+        }
         document.querySelectorAll('.payment-method-card').forEach(c => c.classList.remove('selected'));
         this.classList.add('selected');
         selectedMethod = this.getAttribute('data-method');

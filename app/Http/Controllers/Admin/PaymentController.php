@@ -14,7 +14,7 @@ class PaymentController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Payment::with(['booking.user', 'booking.exhibition']);
+        $query = Payment::with(['booking.user', 'booking.exhibition', 'booking.booth']);
         
         // Filter by approval status
         if ($request->has('approval_status') && $request->approval_status) {

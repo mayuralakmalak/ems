@@ -247,157 +247,65 @@
     </div>
 </div>
 
-<!-- Cancellation Request Details -->
+<!-- Cancellation Requests List -->
 <div class="cancellation-section">
     <div class="section-header">
-        <h3 class="section-title">Cancellation Request Details</h3>
-        <button class="btn btn-primary">
-            <i class="bi bi-plus me-2"></i>+ New Request
-        </button>
+        <h3 class="section-title">Cancellation Requests</h3>
     </div>
     
     @if($cancellationRequests->count() > 0)
-        @foreach($cancellationRequests->take(1) as $booking)
-        <div>
-            <h4 class="mb-4">Manage Cancellation {{ $booking->booking_number }}</h4>
-            
-            <div class="tabs">
-                <button class="tab active">Cancellation Details</button>
-                <button class="tab">Booking Details</button>
-                <button class="tab">Communication History</button>
-                <button class="tab">Audit Log</button>
-            </div>
-            
-            <div class="details-grid">
-                <div>
-                    <div class="detail-item">
-                        <div class="detail-label">Booking ID</div>
-                        <div class="detail-value">
-                            <a href="{{ route('admin.bookings.show', $booking->id) }}" class="detail-link">
-                                {{ $booking->booking_number }}
-                            </a>
-                        </div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Booking Date</div>
-                        <div class="detail-value">{{ $booking->created_at->format('Y.m.d') }}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Assigned Booth</div>
-                        <div class="detail-value">
-                            @if($booking->booth)
-                                <a href="{{ route('admin.booths.show', [$booking->exhibition_id, $booking->booth->id]) }}" class="detail-link">
-                                    {{ $booking->booth->name }}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Booking #</th>
+                        <th>Exhibitor</th>
+                        <th>Exhibition</th>
+                        <th>Booth</th>
+                        <th>Requested On</th>
+                        <th>Status</th>
+                        <th>Reason</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($cancellationRequests as $booking)
+                        @php
+                            $isProcessed = !is_null($booking->cancellation_type);
+                            $statusLabel = $isProcessed ? 'Processed' : 'Pending Review';
+                            $statusClass = $isProcessed ? 'bg-success' : 'bg-warning';
+                        @endphp
+                        <tr>
+                            <td>
+                                <a href="{{ route('admin.bookings.show', $booking->id) }}" class="detail-link">
+                                    {{ $booking->booking_number }}
                                 </a>
-                            @else
-                                <span>N/A</span>
-                            @endif
-                        </div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Payment Status</div>
-                        <div class="detail-value">
-                            <a href="#" class="detail-link">
-                                {{ $booking->paid_amount >= $booking->total_amount ? 'Paid in Full' : 'Partial' }}
-                            </a>
-                        </div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Request Date/Time</div>
-                        <div class="detail-value">{{ $booking->updated_at->format('Y.m.d h:i A') }}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Cancellation Charges</div>
-                        <div class="detail-value">₹{{ number_format(($booking->total_amount * 15) / 100, 2) }} (15% of booking)</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Approval Status</div>
-                        <div class="detail-value">{{ $booking->cancellation_type ? 'Approved' : 'Not Approved' }}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Cancellation Reason</div>
-                        <div class="detail-value">{{ $booking->cancellation_reason ?? 'N/A' }}</div>
-                    </div>
-                </div>
-                
-                <div>
-                    <div class="detail-item">
-                        <div class="detail-label">Exhibitor ID</div>
-                        <div class="detail-value">
-                            <a href="#" class="detail-link">{{ $booking->user->email }}</a>
-                        </div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Booking Time</div>
-                        <div class="detail-value">{{ $booking->created_at->format('h:i A') }}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Booking Status</div>
-                        <div class="detail-value">
-                            <a href="#" class="detail-link">{{ ucfirst($booking->status) }}</a>
-                        </div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Cancellation Request ID</div>
-                        <div class="detail-value">{{ $booking->booking_number }}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Cancellation Status</div>
-                        <div class="detail-value">
-                            <a href="#" class="detail-link">Pending Approval</a>
-                        </div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Refund Amount</div>
-                        <div class="detail-value">₹{{ number_format($booking->total_amount - (($booking->total_amount * 15) / 100), 2) }}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Refund Processed Date</div>
-                        <div class="detail-value">{{ $booking->cancellation_type ? $booking->updated_at->format('Y.m.d') : 'Not Processed' }}</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="charges-box">
-                <div class="charges-label">Cancellation Charges:</div>
-                <div class="charges-amount">₹{{ number_format(($booking->total_amount * 15) / 100, 2) }} (15% of booking)</div>
-            </div>
-            
-            <div class="mb-3">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="replacementBooking">
-                    <label class="form-check-label" for="replacementBooking">
-                        Register Replacement Booking Opportunity
-                    </label>
-                </div>
-            </div>
-            
-            <div class="message-box">
-                <div class="message-title">Exhibitor Cancellation Message (with attachment)</div>
-                <div class="message-content">
-                    We have received your cancellation request for Booking ID {{ $booking->booking_number }}. 
-                    Your request is currently under review. The refund amount is ₹{{ number_format($booking->total_amount - (($booking->total_amount * 15) / 100), 2) }} 
-                    will apply, resulting in a refund of ₹{{ number_format($booking->total_amount - (($booking->total_amount * 15) / 100), 2) }}. 
-                    We will notify you once your request has been processed.
-                </div>
-            </div>
-            
-            <div class="message-box">
-                <div class="message-title">Admin Internal Notes</div>
-                <textarea class="form-control" rows="3" placeholder="Contact exhibitor to confirm details. Meeting manager approval needed for a replacement booking in appropriate quality."></textarea>
-            </div>
-            
-            <div class="action-buttons">
-                <form method="POST" action="{{ route('admin.bookings.reject-cancellation', $booking->id) }}" style="display: inline;">
-                    @csrf
-                    <input type="hidden" name="rejection_reason" value="Admin rejected cancellation request">
-                    <button type="submit" class="btn-reject">Reject Cancellation</button>
-                </form>
-                <a href="{{ route('admin.bookings.manage-cancellation', $booking->id) }}" class="btn-approve">Approve Cancellation</a>
-                <button class="btn-save">Save Notes</button>
-            </div>
+                            </td>
+                            <td>
+                                {{ $booking->user->name ?? '-' }}<br>
+                                <small class="text-muted">{{ $booking->user->email ?? '' }}</small>
+                            </td>
+                            <td>{{ $booking->exhibition->name ?? '-' }}</td>
+                            <td>{{ $booking->booth->name ?? '-' }}</td>
+                            <td>{{ $booking->updated_at->format('Y-m-d H:i') }}</td>
+                            <td>
+                                <span class="badge {{ $statusClass }}">{{ $statusLabel }}</span>
+                            </td>
+                            <td>
+                                <span class="text-muted" title="{{ $booking->cancellation_reason }}">
+                                    {{ \Illuminate\Support\Str::limit($booking->cancellation_reason ?? 'N/A', 40) }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{{ route('admin.bookings.show', $booking->id) }}" class="btn btn-sm btn-outline-primary">
+                                    View &amp; Process
+                                </a>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
         </div>
-        @endforeach
     @else
         <p class="text-muted text-center py-5">No cancellation requests found</p>
     @endif

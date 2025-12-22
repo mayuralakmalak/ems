@@ -11,9 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('sponsorships', function (Blueprint $table) {
-            //
-        });
+        // This migration is now handled by enhance_sponsorships_table migration
+        // Keeping it empty to avoid conflicts
     }
 
     /**
@@ -21,8 +20,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('sponsorships', function (Blueprint $table) {
-            //
-        });
+        // This migration is now handled by enhance_sponsorships_table migration
     }
 };

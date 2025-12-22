@@ -7,8 +7,10 @@ use App\Models\Booking;
 use App\Models\Document;
 use App\Models\Wallet;
 use App\Models\Notification;
+use App\Mail\CancellationProcessedMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class BookingController extends Controller
 {
@@ -208,12 +210,12 @@ class BookingController extends Controller
 
     public function processCancellation(Request $request, $id)
     {
-        $booking = Booking::with(['user', 'booth'])->findOrFail($id);
+        $booking = Booking::with(['user', 'booth', 'exhibition'])->findOrFail($id);
         
         $request->validate([
             'cancellation_type' => 'required|in:refund,wallet_credit',
-            'cancellation_amount' => 'required|numeric|min:0|max:' . $booking->paid_amount,
-            'account_details' => 'required_if:cancellation_type,refund|string|max:1000',
+            'cancellation_amount' => 'required|numeric|min:0|max:' . $booking->total_amount,
+            'account_details' => 'required_if:cancellation_type,refund|nullable|string|max:1000',
         ]);
 
         DB::beginTransaction();
@@ -221,8 +223,9 @@ class BookingController extends Controller
             // Update booking
             $booking->update([
                 'cancellation_type' => $request->cancellation_type,
-                'cancellation_amount' => $request->cancellation_amount,
+                'cancellation_amount' => $request->cancellation_amount, // amount refunded/credited
                 'account_details' => $request->account_details,
+                'status' => 'cancelled',
             ]);
 
             // Process refund or wallet credit
@@ -239,7 +242,8 @@ class BookingController extends Controller
                 ]);
             }
 
-            // Free up the booth
+            // Free up ALL booths associated with this booking
+            // 1. Free primary booth
             if ($booking->booth) {
                 $booking->booth->update([
                     'is_available' => true,
@@ -247,13 +251,73 @@ class BookingController extends Controller
                 ]);
             }
 
+            // 2. Free all booths from selected_booth_ids (for merged/multiple booth bookings)
+            $rawSelectedBoothIds = $booking->selected_booth_ids;
+            if ($rawSelectedBoothIds) {
+                $selectedBoothIds = [];
+
+                // Work on a local array copy to avoid \"Indirect modification\" on casted attributes
+                if (is_array($rawSelectedBoothIds)) {
+                    // Handle array format: [{'id': 1, 'name': 'B001'}, ...] OR [1,2,3]
+                    $firstItem = reset($rawSelectedBoothIds);
+                    if (is_array($firstItem) && isset($firstItem['id'])) {
+                        // Array of objects format - extract IDs
+                        $selectedBoothIds = collect($rawSelectedBoothIds)
+                            ->pluck('id')
+                            ->filter()
+                            ->unique()
+                            ->values()
+                            ->all();
+                    } else {
+                        // Simple array format: [1, 2, 3] - use directly
+                        $selectedBoothIds = collect($rawSelectedBoothIds)
+                            ->filter()
+                            ->unique()
+                            ->values()
+                            ->all();
+                    }
+                }
+                
+                // Free all selected booths
+                if (!empty($selectedBoothIds)) {
+                    \App\Models\Booth::whereIn('id', $selectedBoothIds)
+                        ->where('exhibition_id', $booking->exhibition_id)
+                        ->update([
+                            'is_available' => true,
+                            'is_booked' => false,
+                        ]);
+                }
+            }
+
             DB::commit();
 
+            // Send cancellation processed email to exhibitor
+            try {
+                if ($booking->user && $booking->user->email) {
+                    Mail::to($booking->user->email)->send(new CancellationProcessedMail($booking));
+                }
+            } catch (\Exception $e) {
+                \Log::error('Failed to send cancellation processed email: ' . $e->getMessage());
+            }
+
+            // Log successful cancellation
+            \Log::info('Cancellation processed successfully', [
+                'booking_id' => $booking->id,
+                'booking_number' => $booking->booking_number,
+                'cancellation_type' => $request->cancellation_type,
+                'cancellation_amount' => $request->cancellation_amount,
+            ]);
+
             return redirect()->route('admin.bookings.show', $booking->id)
-                ->with('success', 'Cancellation processed successfully.');
+                ->with('success', 'Cancellation processed successfully. Booth(s) have been freed and made available for new bookings.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to process cancellation: ' . $e->getMessage());
+            \Log::error('Failed to process cancellation', [
+                'booking_id' => $booking->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return back()->withInput()->with('error', 'Failed to process cancellation: ' . $e->getMessage());
         }
     }
 

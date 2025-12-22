@@ -206,47 +206,19 @@
             
             <div class="mb-4">
                 <label class="form-label">Cancellation Reason</label>
-                <select name="cancellation_reason" class="form-select" required>
-                    <option value="">Select a reason</option>
-                    <option value="Change of plans">Change of plans</option>
-                    <option value="Financial constraints">Financial constraints</option>
-                    <option value="Found alternative event">Found alternative event</option>
-                    <option value="Company policy change">Company policy change</option>
-                    <option value="Other">Other</option>
-                </select>
+                <textarea name="cancellation_reason"
+                          class="form-control"
+                          rows="4"
+                          placeholder="Please describe why you want to cancel this booking..."
+                          required>{{ old('cancellation_reason') }}</textarea>
             </div>
             
             <div class="charges-box">
-                <div class="charges-label">Applicable Cancellation Charges:</div>
-                <div class="charges-amount">15% of total booking amount ₹{{ number_format($cancellationCharge, 2) }}</div>
-            </div>
-            
-            <div class="mb-4">
-                <label class="form-label">Refund Options</label>
-                
-                <div class="refund-option" onclick="selectRefundOption('full_refund')">
-                    <input type="radio" name="refund_option" value="full_refund" id="full_refund" required>
-                    <label for="full_refund" class="refund-option-label">Full refund minus charges</label>
-                </div>
-                
-                <div class="refund-option" onclick="selectRefundOption('partial_refund')">
-                    <input type="radio" name="refund_option" value="partial_refund" id="partial_refund">
-                    <label for="partial_refund" class="refund-option-label">Partial Refund (50% remaining amount)</label>
-                </div>
-                
-                <div class="refund-option" onclick="selectRefundOption('wallet_credit')">
-                    <input type="radio" name="refund_option" value="wallet_credit" id="wallet_credit">
-                    <label for="wallet_credit" class="refund-option-label">Credit to ExhiBook Wallet</label>
-                </div>
-                
-                <div class="refund-option" onclick="selectRefundOption('bank_refund')">
-                    <input type="radio" name="refund_option" value="bank_refund" id="bank_refund">
-                    <label for="bank_refund" class="refund-option-label">Refund in Bank with Account Details</label>
-                </div>
-                
-                <div class="account-details" id="accountDetails">
-                    <label class="form-label">Account Details</label>
-                    <textarea name="account_details" class="form-control" rows="4" placeholder="Enter bank account details for refund..."></textarea>
+                <div class="charges-label">Important:</div>
+                <div class="charges-amount" style="font-size: 1rem; font-weight: 500;">
+                    This is a cancellation request only. Our admin team will review your request
+                    and decide the applicable cancellation charges and the refund or wallet credit
+                    amount as per policy. You will receive an email once the request is processed.
                 </div>
             </div>
             
@@ -259,32 +231,5 @@
         </form>
     </div>
 </div>
-
-@push('scripts')
-<script>
-function selectRefundOption(value) {
-    document.querySelectorAll('.refund-option').forEach(opt => opt.classList.remove('selected'));
-    event.currentTarget.classList.add('selected');
-    document.getElementById(value).checked = true;
-    
-    if (value === 'bank_refund') {
-        document.getElementById('accountDetails').style.display = 'block';
-    } else {
-        document.getElementById('accountDetails').style.display = 'none';
-    }
-}
-
-// Handle radio button clicks
-document.querySelectorAll('input[name="refund_option"]').forEach(radio => {
-    radio.addEventListener('change', function() {
-        if (this.value === 'bank_refund') {
-            document.getElementById('accountDetails').style.display = 'block';
-        } else {
-            document.getElementById('accountDetails').style.display = 'none';
-        }
-    });
-});
-</script>
-@endpush
 @endsection
 

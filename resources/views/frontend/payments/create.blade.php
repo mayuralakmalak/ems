@@ -171,6 +171,12 @@
         background: #f0f9ff;
     }
     
+    .payment-method-card.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        box-shadow: none;
+    }
+    
     .payment-method-icon {
         font-size: 2.5rem;
         color: #6366f1;
@@ -388,6 +394,11 @@
                     <h5 class="section-title">Select Payment Method</h5>
                     <p class="section-description">Choose how you'd like to pay for your booking.</p>
                     
+                    @php
+                        // Wallet can only be used if balance covers the initial payment amount
+                        $walletBalance = auth()->user()->wallet_balance ?? 0;
+                        $canUseWallet = $walletBalance >= $initialAmount;
+                    @endphp
                     <div class="row g-3">
                         <div class="col-md-4">
                             <div class="payment-method-card" data-method="card">
@@ -408,9 +419,17 @@
                             </div>
                         </div>
                         <div class="col-md-4">
-                            <div class="payment-method-card" data-method="wallet">
+                            <div class="payment-method-card {{ $canUseWallet ? '' : 'disabled' }}"
+                                 data-method="wallet"
+                                 @unless($canUseWallet) data-disabled="1" @endunless>
                                 <i class="bi bi-wallet2 payment-method-icon"></i>
                                 <div class="payment-method-label">Wallet</div>
+                                <small style="color: #64748b;">Balance: ₹{{ number_format($walletBalance, 2) }}</small>
+                                @unless($canUseWallet)
+                                    <small class="d-block mt-1" style="color: #ef4444; font-size: 0.8rem;">
+                                        Wallet balance is lower than the initial payment amount.
+                                    </small>
+                                @endunless
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -620,6 +639,11 @@ let initialAmount = {{ $initialAmount }};
 // Payment method selection
 document.querySelectorAll('.payment-method-card').forEach(card => {
     card.addEventListener('click', function() {
+        // Block selection when card is disabled (e.g., wallet with insufficient balance)
+        if (this.dataset.disabled === '1') {
+            alert('Your wallet balance is not enough to pay the initial amount. Please use another payment method.');
+            return;
+        }
         document.querySelectorAll('.payment-method-card').forEach(c => c.classList.remove('selected'));
         this.classList.add('selected');
         selectedMethod = this.getAttribute('data-method');

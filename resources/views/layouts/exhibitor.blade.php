@@ -255,13 +255,13 @@
                 </a>
             </li>
             <li>
-                <a href="#" class="">
+                <a href="{{ route('services.index') }}" class="{{ request()->routeIs('services.*') ? 'active' : '' }}">
                     <i class="bi bi-star"></i>Additional Services
                 </a>
             </li>
             <li>
-                <a href="#" class="">
-                    <i class="bi bi-trophy"></i>Sponsorship
+                <a href="{{ route('sponsorships.index') }}" class="{{ request()->routeIs('sponsorships.*') ? 'active' : '' }}">
+                    <i class="bi bi-trophy"></i>Sponsorships
                 </a>
             </li>
             <li>
