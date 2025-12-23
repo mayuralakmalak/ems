@@ -46,6 +46,11 @@
                                     <a href="{{ route('admin.exhibitions.show', $exhibition->id) }}" class="text-info me-2">View Details</a>
                                     <a href="{{ route('admin.exhibitions.bookings', $exhibition->id) }}" class="text-success me-2">View Booked Booths</a>
                                     <a href="{{ route('admin.checklists.index', ['exhibition_id' => $exhibition->id]) }}" class="text-warning me-2">Checklist</a>
+                                    @if($exhibition->end_date && $exhibition->end_date->isPast())
+                                        <a href="{{ route('admin.reports.index', ['exhibition_id' => $exhibition->id]) }}" class="text-secondary me-2">
+                                            View Report
+                                        </a>
+                                    @endif
                                     <form action="{{ route('admin.exhibitions.destroy', $exhibition->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure?');">
                                         @csrf
                                         @method('DELETE')
