@@ -548,19 +548,48 @@ class ExhibitionController extends Controller
 
         // Store badge configurations
         BadgeConfiguration::where('exhibition_id', $exhibition->id)->delete();
-        foreach ($request->badge_configurations as $badgeType => $config) {
+
+        $badgeConfigsInput = $request->badge_configurations ?? [];
+
+        // Primary & Secondary: free quota + per-additional price
+        foreach (['Primary', 'Secondary'] as $type) {
+            $config = $badgeConfigsInput[$type] ?? null;
+            if (!$config) {
+                continue;
+            }
+
             $accessPermissions = $config['access_permissions'] ?? [];
             if (!is_array($accessPermissions)) {
                 $accessPermissions = [];
             }
-            
+
             BadgeConfiguration::create([
                 'exhibition_id' => $exhibition->id,
-                'badge_type' => $badgeType,
+                'badge_type' => $type,
                 'quantity' => $config['quantity'] ?? 0,
-                'pricing_type' => $config['pricing_type'] ?? 'Free',
-                'price' => ($config['pricing_type'] ?? 'Free') === 'Paid' ? ($config['price'] ?? 0) : 0,
-                'needs_admin_approval' => isset($config['needs_admin_approval']) ? (bool)$config['needs_admin_approval'] : false,
+                // Quantity = free quota, price = per additional badge beyond quota
+                'pricing_type' => 'Free',
+                'price' => $config['price'] ?? 0,
+                'needs_admin_approval' => false,
+                'access_permissions' => $accessPermissions,
+            ]);
+        }
+
+        // Additional: global settings for extra (paid) badges
+        if (isset($badgeConfigsInput['Additional'])) {
+            $additional = $badgeConfigsInput['Additional'];
+            $accessPermissions = $additional['access_permissions'] ?? [];
+            if (!is_array($accessPermissions)) {
+                $accessPermissions = [];
+            }
+
+            BadgeConfiguration::create([
+                'exhibition_id' => $exhibition->id,
+                'badge_type' => 'Additional',
+                'quantity' => 0,
+                'pricing_type' => 'Free',
+                'price' => 0,
+                'needs_admin_approval' => isset($additional['needs_admin_approval']) ? (bool)$additional['needs_admin_approval'] : false,
                 'access_permissions' => $accessPermissions,
             ]);
         }

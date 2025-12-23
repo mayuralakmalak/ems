@@ -73,6 +73,7 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     Route::delete('/bookings/{id}', [AdminBookingController::class, 'destroy'])->name('bookings.destroy');
     Route::post('/documents/{documentId}/approve', [AdminBookingController::class, 'approveDocument'])->name('bookings.documents.approve');
     Route::post('/documents/{documentId}/reject', [AdminBookingController::class, 'rejectDocument'])->name('bookings.documents.reject');
+    Route::post('/badges/{badgeId}/approve', [AdminBookingController::class, 'approveBadge'])->name('badges.approve');
     
     // Financial Management
     Route::get('/financial', [FinancialController::class, 'index'])->name('financial.index');

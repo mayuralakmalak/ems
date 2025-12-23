@@ -362,6 +362,7 @@
                     <tr>
                         <th>Staff Name</th>
                         <th>Role</th>
+                        <th>Valid Date(s)</th>
                         <th>Check-in Option</th>
                         <th>Badge Type</th>
                         <th>Actions</th>
@@ -372,6 +373,29 @@
                     <tr>
                         <td>{{ $badge->name }}</td>
                         <td>{{ $badge->badge_type }}</td>
+                        <td>
+                            @php
+                                $datesToShow = [];
+                                if (is_array($badge->valid_for_dates) && count($badge->valid_for_dates) > 0) {
+                                    foreach ($badge->valid_for_dates as $d) {
+                                        if ($d) {
+                                            try {
+                                                $datesToShow[] = \Carbon\Carbon::parse($d)->format('d M Y');
+                                            } catch (\Exception $e) {
+                                                $datesToShow[] = $d;
+                                            }
+                                        }
+                                    }
+                                } elseif ($badge->valid_for_date) {
+                                    try {
+                                        $datesToShow[] = $badge->valid_for_date->format('d M Y');
+                                    } catch (\Exception $e) {
+                                        $datesToShow[] = (string) $badge->valid_for_date;
+                                    }
+                                }
+                            @endphp
+                            {{ count($datesToShow) ? implode(', ', $datesToShow) : 'N/A' }}
+                        </td>
                         <td>
                             <input type="checkbox" checked disabled>
                         </td>
@@ -533,6 +557,32 @@
                         <span class="badge bg-{{ $selectedBadge->status === 'approved' ? 'success' : 'warning' }}">
                             {{ ucfirst($selectedBadge->status) }}
                         </span>
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Valid Date(s)</div>
+                    <div class="detail-value">
+                        @php
+                            $datesToShow = [];
+                            if (is_array($selectedBadge->valid_for_dates) && count($selectedBadge->valid_for_dates) > 0) {
+                                foreach ($selectedBadge->valid_for_dates as $d) {
+                                    if ($d) {
+                                        try {
+                                            $datesToShow[] = \Carbon\Carbon::parse($d)->format('d M Y');
+                                        } catch (\Exception $e) {
+                                            $datesToShow[] = $d;
+                                        }
+                                    }
+                                }
+                            } elseif ($selectedBadge->valid_for_date) {
+                                try {
+                                    $datesToShow[] = $selectedBadge->valid_for_date->format('d M Y');
+                                } catch (\Exception $e) {
+                                    $datesToShow[] = (string) $selectedBadge->valid_for_date;
+                                }
+                            }
+                        @endphp
+                        {{ count($datesToShow) ? implode(', ', $datesToShow) : 'N/A' }}
                     </div>
                 </div>
             </div>

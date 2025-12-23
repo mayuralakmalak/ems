@@ -50,6 +50,33 @@
         display: flex;
         gap: 12px;
     }
+    @media print {
+        /* Hide everything by default */
+        body * {
+            visibility: hidden;
+        }
+
+        /* Only show the badge card */
+        .badge-download,
+        .badge-download * {
+            visibility: visible;
+        }
+
+        /* Hide action buttons area (Print / Back to Badges) */
+        .badge-footer {
+            display: none !important;
+            visibility: hidden !important;
+        }
+
+        /* Position the badge card at the top-left for clean printing */
+        .badge-download {
+            position: absolute;
+            left: 0;
+            top: 0;
+            margin: 0;
+            box-shadow: none;
+        }
+    }
 </style>
 @endpush
 

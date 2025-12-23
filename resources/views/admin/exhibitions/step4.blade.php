@@ -27,6 +27,8 @@
         <div class="card-body">
             @php
                 $badgeConfigs = $exhibition->badgeConfigurations->keyBy('badge_type');
+                $additionalConfig = $badgeConfigs->get('Additional');
+                $additionalItems = $additionalConfig->access_permissions ?? ['Lunch', 'Entry Only', 'Snacks'];
             @endphp
             
             <!-- Primary Badge -->
@@ -36,26 +38,12 @@
                 </div>
                 <div class="col-md-2">
                     <input type="number" name="badge_configurations[Primary][quantity]" class="form-control" 
-                           placeholder="quantity" min="0" 
+                           placeholder="Free quantity" min="0" 
                            value="{{ $badgeConfigs->get('Primary')->quantity ?? 0 }}">
                 </div>
-                <div class="col-md-3">
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="badge_configurations[Primary][pricing_type]" 
-                               id="primary_free" value="Free" 
-                               {{ ($badgeConfigs->get('Primary')->pricing_type ?? 'Free') === 'Free' ? 'checked' : '' }}>
-                        <label class="form-check-label" for="primary_free">Free</label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="badge_configurations[Primary][pricing_type]" 
-                               id="primary_paid" value="Paid"
-                               {{ ($badgeConfigs->get('Primary')->pricing_type ?? 'Free') === 'Paid' ? 'checked' : '' }}>
-                        <label class="form-check-label" for="primary_paid">Paid</label>
-                    </div>
-                </div>
-                <div class="col-md-4">
+                <div class="col-md-4 offset-md-1">
                     <input type="number" name="badge_configurations[Primary][price]" class="form-control" 
-                           placeholder="Price" step="0.01" min="0"
+                           placeholder="Price per additional Primary badge" step="0.01" min="0"
                            value="{{ $badgeConfigs->get('Primary')->price ?? 0 }}">
                     <input type="hidden" name="badge_configurations[Primary][badge_type]" value="Primary">
                 </div>
@@ -68,105 +56,62 @@
                 </div>
                 <div class="col-md-2">
                     <input type="number" name="badge_configurations[Secondary][quantity]" class="form-control" 
-                           placeholder="quantity" min="0"
+                           placeholder="Free quantity" min="0"
                            value="{{ $badgeConfigs->get('Secondary')->quantity ?? 0 }}">
                 </div>
-                <div class="col-md-3">
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="badge_configurations[Secondary][pricing_type]" 
-                               id="secondary_free" value="Free"
-                               {{ ($badgeConfigs->get('Secondary')->pricing_type ?? 'Free') === 'Free' ? 'checked' : '' }}>
-                        <label class="form-check-label" for="secondary_free">Free</label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="badge_configurations[Secondary][pricing_type]" 
-                               id="secondary_paid" value="Paid"
-                               {{ ($badgeConfigs->get('Secondary')->pricing_type ?? 'Free') === 'Paid' ? 'checked' : '' }}>
-                        <label class="form-check-label" for="secondary_paid">Paid</label>
-                    </div>
-                </div>
-                <div class="col-md-4">
+                <div class="col-md-4 offset-md-1">
                     <input type="number" name="badge_configurations[Secondary][price]" class="form-control" 
-                           placeholder="Price" step="0.01" min="0"
+                           placeholder="Price per additional Secondary badge" step="0.01" min="0"
                            value="{{ $badgeConfigs->get('Secondary')->price ?? 0 }}">
                     <input type="hidden" name="badge_configurations[Secondary][badge_type]" value="Secondary">
                 </div>
             </div>
 
-            <!-- Additional Badge -->
+            <!-- Additional Badge Settings (applies when free quota is exceeded) -->
             <div class="row mb-3">
                 <div class="col-md-3">
-                    <label class="form-label">Additional Badge</label>
-                </div>
-                <div class="col-md-2">
-                    <input type="number" name="badge_configurations[Additional][quantity]" class="form-control" 
-                           placeholder="quantity" min="0"
-                           value="{{ $badgeConfigs->get('Additional')->quantity ?? 0 }}">
-                </div>
-                <div class="col-md-3">
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="badge_configurations[Additional][pricing_type]" 
-                               id="additional_free" value="Free"
-                               {{ ($badgeConfigs->get('Additional')->pricing_type ?? 'Paid') === 'Free' ? 'checked' : '' }}>
-                        <label class="form-check-label" for="additional_free">Free</label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="badge_configurations[Additional][pricing_type]" 
-                               id="additional_paid" value="Paid"
-                               {{ ($badgeConfigs->get('Additional')->pricing_type ?? 'Paid') === 'Paid' ? 'checked' : '' }}>
-                        <label class="form-check-label" for="additional_paid">Paid</label>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <input type="number" name="badge_configurations[Additional][price]" class="form-control" 
-                           placeholder="Price" step="0.01" min="0"
-                           value="{{ $badgeConfigs->get('Additional')->price ?? 0 }}">
-                    <input type="hidden" name="badge_configurations[Additional][badge_type]" value="Additional">
-                </div>
-            </div>
-
-            <!-- Admin Approval -->
-            <div class="row mb-3">
-                <div class="col-md-3">
-                    <label class="form-label">Need Admin approval</label>
+                    <label class="form-label">Additional Badge Settings</label>
                 </div>
                 <div class="col-md-9">
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="badge_configurations[Additional][needs_admin_approval]" 
-                               id="approval_yes" value="1"
-                               {{ ($badgeConfigs->get('Additional')->needs_admin_approval ?? false) ? 'checked' : '' }}>
-                        <label class="form-check-label" for="approval_yes">Yes</label>
+                    <div class="mb-2">
+                        <label class="form-label d-block">Need Admin approval for additional (paid) badges?</label>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="badge_configurations[Additional][needs_admin_approval]" 
+                                   id="approval_yes" value="1"
+                                   {{ ($additionalConfig->needs_admin_approval ?? false) ? 'checked' : '' }}>
+                            <label class="form-check-label" for="approval_yes">Yes</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="badge_configurations[Additional][needs_admin_approval]" 
+                                   id="approval_no" value="0"
+                                   {{ !($additionalConfig->needs_admin_approval ?? false) ? 'checked' : '' }}>
+                            <label class="form-check-label" for="approval_no">No</label>
+                        </div>
+                        <small class="text-muted d-block mt-1">
+                            When enabled, any badge created beyond the free quantity (and charged) will stay in pending status until approved by admin.
+                        </small>
                     </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="badge_configurations[Additional][needs_admin_approval]" 
-                               id="approval_no" value="0"
-                               {{ !($badgeConfigs->get('Additional')->needs_admin_approval ?? false) ? 'checked' : '' }}>
-                        <label class="form-check-label" for="approval_no">No</label>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Items for Additional Badge -->
-            <div class="row mb-3">
-                <div class="col-md-12">
-                    <label class="form-label">Items to be included in Additional Badge</label>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="badge_configurations[Additional][access_permissions][]" 
-                               value="Lunch" id="badge_lunch"
-                               {{ in_array('Lunch', $badgeConfigs->get('Additional')->access_permissions ?? []) ? 'checked' : '' }}>
-                        <label class="form-check-label" for="badge_lunch">Lunch</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="badge_configurations[Additional][access_permissions][]" 
-                               value="Entry Only" id="badge_entry"
-                               {{ in_array('Entry Only', $badgeConfigs->get('Additional')->access_permissions ?? []) ? 'checked' : '' }}>
-                        <label class="form-check-label" for="badge_entry">Entry Only</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="badge_configurations[Additional][access_permissions][]" 
-                               value="Snacks" id="badge_snacks"
-                               {{ in_array('Snacks', $badgeConfigs->get('Additional')->access_permissions ?? []) ? 'checked' : '' }}>
-                        <label class="form-check-label" for="badge_snacks">Snacks</label>
+                    <div class="mt-3">
+                        <label class="form-label d-block">Items to be included in Additional Badge</label>
+                        <div id="additionalItemsContainer">
+                            @foreach($additionalItems as $index => $item)
+                                <div class="input-group mb-2 additional-item-row">
+                                    <input type="text" name="badge_configurations[Additional][access_permissions][]" 
+                                           class="form-control" placeholder="Item name"
+                                           value="{{ $item }}">
+                                    <button type="button" class="btn btn-outline-danger remove-additional-item">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
+                            @endforeach
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="addAdditionalItemBtn">
+                            <i class="bi bi-plus-circle me-1"></i>Add Item
+                        </button>
+                        <small class="text-muted d-block mt-1">
+                            These items describe what is bundled with an additional (paid) badge, e.g. Lunch, Entry Only, Snacks.
+                        </small>
                     </div>
                 </div>
             </div>
@@ -430,6 +375,38 @@ function previewVariations() {
         alert('Please select variation images first');
     }
 }
+
+// Dynamic additional badge items
+document.addEventListener('DOMContentLoaded', function () {
+    const container = document.getElementById('additionalItemsContainer');
+    const addBtn = document.getElementById('addAdditionalItemBtn');
+
+    if (!container || !addBtn) {
+        return;
+    }
+
+    addBtn.addEventListener('click', function () {
+        const row = document.createElement('div');
+        row.className = 'input-group mb-2 additional-item-row';
+        row.innerHTML = `
+            <input type="text" name="badge_configurations[Additional][access_permissions][]" 
+                   class="form-control" placeholder="Item name">
+            <button type="button" class="btn btn-outline-danger remove-additional-item">
+                <i class="bi bi-x"></i>
+            </button>
+        `;
+        container.appendChild(row);
+    });
+
+    container.addEventListener('click', function (e) {
+        const btn = e.target.closest('.remove-additional-item');
+        if (!btn) return;
+        const row = btn.closest('.additional-item-row');
+        if (row) {
+            row.remove();
+        }
+    });
+});
 </script>
 @endpush
 @endsection

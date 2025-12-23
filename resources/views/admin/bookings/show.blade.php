@@ -256,6 +256,68 @@
     </div>
 
     <div class="col-lg-4">
+        {{-- Badges --}}
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-person-badge me-2"></i>Badges</h5>
+            </div>
+            <div class="card-body">
+                @if($booking->badges && $booking->badges->count() > 0)
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                    <th>Price</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($booking->badges as $badge)
+                                <tr>
+                                    <td>{{ $badge->name }}</td>
+                                    <td>{{ $badge->badge_type }}</td>
+                                    <td>
+                                        @if($badge->status === 'approved')
+                                            <span class="badge bg-success">Approved</span>
+                                        @elseif($badge->status === 'rejected')
+                                            <span class="badge bg-danger">Rejected</span>
+                                        @else
+                                            <span class="badge bg-warning">Pending</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if($badge->price > 0)
+                                            ₹{{ number_format($badge->price, 2) }}
+                                        @else
+                                            <span class="text-muted">Free</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if($badge->status !== 'approved')
+                                            <form action="{{ route('admin.badges.approve', $badge->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Approve this badge?');">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-success">
+                                                    <i class="bi bi-check"></i>
+                                                </button>
+                                            </form>
+                                        @else
+                                            <span class="text-muted small">No actions</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <p class="text-muted mb-0">No badges generated for this booking yet.</p>
+                @endif
+            </div>
+        </div>
+
         <div class="card mb-4">
             <div class="card-header">
                 <h5 class="mb-0"><i class="bi bi-wallet2 me-2"></i>Payments</h5>

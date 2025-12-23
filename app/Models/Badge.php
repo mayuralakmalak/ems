@@ -10,14 +10,29 @@ class Badge extends Model
     use HasFactory;
 
     protected $fillable = [
-        'booking_id', 'user_id', 'exhibition_id', 'badge_type', 'name',
-        'email', 'phone', 'photo', 'qr_code', 'status', 'is_paid',
-        'price', 'access_permissions', 'valid_for_date', 'is_scanned', 'scanned_at'
+        'booking_id',
+        'user_id',
+        'exhibition_id',
+        'badge_type',
+        'name',
+        'email',
+        'phone',
+        'photo',
+        'qr_code',
+        'status',
+        'is_paid',
+        'price',
+        'access_permissions',
+        'valid_for_date',
+        'valid_for_dates',
+        'is_scanned',
+        'scanned_at',
     ];
 
     protected $casts = [
         'access_permissions' => 'array',
         'valid_for_date' => 'date',
+        'valid_for_dates' => 'array',
         'is_paid' => 'boolean',
         'is_scanned' => 'boolean',
         'scanned_at' => 'datetime',

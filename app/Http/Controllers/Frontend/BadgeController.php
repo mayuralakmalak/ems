@@ -7,6 +7,7 @@ use App\Models\Badge;
 use App\Models\Booking;
 use App\Models\Exhibition;
 use App\Models\BadgeConfiguration;
+use App\Models\Payment;
 use App\Models\Wallet;
 use Illuminate\Http\Request;
 use SimpleSoftwareIO\QrCode\Facades\QrCode as QRCode;
@@ -41,7 +42,8 @@ class BadgeController extends Controller
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:20',
             'photo' => 'nullable|image|max:2048',
-            'valid_for_date' => 'nullable|date',
+            'valid_for_dates' => 'nullable|array',
+            'valid_for_dates.*' => 'nullable|date',
             'access_permissions' => 'nullable|array',
         ]);
 
@@ -60,14 +62,14 @@ class BadgeController extends Controller
             return back()->with('error', 'Badge configuration not found for this exhibition.');
         }
 
-        // Check quantity limits
+        // Current usage for this badge type on this booking
         $existingCount = Badge::where('booking_id', $booking->id)
             ->where('badge_type', $request->badge_type)
             ->count();
 
-        if ($existingCount >= $badgeConfig->quantity) {
-            return back()->with('error', 'Maximum ' . $badgeConfig->quantity . ' ' . $request->badge_type . ' badges allowed.');
-        }
+        // Free quota per type = configured quantity
+        $freeQuota = (int) $badgeConfig->quantity;
+        $withinFreeQuota = $existingCount < $freeQuota;
 
         // Handle photo upload
         $photoPath = null;
@@ -75,12 +77,16 @@ class BadgeController extends Controller
             $photoPath = $request->file('photo')->store('badges/photos', 'public');
         }
 
-        // Calculate price
-        $price = 0;
-        $isPaid = false;
-        if ($badgeConfig->pricing_type === 'Paid') {
-            $price = $badgeConfig->price;
-            $isPaid = true;
+        // Calculate price & payment status
+        // Quantity = free quota, price = per additional badge beyond quota.
+        // If we are still within free quota OR no price is configured, this badge is free.
+        // Once free quota is exceeded and price > 0, this badge is chargeable at that price.
+        $price = 0.0;
+        $isPaid = false; // Will be marked true only after payment approval
+        $unitPrice = (float) ($badgeConfig->price ?? 0);
+
+        if (!$withinFreeQuota && $unitPrice > 0) {
+            $price = $unitPrice;
         }
 
         // Generate QR code
@@ -93,6 +99,37 @@ class BadgeController extends Controller
             'name' => $request->name,
         ]);
 
+        // Normalise valid dates (remove empty values)
+        $validDates = collect($request->input('valid_for_dates', []))
+            ->filter()
+            ->values()
+            ->all();
+
+        // Enforce that all selected dates fall within the exhibition date range
+        if ($exhibition && $exhibition->start_date && $exhibition->end_date) {
+            $startDate = \Carbon\Carbon::parse($exhibition->start_date)->startOfDay();
+            $endDate = \Carbon\Carbon::parse($exhibition->end_date)->endOfDay();
+
+            foreach ($validDates as $date) {
+                try {
+                    $d = \Carbon\Carbon::parse($date);
+                } catch (\Exception $e) {
+                    continue;
+                }
+
+                if ($d->lt($startDate) || $d->gt($endDate)) {
+                    return back()
+                        ->withInput()
+                        ->with('error', 'Valid For Date(s) must be between the exhibition start and end dates.');
+                }
+            }
+        }
+
+        // Load global additional badge settings (for admin approval on paid badges)
+        $additionalConfig = BadgeConfiguration::where('exhibition_id', $exhibition->id)
+            ->where('badge_type', 'Additional')
+            ->first();
+
         // Create badge
         $badge = Badge::create([
             'booking_id' => $booking->id,
@@ -103,11 +140,14 @@ class BadgeController extends Controller
             'email' => $request->email,
             'phone' => $request->phone,
             'photo' => $photoPath,
-            'status' => $badgeConfig->needs_admin_approval ? 'pending' : 'approved',
+            // Paid badges may require admin approval depending on Additional config
+            'status' => ($price > 0 && ($additionalConfig->needs_admin_approval ?? false)) ? 'pending' : 'approved',
             'is_paid' => $isPaid,
             'price' => $price,
             'access_permissions' => $request->access_permissions ?? [],
-            'valid_for_date' => $request->valid_for_date,
+            // If only one date is selected, also store it in the legacy single-date column
+            'valid_for_date' => count($validDates) === 1 ? $validDates[0] : null,
+            'valid_for_dates' => $validDates,
         ]);
 
         // Generate QR code with badge ID
@@ -126,10 +166,20 @@ class BadgeController extends Controller
 
         $badge->update(['qr_code' => $qrCodePath]);
 
-        // If paid and needs payment, process payment
-        if ($isPaid && $price > 0) {
-            // Check if wallet payment or needs online payment
-            // For now, mark as pending payment
+        // If this badge is chargeable, create a pending payment entry linked to the booking
+        if ($price > 0) {
+            Payment::create([
+                'booking_id' => $booking->id,
+                'user_id' => auth()->id(),
+                'payment_number' => 'PM' . now()->format('YmdHis') . str_pad($booking->id, 6, '0', STR_PAD_LEFT) . 'BG' . str_pad($badge->id, 4, '0', STR_PAD_LEFT),
+                'payment_type' => 'installment',
+                'payment_method' => 'online',
+                'status' => 'pending',
+                'approval_status' => 'pending',
+                'amount' => round($price, 2),
+                'gateway_charge' => 0,
+                'due_date' => now()->addDays(7),
+            ]);
         }
 
         return redirect()->route('badges.index')->with('success', 'Badge created successfully.');
@@ -177,6 +227,8 @@ class BadgeController extends Controller
                 'allowed' => $allowed,
                 'used' => $used,
                 'remaining' => $remaining,
+                'pricing_type' => $config->pricing_type,
+                'price' => (float) $config->price,
             ];
         }
 
@@ -214,15 +266,43 @@ class BadgeController extends Controller
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:20',
             'photo' => 'nullable|image|max:2048',
-            'valid_for_date' => 'nullable|date',
+            'valid_for_dates' => 'nullable|array',
+            'valid_for_dates.*' => 'nullable|date',
             'access_permissions' => 'nullable|array',
         ]);
+
+        $validDates = collect($request->input('valid_for_dates', []))
+            ->filter()
+            ->values()
+            ->all();
+
+        // Enforce that all selected dates fall within the exhibition date range when updating
+        $exhibition = $badge->exhibition;
+        if ($exhibition && $exhibition->start_date && $exhibition->end_date) {
+            $startDate = \Carbon\Carbon::parse($exhibition->start_date)->startOfDay();
+            $endDate = \Carbon\Carbon::parse($exhibition->end_date)->endOfDay();
+
+            foreach ($validDates as $date) {
+                try {
+                    $d = \Carbon\Carbon::parse($date);
+                } catch (\Exception $e) {
+                    continue;
+                }
+
+                if ($d->lt($startDate) || $d->gt($endDate)) {
+                    return back()
+                        ->withInput()
+                        ->with('error', 'Valid For Date(s) must be between the exhibition start and end dates.');
+                }
+            }
+        }
 
         $updateData = [
             'name' => $request->name,
             'email' => $request->email,
             'phone' => $request->phone,
-            'valid_for_date' => $request->valid_for_date,
+            'valid_for_date' => count($validDates) === 1 ? $validDates[0] : null,
+            'valid_for_dates' => $validDates,
             'access_permissions' => $request->access_permissions ?? [],
             'status' => 'pending', // Reset to pending when updated
         ];
@@ -262,8 +342,12 @@ class BadgeController extends Controller
     public function download(string $id)
     {
         $badge = Badge::where('user_id', auth()->id())
-            ->where('status', 'approved')
             ->findOrFail($id);
+
+        if ($badge->status !== 'approved') {
+            return redirect()->route('badges.index')
+                ->with('error', 'This badge is not approved yet. Please wait for admin approval before downloading.');
+        }
 
         // Generate PDF or return badge view for download
         return view('frontend.badges.download', compact('badge'));
