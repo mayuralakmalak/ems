@@ -313,13 +313,25 @@
             <h5 class="section-title">Badge Generation</h5>
             
             <div class="form-group">
-                <label class="form-label">Select Event</label>
-                <select class="form-select" id="eventSelect">
-                    <option value="">Select Event</option>
+                <label class="form-label">Select Booking</label>
+                <select class="form-select" id="bookingSelect">
+                    <option value="">Select Booking</option>
                     @foreach(\App\Models\Booking::where('user_id', auth()->id())->where('status', 'confirmed')->with('exhibition')->get() as $booking)
-                    <option value="{{ $booking->exhibition_id }}">{{ $booking->exhibition->name }}</option>
+                    <option value="{{ $booking->id }}">
+                        {{ $booking->booking_number }} - {{ $booking->exhibition->name ?? 'N/A' }}
+                    </option>
                     @endforeach
                 </select>
+            </div>
+
+            <div class="form-group mt-2">
+                <div id="badgeLimitsBoxIndex" class="alert alert-info d-none">
+                    <strong>Badge limits for this booking:</strong>
+                    <ul id="badgeLimitsListIndex" class="mb-0 mt-2"></ul>
+                </div>
+                <small id="badgeLimitsEmptyIndex" class="text-muted d-none">
+                    No badge configuration found for this exhibition. Please contact the organizer if you believe this is an error.
+                </small>
             </div>
             
             <div class="form-group">
@@ -556,6 +568,74 @@
 
 @push('scripts')
 <script>
+// Booking selection -> show badge limits for that exhibition/booking
+document.addEventListener('DOMContentLoaded', function () {
+    const bookingSelect = document.getElementById('bookingSelect');
+    const badgeLimitsBox = document.getElementById('badgeLimitsBoxIndex');
+    const badgeLimitsList = document.getElementById('badgeLimitsListIndex');
+    const badgeLimitsEmpty = document.getElementById('badgeLimitsEmptyIndex');
+
+    if (!bookingSelect) {
+        return;
+    }
+
+    const bookingLimitsUrlTemplate = "{{ route('badges.booking-limits', ['bookingId' => ':bookingId']) }}";
+
+    function clearBadgeLimits() {
+        if (!badgeLimitsBox || !badgeLimitsList || !badgeLimitsEmpty) {
+            return;
+        }
+        badgeLimitsList.innerHTML = '';
+        badgeLimitsBox.classList.add('d-none');
+        badgeLimitsEmpty.classList.add('d-none');
+    }
+
+    bookingSelect.addEventListener('change', function () {
+        const bookingId = this.value;
+
+        if (!bookingId) {
+            clearBadgeLimits();
+            return;
+        }
+
+        const url = bookingLimitsUrlTemplate.replace(':bookingId', bookingId);
+
+        fetch(url, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (!badgeLimitsBox || !badgeLimitsList || !badgeLimitsEmpty) {
+                    return;
+                }
+
+                if (!data.success || !data.data || data.data.length === 0) {
+                    badgeLimitsList.innerHTML = '';
+                    badgeLimitsBox.classList.add('d-none');
+                    badgeLimitsEmpty.classList.remove('d-none');
+                    return;
+                }
+
+                badgeLimitsList.innerHTML = '';
+
+                data.data.forEach(item => {
+                    const li = document.createElement('li');
+                    li.textContent = `${item.badge_type}: Allowed ${item.allowed}, Used ${item.used}, Remaining ${item.remaining}`;
+                    badgeLimitsList.appendChild(li);
+                });
+
+                badgeLimitsEmpty.classList.add('d-none');
+                badgeLimitsBox.classList.remove('d-none');
+            })
+            .catch(() => {
+                clearBadgeLimits();
+            });
+    });
+});
+
 // Radio button selection
 document.querySelectorAll('.radio-option').forEach(option => {
     option.addEventListener('click', function() {

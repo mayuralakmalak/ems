@@ -241,6 +241,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/document-categories', [\App\Http\Controllers\Frontend\DocumentCategoryController::class, 'index'])->name('document-categories.index');
     
     // Badges
+    Route::get('/badges/booking/{bookingId}/limits', [BadgeController::class, 'bookingLimits'])
+        ->name('badges.booking-limits');
     Route::resource('badges', BadgeController::class);
     Route::get('/badges/{id}/download', [BadgeController::class, 'download'])->name('badges.download');
     

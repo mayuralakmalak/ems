@@ -135,6 +135,57 @@ class BadgeController extends Controller
         return redirect()->route('badges.index')->with('success', 'Badge created successfully.');
     }
 
+    /**
+     * Return badge limits and current usage for a given booking.
+     *
+     * Used by the exhibitor panel on the badges page to show how many
+     * badges are allowed and how many are already used for each category.
+     */
+    public function bookingLimits($bookingId)
+    {
+        $booking = Booking::where('user_id', auth()->id())
+            ->where('status', 'confirmed')
+            ->with('exhibition')
+            ->findOrFail($bookingId);
+
+        $exhibitionId = $booking->exhibition_id;
+
+        // Get all badge configurations for this exhibition, keyed by badge_type
+        $configs = BadgeConfiguration::where('exhibition_id', $exhibitionId)->get()->keyBy('badge_type');
+
+        $badgeTypes = ['Primary', 'Secondary', 'Additional'];
+        $data = [];
+
+        foreach ($badgeTypes as $type) {
+            $config = $configs->get($type);
+
+            // Skip types that are not configured
+            if (!$config) {
+                continue;
+            }
+
+            $allowed = (int) $config->quantity;
+
+            $used = Badge::where('booking_id', $booking->id)
+                ->where('badge_type', $type)
+                ->count();
+
+            $remaining = max(0, $allowed - $used);
+
+            $data[] = [
+                'badge_type' => $type,
+                'allowed' => $allowed,
+                'used' => $used,
+                'remaining' => $remaining,
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+        ]);
+    }
+
     public function show(string $id)
     {
         $badge = Badge::where('user_id', auth()->id())

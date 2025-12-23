@@ -14,7 +14,7 @@
             
             <div class="mb-3">
                 <label class="form-label">Booking *</label>
-                <select name="booking_id" class="form-select" required>
+                <select name="booking_id" class="form-select" id="bookingSelect" required>
                     <option value="">Select Booking</option>
                     @foreach($bookings as $booking)
                     <option value="{{ $booking->id }}">{{ $booking->booking_number }} - {{ $booking->exhibition->name ?? 'N/A' }}</option>
@@ -23,8 +23,18 @@
             </div>
 
             <div class="mb-3">
+                <div id="badgeLimitsBox" class="alert alert-info d-none">
+                    <strong>Badge limits for this booking:</strong>
+                    <ul id="badgeLimitsList" class="mb-0 mt-2"></ul>
+                </div>
+                <small id="badgeLimitsEmpty" class="text-muted d-none">
+                    No badge configuration found for this event. Please contact the organizer if you believe this is an error.
+                </small>
+            </div>
+
+            <div class="mb-3">
                 <label class="form-label">Badge Type *</label>
-                <select name="badge_type" class="form-select" required>
+                <select name="badge_type" class="form-select" id="badgeTypeSelect" required>
                     <option value="">Select Type</option>
                     <option value="Primary">Primary</option>
                     <option value="Secondary">Secondary</option>
@@ -80,5 +90,104 @@
         </form>
     </div>
 </div>
+@push('scripts')
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const bookingSelect = document.getElementById('bookingSelect');
+        const badgeTypeSelect = document.getElementById('badgeTypeSelect');
+        const badgeLimitsBox = document.getElementById('badgeLimitsBox');
+        const badgeLimitsList = document.getElementById('badgeLimitsList');
+        const badgeLimitsEmpty = document.getElementById('badgeLimitsEmpty');
+
+        if (!bookingSelect) {
+            return;
+        }
+
+        const bookingLimitsUrlTemplate = "{{ route('badges.booking-limits', ['bookingId' => ':bookingId']) }}";
+
+        function updateBadgeTypeOptions(limits) {
+            if (!badgeTypeSelect) {
+                return;
+            }
+
+            // Reset all options first
+            Array.from(badgeTypeSelect.options).forEach(option => {
+                if (!option.value) {
+                    return;
+                }
+                option.disabled = false;
+            });
+
+            limits.forEach(item => {
+                const option = Array.from(badgeTypeSelect.options)
+                    .find(opt => opt.value === item.badge_type);
+
+                if (option && item.remaining <= 0) {
+                    option.disabled = true;
+                }
+            });
+        }
+
+        function clearBadgeLimits() {
+            badgeLimitsList.innerHTML = '';
+            badgeLimitsBox.classList.add('d-none');
+            badgeLimitsEmpty.classList.add('d-none');
+            if (badgeTypeSelect) {
+                Array.from(badgeTypeSelect.options).forEach(option => {
+                    if (!option.value) {
+                        return;
+                    }
+                    option.disabled = false;
+                });
+            }
+        }
+
+        bookingSelect.addEventListener('change', function () {
+            const bookingId = this.value;
+
+            if (!bookingId) {
+                clearBadgeLimits();
+                return;
+            }
+
+            const url = bookingLimitsUrlTemplate.replace(':bookingId', bookingId);
+
+            fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success || !data.data || data.data.length === 0) {
+                        badgeLimitsList.innerHTML = '';
+                        badgeLimitsBox.classList.add('d-none');
+                        badgeLimitsEmpty.classList.remove('d-none');
+                        updateBadgeTypeOptions([]);
+                        return;
+                    }
+
+                    badgeLimitsList.innerHTML = '';
+
+                    data.data.forEach(item => {
+                        const li = document.createElement('li');
+                        li.textContent = `${item.badge_type}: Allowed ${item.allowed}, Used ${item.used}, Remaining ${item.remaining}`;
+                        badgeLimitsList.appendChild(li);
+                    });
+
+                    badgeLimitsEmpty.classList.add('d-none');
+                    badgeLimitsBox.classList.remove('d-none');
+
+                    updateBadgeTypeOptions(data.data);
+                })
+                .catch(() => {
+                    // On error, just clear and hide limits
+                    clearBadgeLimits();
+                });
+        });
+    });
+</script>
+@endpush
 @endsection
 
