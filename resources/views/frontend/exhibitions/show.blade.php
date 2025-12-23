@@ -85,24 +85,63 @@
 
     /* --- Section Cards --- */
     .section-card {
-        border-radius: 14px;
+        border-radius: 16px;
         border: 1px solid #e2e8f0;
-        box-shadow: 0 4px 18px rgba(15,23,42,0.03);
+        box-shadow: 0 14px 40px rgba(15,23,42,0.06);
+        transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+        background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+    }
+    .section-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 18px 46px rgba(15,23,42,0.08);
+        border-color: #cbd5e1;
     }
     .section-card .card-header {
-        background: #f8fafc;
+        background: linear-gradient(90deg, #f8fafc 0%, #eef2ff 100%);
         border-bottom-color: #e2e8f0;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding-top: 10px;
-        padding-bottom: 10px;
+        padding-top: 12px;
+        padding-bottom: 12px;
     }
     .section-card .card-header h5 {
-        font-size: 0.98rem;
-        font-weight: 600;
+        font-size: 1rem;
+        font-weight: 700;
         color: #0f172a;
+        margin-bottom: 2px;
     }
+    .section-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #e0e7ff;
+        color: #3730a3;
+        font-weight: 600;
+        font-size: 0.78rem;
+    }
+    .empty-state {
+        border: 1px dashed #cbd5e1;
+        padding: 14px;
+        border-radius: 12px;
+        background: #f8fafc;
+        color: #64748b;
+    }
+    .card-cta {
+        background: linear-gradient(120deg, #4f46e5, #6366f1);
+        color: #fff;
+        border-radius: 12px;
+        padding: 10px 12px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 12px 28px rgba(79,70,229,0.25);
+    }
+    .card-cta:hover { color: #fff; opacity: 0.94; }
 
     .section-subtitle {
         font-size: 0.85rem;
@@ -235,15 +274,16 @@
 
     {{-- Booth & Pricing Configuration (from admin Step 2) --}}
     <div class="row mt-4">
+        @php
+            $sizes = $exhibition->boothSizes ?? collect();
+        @endphp
         <div class="col-md-7 mb-4">
-            <div class="card">
+            <div class="card section-card">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="bi bi-grid-3x3-gap me-2"></i>Booth Sizes & Pricing</h5>
+                    <span class="section-chip"><i class="bi bi-list-ol"></i>{{ $sizes->count() }} option{{ $sizes->count() === 1 ? '' : 's' }}</span>
                 </div>
                 <div class="card-body">
-                    @php
-                        $sizes = $exhibition->boothSizes ?? collect();
-                    @endphp
                     @if($sizes->isEmpty())
                         <p class="text-muted mb-0">Booth size and pricing information will be available soon.</p>
                     @else
@@ -302,15 +342,16 @@
         </div>
 
         {{-- Add-on Services --}}
+        @php
+            $addonServices = $exhibition->addonServices ?? collect();
+        @endphp
         <div class="col-md-5 mb-4">
-            <div class="card h-100">
+            <div class="card section-card h-100">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="bi bi-stars me-2"></i>Add-on Services</h5>
+                    <span class="section-chip"><i class="bi bi-bag-plus"></i>{{ $addonServices->count() }} item{{ $addonServices->count() === 1 ? '' : 's' }}</span>
                 </div>
                 <div class="card-body">
-                    @php
-                        $addonServices = $exhibition->addonServices ?? collect();
-                    @endphp
                     @if($addonServices->isEmpty())
                         <p class="text-muted mb-0">No add-on services have been published for this exhibition yet.</p>
                     @else
@@ -335,17 +376,18 @@
 
     {{-- Floorplan Background Images & Stall Variations --}}
     <div class="row mt-2">
+        @php
+            $floorplanImages = is_array($exhibition->floorplan_images ?? null)
+                ? $exhibition->floorplan_images
+                : (array) ($exhibition->floorplan_image ? [$exhibition->floorplan_image] : []);
+        @endphp
         <div class="col-md-7 mb-4">
-            <div class="card">
+            <div class="card section-card">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="bi bi-image me-2"></i>Floor plan</h5>
+                    <span class="section-chip"><i class="bi bi-images"></i>{{ count($floorplanImages) }} image{{ count($floorplanImages) === 1 ? '' : 's' }}</span>
                 </div>
                 <div class="card-body">
-                    @php
-                        $floorplanImages = is_array($exhibition->floorplan_images ?? null)
-                            ? $exhibition->floorplan_images
-                            : (array) ($exhibition->floorplan_image ? [$exhibition->floorplan_image] : []);
-                    @endphp
                     @if(empty($floorplanImages))
                         <p class="text-muted mb-0">No floorplan images uploaded yet.</p>
                     @else
@@ -362,15 +404,16 @@
             </div>
         </div>
 
+        @php
+            $variations = $exhibition->stallVariations ?? collect();
+        @endphp
         <div class="col-md-5 mb-4">
-            <div class="card h-100">
+            <div class="card section-card h-100">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="bi bi-layout-three-columns me-2"></i>Stall Variations</h5>
+                    <span class="section-chip"><i class="bi bi-collection"></i>{{ $variations->count() }} style{{ $variations->count() === 1 ? '' : 's' }}</span>
                 </div>
                 <div class="card-body">
-                    @php
-                        $variations = $exhibition->stallVariations ?? collect();
-                    @endphp
                     @if($variations->isEmpty())
                         <p class="text-muted mb-0">Stall variation visuals will be available soon.</p>
                     @else
@@ -401,15 +444,16 @@
 
     {{-- Payment Schedule, Cut-off Dates, Badge Management, Exhibition Manual --}}
     <div class="row mt-2">
+        @php
+            $schedules = $exhibition->paymentSchedules ?? collect();
+        @endphp
         <div class="col-md-7 mb-4">
-            <div class="card h-100">
+            <div class="card section-card h-100">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="bi bi-cash-stack me-2"></i>Payment Schedule & Cut-off Dates</h5>
+                    <span class="section-chip"><i class="bi bi-calendar-check"></i>{{ $schedules->count() }} part{{ $schedules->count() === 1 ? '' : 's' }}</span>
                 </div>
                 <div class="card-body">
-                    @php
-                        $schedules = $exhibition->paymentSchedules ?? collect();
-                    @endphp
                     @if($schedules->isEmpty() && !$exhibition->addon_services_cutoff_date && !$exhibition->document_upload_deadline)
                         <p class="text-muted mb-0">Payment schedule and cut-off dates will be communicated later.</p>
                     @else
@@ -441,15 +485,16 @@
             </div>
         </div>
 
+        @php
+            $badgeConfigs = $exhibition->badgeConfigurations->keyBy('badge_type');
+        @endphp
         <div class="col-md-5 mb-4">
-            <div class="card mb-3">
+            <div class="card section-card mb-3">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="bi bi-person-badge me-2"></i>Badges for CheckIn</h5>
+                    <span class="section-chip"><i class="bi bi-people"></i>{{ $badgeConfigs->count() }} type{{ $badgeConfigs->count() === 1 ? '' : 's' }}</span>
                 </div>
                 <div class="card-body">
-                    @php
-                        $badgeConfigs = $exhibition->badgeConfigurations->keyBy('badge_type');
-                    @endphp
                     @if($badgeConfigs->isEmpty())
                         <p class="text-muted mb-0">Badge configuration details will be shared later.</p>
                     @else
@@ -475,9 +520,12 @@
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card section-card">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="bi bi-file-earmark-pdf me-2"></i>Exhibition Manual</h5>
+                    <span class="section-chip {{ $exhibition->exhibition_manual_pdf ? '' : 'bg-warning text-dark' }}">
+                        <i class="bi bi-file-earmark"></i>{{ $exhibition->exhibition_manual_pdf ? 'Available' : 'Pending' }}
+                    </span>
                 </div>
                 <div class="card-body">
                     @if($exhibition->exhibition_manual_pdf)

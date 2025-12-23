@@ -47,6 +47,62 @@
     .summary-row:last-child { border-bottom: none; }
     .summary-label { color: #64748b; }
     .summary-value { font-weight: 600; color: #0f172a; }
+
+    .exhibition-hero {
+        background: linear-gradient(120deg, #4f46e5, #6366f1, #8b5cf6);
+        border-radius: 16px;
+        padding: 22px 24px;
+        color: #fff;
+        box-shadow: 0 12px 30px rgba(79,70,229,0.18);
+        margin-bottom: 20px;
+    }
+    .exhibition-hero .metric-pill {
+        background: rgba(255,255,255,0.12);
+        color: #fff;
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid rgba(255,255,255,0.2);
+    }
+    .exhibition-hero .metric-pill i {
+        font-size: 1.1rem;
+    }
+    .summary-total-chip {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 14px;
+    }
+    .soft-alert {
+        background: #eef2ff;
+        border: 1px solid #e0e7ff;
+        color: #312e81;
+        border-radius: 12px;
+        padding: 12px 14px;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+    .soft-alert i {
+        font-size: 1.1rem;
+        margin-top: 2px;
+    }
+    .pill-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        background: #f1f5f9;
+        border-radius: 10px;
+        font-weight: 600;
+        color: #334155;
+        border: 1px solid #e2e8f0;
+    }
 </style>
 @endpush
 
@@ -60,6 +116,25 @@
         <span class="step-pill"><span class="badge bg-light text-dark">3</span> Payment</span>
     </div>
 
+    <div class="exhibition-hero">
+        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3">
+            <div>
+                <div class="text-uppercase fw-semibold small text-white-50 mb-1">Booking Details</div>
+                <h3 class="mb-1">{{ $exhibition->name }}</h3>
+                <p class="mb-0 text-white-75">Review your company info, confirm selections, and continue to payment.</p>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <span class="metric-pill"><i class="bi bi-grid-3x3-gap"></i>{{ count($booths) }} booth{{ count($booths) > 1 ? 's' : '' }}</span>
+                <span class="metric-pill"><i class="bi bi-cash-coin"></i>₹{{ number_format($totalAmount ?? 0, 2) }}</span>
+                @if($exhibition->exhibition_manual_pdf)
+                    <a href="{{ asset('storage/' . $exhibition->exhibition_manual_pdf) }}" target="_blank" class="metric-pill text-decoration-none">
+                        <i class="bi bi-file-earmark-arrow-down"></i>Manual
+                    </a>
+                @endif
+            </div>
+        </div>
+    </div>
+
     <div class="row">
         <div class="col-lg-8">
             <div class="card shadow-sm border-0 mb-4">
@@ -68,6 +143,12 @@
                     <small class="text-muted">Provide company and contact information.</small>
                 </div>
                 <div class="card-body">
+                    <div class="soft-alert">
+                        <i class="bi bi-shield-check"></i>
+                        <div>
+                            <strong>Tip:</strong> Accurate details speed up approval. You can update uploads later from your dashboard if needed.
+                        </div>
+                    </div>
                     <form id="bookingForm" action="{{ route('bookings.store') }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         <input type="hidden" name="exhibition_id" value="{{ $exhibition->id }}">
@@ -190,6 +271,18 @@
         <div class="col-lg-4">
             <div class="summary-card">
                 <h6 class="mb-3">Summary</h6>
+                <div class="summary-total-chip">
+                    <div class="text-muted small mb-1">Current Total</div>
+                    <div class="d-flex align-items-baseline gap-2">
+                        <span class="fw-bold" style="font-size: 1.4rem; color:#4f46e5;">₹{{ number_format($totalAmount ?? ($boothTotal + $servicesTotal + $extrasTotal), 2) }}</span>
+                        <span class="badge bg-light text-dark">Step 2 of 3</span>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                        <span class="pill-chip"><i class="bi bi-grid-3x3-gap"></i>{{ count($booths) }} booth{{ count($booths) > 1 ? 's' : '' }}</span>
+                        <span class="pill-chip"><i class="bi bi-clipboard-check"></i>{{ !empty($selectedServices) ? 'Services added' : 'No extra services' }}</span>
+                        <span class="pill-chip"><i class="bi bi-shield-lock"></i>Secure review</span>
+                    </div>
+                </div>
                 <div class="summary-row">
                     <span class="summary-label">Exhibition</span>
                     <span class="summary-value">{{ $exhibition->name }}</span>
@@ -254,6 +347,23 @@
                 <div class="summary-row" style="border-top: 2px solid #e2e8f0; padding-top: 10px; margin-top: 10px;">
                     <span class="summary-label" style="font-weight: 700;">Total Amount</span>
                     <span class="summary-value" style="font-weight: 700; color: #6366f1; font-size: 1.2rem;">₹{{ number_format($grandTotal, 2) }}</span>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white border-0 d-flex align-items-center">
+                    <i class="bi bi-file-earmark-pdf me-2"></i>
+                    <h6 class="mb-0">Exhibition Manual</h6>
+                </div>
+                <div class="card-body">
+                    @if($exhibition->exhibition_manual_pdf)
+                        <p class="text-muted small mb-3">Download and review the exhibition manual before submitting your booking.</p>
+                        <a href="{{ asset('storage/' . $exhibition->exhibition_manual_pdf) }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-file-earmark-arrow-down me-1"></i>Download Manual
+                        </a>
+                    @else
+                        <p class="text-muted mb-0">Exhibition manual will be uploaded soon.</p>
+                    @endif
                 </div>
             </div>
         </div>

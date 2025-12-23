@@ -1148,9 +1148,6 @@
                 <button class="btn-action btn-select" id="selectBoothBtn">
                     <i class="bi bi-check-circle me-1"></i>Select Booth
                 </button>
-                <button class="btn-action btn-merge" id="mergeBoothBtn" disabled>
-                    <i class="bi bi-arrow-left-right me-1"></i>Request Merge
-                </button>
                 <button class="btn-action btn-split" id="splitBoothBtn" disabled>
                     <i class="bi bi-scissors me-1"></i>Request Split
                 </button>
@@ -1281,7 +1278,6 @@ let currentZoom = 1;
 let selectedBoothId = null;
 let contactCount = 0;
 let boothSelections = {};
-let mergeRequested = false;
 
 const pricingConfig = {
     basePricePerSqft: {{ $exhibition->price_per_sqft ?? 0 }},
@@ -1307,7 +1303,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupBoothSelection();
     setupFilters();
     setupZoom();
-    setupMergeSplit();
+    setupSplit();
     setupPriceRange();
     toggleServicesCard();
     setupFloorSelection();
@@ -1539,7 +1535,6 @@ function showBoothDetails(boothId) {
     // Update button states
     const isSelected = selectedBooths.includes(boothId);
     document.getElementById('selectBoothBtn').textContent = isSelected ? 'Deselect Booth' : 'Select Booth';
-    document.getElementById('mergeBoothBtn').disabled = selectedBooths.length < 2;
     document.getElementById('splitBoothBtn').disabled = selectedBooths.length !== 1;
 }
 
@@ -1853,14 +1848,6 @@ function updateSelectedBoothsList() {
     }
     
     let html = '';
-    if (mergeRequested && selectedBooths.length > 1) {
-        html += `
-            <div class="alert alert-info py-2 px-3 mb-2" style="font-size: 0.85rem;">
-                <i class="bi bi-arrow-left-right me-1"></i>
-                Selected booths will be booked as a <strong>merged booth</strong> in the next step. The actual merge will be created only after you submit the booking.
-            </div>
-        `;
-    }
     selectedBooths.forEach(boothId => {
         const booth = document.querySelector(`[data-booth-id="${boothId}"]`);
         if (booth) {
@@ -2090,7 +2077,6 @@ function setupZoom() {
     
     document.getElementById('resetView').addEventListener('click', () => {
         currentZoom = 1;
-        mergeRequested = false;
         applyZoom();
         selectedBooths = [];
         document.querySelectorAll('.booth-item').forEach(booth => {
@@ -2098,11 +2084,6 @@ function setupZoom() {
         });
         updateSelectedBoothsList();
         updateProceedButton();
-
-        const mergeBtn = document.getElementById('mergeBoothBtn');
-        if (mergeBtn) {
-            mergeBtn.innerHTML = '<i class="bi bi-arrow-left-right me-1"></i>Request Merge';
-        }
     });
 }
 
@@ -2127,73 +2108,14 @@ function initializeBoothPrices() {
     });
 }
 
-// Merge & Split
-function setupMergeSplit() {
-    document.getElementById('mergeBoothBtn').addEventListener('click', function() {
-        if (selectedBooths.length < 2) {
-            alert('Please select at least 2 booths to merge');
-            return;
-        }
-
-        // Toggle client-side merge mode; actual DB merge happens only after booking submission.
-        mergeRequested = !mergeRequested;
-
-        this.innerHTML = mergeRequested
-            ? '<i class="bi bi-arrow-left-right me-1"></i>Merged for this booking'
-            : '<i class="bi bi-arrow-left-right me-1"></i>Request Merge';
-
-        updateSelectedBoothsList();
-    });
-    
+// Split
+function setupSplit() {
     document.getElementById('splitBoothBtn').addEventListener('click', function() {
         if (selectedBooths.length !== 1) {
             alert('Please select exactly 1 booth to split');
             return;
         }
         requestSplit();
-    });
-}
-
-function requestMerge() {
-    const newName = prompt('Enter name for merged booth (e.g., D1D2):');
-    if (!newName) return;
-    
-    const formData = new FormData();
-    formData.append('_token', document.querySelector('meta[name="csrf-token"]').content);
-    selectedBooths.forEach(boothId => {
-        formData.append('booth_ids[]', boothId);
-    });
-    formData.append('new_name', newName);
-    
-    fetch('{{ route("floorplan.merge-request", $exhibition->id) }}', {
-        method: 'POST',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            'Accept': 'application/json'
-        },
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Show success message with merged booth details
-            const message = `Booths merged successfully!\n\nMerged Booth: ${data.merged_booth_name}\nSize: ${data.merged_booth_size} sq ft\nPrice: ₹${parseFloat(data.merged_booth_price).toLocaleString()}\n\nThe merged booth is now available for booking.`;
-            alert(message);
-            
-            // Clear selection and reload to show merged booth
-            selectedBooths = [];
-            if (data.redirect) {
-                window.location.href = data.redirect;
-            } else {
-                location.reload();
-            }
-        } else {
-            alert(data.message || 'Merge failed');
-        }
-    })
-    .catch(error => {
-        alert('Error merging booths');
-        console.error(error);
     });
 }
 
@@ -2256,9 +2178,6 @@ document.getElementById('proceedToBookBtn').addEventListener('click', function()
     const detailsUrl = "{{ route('bookings.details', $exhibition->id) }}";
     const params = new URLSearchParams();
     params.set('booths', selectedBooths.join(','));
-    if (mergeRequested && selectedBooths.length > 1) {
-        params.set('merge', '1');
-    }
     const meta = {};
     selectedBooths.forEach(id => {
         if (boothSelections[id]) {

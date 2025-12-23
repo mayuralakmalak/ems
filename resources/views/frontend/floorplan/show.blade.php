@@ -374,17 +374,6 @@
                 <button class="filter-btn" data-filter="booked">Booked</button>
                 <button class="filter-btn" data-filter="reserved">Reserved</button>
             </div>
-            <div class="action-buttons">
-                <button class="btn-action btn btn-sm btn-primary" id="requestMergeBtn" disabled>
-                    <i class="bi bi-arrow-left-right me-1"></i>Request Merge
-                </button>
-                <button class="btn-action btn btn-sm btn-warning" id="requestSplitBtn" disabled>
-                    <i class="bi bi-scissors me-1"></i>Request Split
-                </button>
-                <button class="btn-action btn btn-sm btn-secondary" id="resetBtn">
-                    <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
-                </button>
-            </div>
         </div>
         
         <div class="floorplan-canvas" id="floorplanCanvas">
@@ -452,74 +441,6 @@
     </div>
 </div>
 
-<!-- Merge Request Modal -->
-<div class="modal fade" id="mergeRequestModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Request Booth Merge</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form id="mergeRequestForm" action="{{ route('floorplan.merge-request', $exhibition->id) }}" method="POST">
-                @csrf
-                <div class="modal-body">
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle me-2"></i>Your merge request will be sent to admin for approval.
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">New Booth Name *</label>
-                        <input type="text" class="form-control" name="new_name" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Description (Optional)</label>
-                        <textarea class="form-control" name="description" rows="3"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Submit Request</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Split Request Modal -->
-<div class="modal fade" id="splitRequestModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Request Booth Split</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form id="splitRequestForm" action="" method="POST">
-                @csrf
-                <div class="modal-body">
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle me-2"></i>Your split request will be sent to admin for approval.
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Split Into *</label>
-                        <select class="form-select" name="split_count" id="splitCount" required>
-                            <option value="2">2 Booths</option>
-                            <option value="3">3 Booths</option>
-                            <option value="4">4 Booths</option>
-                        </select>
-                    </div>
-                    <div id="splitNamesContainer"></div>
-                    <div class="mb-3">
-                        <label class="form-label">Description (Optional)</label>
-                        <textarea class="form-control" name="description" rows="3"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Submit Request</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 
 @push('scripts')
 <script>
@@ -609,12 +530,8 @@ function updateSelectedBoothInfo() {
 }
 
 function updateActionButtons() {
-    const mergeBtn = document.getElementById('requestMergeBtn');
-    const splitBtn = document.getElementById('requestSplitBtn');
     const proceedBtn = document.getElementById('proceedToBookBtn');
     
-    mergeBtn.disabled = selectedBooths.length < 2;
-    splitBtn.disabled = selectedBooths.length !== 1;
     proceedBtn.disabled = selectedBooths.length === 0;
 }
 
@@ -633,62 +550,6 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
                 booth.style.display = 'none';
             }
         });
-    });
-});
-
-// Merge request
-document.getElementById('requestMergeBtn').addEventListener('click', function() {
-    if (selectedBooths.length < 2) return;
-    
-    const form = document.getElementById('mergeRequestForm');
-    form.querySelectorAll('input[name="booth_ids[]"]').forEach(input => input.remove());
-    selectedBooths.forEach(boothId => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'booth_ids[]';
-        input.value = boothId;
-        form.appendChild(input);
-    });
-    
-    new bootstrap.Modal(document.getElementById('mergeRequestModal')).show();
-});
-
-// Split request
-document.getElementById('requestSplitBtn').addEventListener('click', function() {
-    if (selectedBooths.length !== 1) return;
-    
-    const boothId = selectedBooths[0];
-    const form = document.getElementById('splitRequestForm');
-    form.action = `/ems-laravel/public/exhibitions/{{ $exhibition->id }}/booths/${boothId}/split-request`;
-    
-    const splitCount = document.getElementById('splitCount');
-    const container = document.getElementById('splitNamesContainer');
-    
-    function updateSplitNames() {
-        const count = parseInt(splitCount.value);
-        let html = '';
-        for (let i = 0; i < count; i++) {
-            html += `<div class="mb-3">
-                <label class="form-label">Booth ${i + 1} Name *</label>
-                <input type="text" class="form-control" name="new_names[]" required>
-            </div>`;
-        }
-        container.innerHTML = html;
-    }
-    
-    splitCount.addEventListener('change', updateSplitNames);
-    updateSplitNames();
-    
-    new bootstrap.Modal(document.getElementById('splitRequestModal')).show();
-});
-
-// Reset view
-document.getElementById('resetBtn').addEventListener('click', function() {
-    clearSelection();
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    document.querySelector('.filter-btn[data-filter="all"]').classList.add('active');
-    document.querySelectorAll('.booth-item').forEach(booth => {
-        booth.style.display = 'flex';
     });
 });
 
