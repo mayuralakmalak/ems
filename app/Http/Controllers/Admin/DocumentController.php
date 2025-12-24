@@ -7,7 +7,10 @@ use App\Models\Document;
 use App\Models\User;
 use App\Models\Exhibition;
 use App\Models\Notification;
+use App\Mail\DocumentStatusMail;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 
 class DocumentController extends Controller
 {
@@ -108,6 +111,9 @@ class DocumentController extends Controller
             'rejection_reason' => null,
         ]);
         
+        // Reload document with relationships for email
+        $document->load(['user', 'booking.exhibition', 'requiredDocument']);
+        
         // Notify exhibitor
         Notification::create([
             'user_id' => $document->user_id,
@@ -117,6 +123,21 @@ class DocumentController extends Controller
             'notifiable_type' => Document::class,
             'notifiable_id' => $document->id,
         ]);
+        
+        // Send approval email to exhibitor
+        try {
+            if ($document->user && $document->user->email) {
+                Mail::to($document->user->email)->send(
+                    new DocumentStatusMail($document, 'approved', $request->verification_comments)
+                );
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to send document approval email: ' . $e->getMessage(), [
+                'document_id' => $document->id,
+                'user_email' => $document->user->email ?? 'N/A',
+                'error' => $e->getMessage(),
+            ]);
+        }
         
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
@@ -142,6 +163,9 @@ class DocumentController extends Controller
             'rejection_reason' => $request->rejection_reason,
         ]);
         
+        // Reload document with relationships for email
+        $document->load(['user', 'booking.exhibition', 'requiredDocument']);
+        
         // Notify exhibitor
         Notification::create([
             'user_id' => $document->user_id,
@@ -151,6 +175,21 @@ class DocumentController extends Controller
             'notifiable_type' => Document::class,
             'notifiable_id' => $document->id,
         ]);
+        
+        // Send rejection email to exhibitor
+        try {
+            if ($document->user && $document->user->email) {
+                Mail::to($document->user->email)->send(
+                    new DocumentStatusMail($document, 'rejected', $request->rejection_reason)
+                );
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to send document rejection email: ' . $e->getMessage(), [
+                'document_id' => $document->id,
+                'user_email' => $document->user->email ?? 'N/A',
+                'error' => $e->getMessage(),
+            ]);
+        }
         
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
@@ -188,8 +227,31 @@ class DocumentController extends Controller
             'document_ids.*' => 'required|exists:documents,id',
         ]);
         
+        // Get documents with relationships before updating
+        $documents = Document::with(['user', 'booking.exhibition', 'requiredDocument'])
+            ->whereIn('id', $documentIds)
+            ->get();
+        
+        // Update status
         Document::whereIn('id', $documentIds)
-            ->update(['status' => 'approved']);
+            ->update(['status' => 'approved', 'rejection_reason' => null]);
+        
+        // Send approval emails to exhibitors
+        foreach ($documents as $document) {
+            try {
+                if ($document->user && $document->user->email) {
+                    Mail::to($document->user->email)->send(
+                        new DocumentStatusMail($document, 'approved', null)
+                    );
+                }
+            } catch (\Exception $e) {
+                Log::error('Failed to send bulk document approval email: ' . $e->getMessage(), [
+                    'document_id' => $document->id,
+                    'user_email' => $document->user->email ?? 'N/A',
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
         
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([

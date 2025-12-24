@@ -8,10 +8,13 @@ use App\Models\Document;
 use App\Models\Wallet;
 use App\Models\Notification;
 use App\Models\Badge;
+use App\Mail\DocumentStatusMail;
 use App\Mail\CancellationProcessedMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
+
 
 class BookingController extends Controller
 {
@@ -341,7 +344,7 @@ class BookingController extends Controller
 
     public function approveDocument($documentId)
     {
-        $document = Document::with('booking')->findOrFail($documentId);
+        $document = Document::with(['booking', 'user', 'booking.exhibition', 'requiredDocument'])->findOrFail($documentId);
         $document->update([
             'status' => 'approved',
             'rejection_reason' => null,
@@ -357,12 +360,27 @@ class BookingController extends Controller
             'notifiable_id' => $document->id,
         ]);
 
+        // Send approval email to exhibitor
+        try {
+            if ($document->user && $document->user->email) {
+                Mail::to($document->user->email)->send(
+                    new DocumentStatusMail($document, 'approved', null)
+                );
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to send document approval email: ' . $e->getMessage(), [
+                'document_id' => $document->id,
+                'user_email' => $document->user->email ?? 'N/A',
+                'error' => $e->getMessage(),
+            ]);
+        }
+
         return back()->with('success', 'Document approved.');
     }
 
     public function rejectDocument(Request $request, $documentId)
     {
-        $document = Document::with('booking')->findOrFail($documentId);
+        $document = Document::with(['booking', 'user', 'booking.exhibition', 'requiredDocument'])->findOrFail($documentId);
 
         $request->validate([
             'rejection_reason' => 'required|string|max:1000',
@@ -382,6 +400,21 @@ class BookingController extends Controller
             'notifiable_type' => Document::class,
             'notifiable_id' => $document->id,
         ]);
+
+        // Send rejection email to exhibitor
+        try {
+            if ($document->user && $document->user->email) {
+                Mail::to($document->user->email)->send(
+                    new DocumentStatusMail($document, 'rejected', $request->rejection_reason)
+                );
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to send document rejection email: ' . $e->getMessage(), [
+                'document_id' => $document->id,
+                'user_email' => $document->user->email ?? 'N/A',
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return back()->with('success', 'Document rejected with reason recorded.');
     }
