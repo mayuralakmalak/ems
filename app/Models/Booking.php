@@ -86,4 +86,35 @@ class Booking extends Model
     {
         return $this->hasMany(AdditionalServiceRequest::class);
     }
+
+    /**
+     * Check if all payments for this booking are completed
+     */
+    public function isFullyPaid()
+    {
+        // Check if paid_amount is greater than or equal to total_amount
+        // Allow small floating point differences (0.01)
+        return $this->paid_amount >= ($this->total_amount - 0.01);
+    }
+
+    /**
+     * Check if all payment installments are approved/completed
+     */
+    public function areAllPaymentsCompleted()
+    {
+        $payments = $this->payments;
+        
+        if ($payments->isEmpty()) {
+            return false;
+        }
+
+        // Check if all payments are completed and approved
+        foreach ($payments as $payment) {
+            if ($payment->status !== 'completed' || $payment->approval_status !== 'approved') {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

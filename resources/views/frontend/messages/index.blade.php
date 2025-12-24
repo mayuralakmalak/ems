@@ -188,6 +188,8 @@
         flex: 1;
         overflow-y: auto;
         margin-bottom: 20px;
+        scroll-behavior: smooth;
+        max-height: calc(100vh - 400px);
     }
     .message-bubble {
         margin-bottom: 16px;
@@ -382,49 +384,9 @@ function loadMessage(messageId) {
         .then(response => response.text())
         .then(html => {
             document.getElementById('messageDetail').innerHTML = html;
-
-            // Attach AJAX submit handler for reply form in the loaded conversation
-            const container = document.getElementById('messageDetail');
-            const form = container.querySelector('form.conversation-reply-form');
-            if (form) {
-                form.addEventListener('submit', function(e) {
-                    e.preventDefault();
-
-                    const formData = new FormData(form);
-                    const messageText = (formData.get('message') || '').toString().trim();
-                    if (!messageText) {
-                        alert('Please enter a message');
-                        return;
-                    }
-
-                    fetch(form.action, {
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                        }
-                    })
-                    .then(response => {
-                        if (response.headers.get('content-type')?.includes('application/json')) {
-                            return response.json();
-                        }
-                        return { success: true, message_id: messageId };
-                    })
-                    .then(data => {
-                        const newId = (data && typeof data.message_id !== 'undefined')
-                            ? data.message_id
-                            : messageId;
-                        // Reload this conversation in the right panel
-                        loadMessage(newId);
-                    })
-                    .catch(error => {
-                        console.error('Error sending message:', error);
-                        // As a fallback, reload the whole page
-                        window.location.reload();
-                    });
-                });
-            }
+            
+            // The real-time polling script is already included in the loaded HTML
+            // No need to attach handlers here as they're in the show.blade.php template
         })
         .catch(error => {
             console.error('Error loading message:', error);
@@ -435,9 +397,22 @@ function openNewChat() {
     fetch(`{{ route('messages.new-chat') }}`)
         .then(response => response.text())
         .then(html => {
-            document.getElementById('messageDetail').innerHTML = html;
+            const messageDetail = document.getElementById('messageDetail');
+            messageDetail.innerHTML = html;
+            
+            // Execute any scripts in the loaded HTML
+            const scripts = messageDetail.querySelectorAll('script');
+            scripts.forEach(oldScript => {
+                const newScript = document.createElement('script');
+                Array.from(oldScript.attributes).forEach(attr => {
+                    newScript.setAttribute(attr.name, attr.value);
+                });
+                newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                oldScript.parentNode.replaceChild(newScript, oldScript);
+            });
+            
             // Scroll to the message detail panel
-            document.getElementById('messageDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            messageDetail.scrollIntoView({ behavior: 'smooth', block: 'start' });
         })
         .catch(error => {
             console.error('Error opening new chat:', error);

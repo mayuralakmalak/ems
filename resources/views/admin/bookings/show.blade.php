@@ -136,6 +136,61 @@
             </div>
         </div>
 
+        {{-- Possession Letter Section --}}
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-file-earmark-check me-2"></i>Possession Letter</h5>
+            </div>
+            <div class="card-body">
+                @if($booking->possession_letter_issued)
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle me-2"></i>
+                        <strong>Possession letter has been generated.</strong>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <form action="{{ route('admin.bookings.generate-possession-letter', $booking->id) }}" method="POST" class="d-inline">
+                            @csrf
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-arrow-clockwise me-2"></i>Regenerate & Send
+                            </button>
+                        </form>
+                        <a href="{{ route('admin.bookings.download-possession-letter', $booking->id) }}" class="btn btn-success">
+                            <i class="bi bi-download me-2"></i>Download PDF
+                        </a>
+                    </div>
+                @else
+                    @if($booking->isFullyPaid() && $booking->areAllPaymentsCompleted() && $booking->approval_status === 'approved' && $booking->status === 'confirmed')
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>All payments are completed.</strong> You can now generate the possession letter.
+                        </div>
+                        <form action="{{ route('admin.bookings.generate-possession-letter', $booking->id) }}" method="POST" class="d-inline">
+                            @csrf
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-file-earmark-plus me-2"></i>Generate & Send Possession Letter
+                            </button>
+                        </form>
+                    @else
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            <strong>Cannot generate possession letter yet.</strong>
+                            <ul class="mb-0 mt-2">
+                                @if($booking->approval_status !== 'approved' || $booking->status !== 'confirmed')
+                                    <li>Booking must be approved and confirmed.</li>
+                                @endif
+                                @if(!$booking->isFullyPaid())
+                                    <li>All payments must be completed. (Paid: ₹{{ number_format($booking->paid_amount, 2) }} / Total: ₹{{ number_format($booking->total_amount, 2) }})</li>
+                                @endif
+                                @if(!$booking->areAllPaymentsCompleted())
+                                    <li>All payment installments must be approved.</li>
+                                @endif
+                            </ul>
+                        </div>
+                    @endif
+                @endif
+            </div>
+        </div>
+
         {{-- Process cancellation only after exhibitor has requested it (reason set) and admin has not yet decided type/amount --}}
         @if($booking->cancellation_reason && !$booking->cancellation_type)
         <div class="card mb-4">

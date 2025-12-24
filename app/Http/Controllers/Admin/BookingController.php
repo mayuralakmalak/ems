@@ -10,10 +10,15 @@ use App\Models\Notification;
 use App\Models\Badge;
 use App\Mail\DocumentStatusMail;
 use App\Mail\CancellationProcessedMail;
+use App\Mail\PossessionLetterMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Mpdf\Mpdf;
+use Mpdf\Config\ConfigVariables;
+use Mpdf\Config\FontVariables;
 
 
 class BookingController extends Controller
@@ -443,6 +448,160 @@ class BookingController extends Controller
         }
 
         return back()->with('success', 'Badge approved successfully.');
+    }
+
+    /**
+     * Generate and send possession letter to exhibitor
+     */
+    public function generatePossessionLetter($id)
+    {
+        $booking = Booking::with([
+            'exhibition', 
+            'booth', 
+            'user', 
+            'payments',
+            'bookingServices.service'
+        ])->findOrFail($id);
+
+        // Check if booking is fully paid
+        if (!$booking->isFullyPaid() || !$booking->areAllPaymentsCompleted()) {
+            return back()->with('error', 'Cannot generate possession letter. All payments must be completed and approved.');
+        }
+
+        // Check if booking is approved
+        if ($booking->approval_status !== 'approved' || $booking->status !== 'confirmed') {
+            return back()->with('error', 'Cannot generate possession letter. Booking must be approved and confirmed.');
+        }
+
+        DB::beginTransaction();
+        try {
+            // Generate PDF
+            $pdfPath = $this->generatePossessionLetterPDF($booking);
+
+            // Mark possession letter as issued
+            $booking->update([
+                'possession_letter_issued' => true,
+            ]);
+
+            // Store the PDF path in documents table
+            Document::create([
+                'booking_id' => $booking->id,
+                'user_id' => $booking->user_id,
+                'name' => 'Possession Letter - ' . $booking->booking_number,
+                'type' => 'Possession Letter',
+                'file_path' => $pdfPath,
+                'file_size' => Storage::disk('public')->size($pdfPath),
+                'status' => 'approved',
+            ]);
+
+            // Send email to exhibitor
+            try {
+                Mail::to($booking->user->email)->send(new PossessionLetterMail($booking, $pdfPath));
+                
+                // Also send to contact emails if provided
+                if ($booking->contact_emails && is_array($booking->contact_emails)) {
+                    foreach ($booking->contact_emails as $email) {
+                        if ($email && $email !== $booking->user->email) {
+                            try {
+                                Mail::to($email)->send(new PossessionLetterMail($booking, $pdfPath));
+                            } catch (\Exception $e) {
+                                Log::error('Failed to send possession letter to contact email: ' . $email, [
+                                    'error' => $e->getMessage()
+                                ]);
+                            }
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::error('Failed to send possession letter email: ' . $e->getMessage(), [
+                    'booking_id' => $booking->id,
+                    'user_email' => $booking->user->email,
+                ]);
+            }
+
+            // Notify exhibitor
+            Notification::create([
+                'user_id' => $booking->user_id,
+                'type' => 'booking',
+                'title' => 'Possession Letter Generated',
+                'message' => 'Your possession letter for booking #' . $booking->booking_number . ' has been generated and sent to your email.',
+                'notifiable_type' => Booking::class,
+                'notifiable_id' => $booking->id,
+            ]);
+
+            DB::commit();
+
+            return back()->with('success', 'Possession letter generated and sent to exhibitor successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Failed to generate possession letter: ' . $e->getMessage(), [
+                'booking_id' => $booking->id,
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return back()->with('error', 'Failed to generate possession letter: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Generate possession letter PDF
+     */
+    private function generatePossessionLetterPDF(Booking $booking)
+    {
+        $html = view('admin.bookings.possession-letter-pdf', compact('booking'))->render();
+
+        $defaultConfig = (new ConfigVariables())->getDefaults();
+        $fontDirs = $defaultConfig['fontDir'];
+        $defaultFontConfig = (new FontVariables())->getDefaults();
+        $fontData = $defaultFontConfig['fontdata'];
+
+        $mpdf = new Mpdf([
+            'tempDir' => storage_path('app/mpdf-temp'),
+            'format' => 'A4',
+            'margin_top' => 20,
+            'margin_right' => 15,
+            'margin_bottom' => 20,
+            'margin_left' => 15,
+            'fontDir' => array_merge($fontDirs, [
+                resource_path('fonts'),
+            ]),
+            'fontdata' => $fontData,
+            'default_font' => 'dejavusans',
+        ]);
+
+        $mpdf->SetTitle('Possession Letter - ' . $booking->booking_number);
+        $mpdf->WriteHTML($html);
+
+        // Save PDF to storage
+        $filename = 'possession-letters/booking_' . $booking->id . '_' . $booking->booking_number . '_' . now()->format('YmdHis') . '.pdf';
+        $pdfContent = $mpdf->Output('', 'S');
+        
+        Storage::disk('public')->put($filename, $pdfContent);
+
+        return $filename;
+    }
+
+    /**
+     * Download possession letter (Admin)
+     */
+    public function downloadPossessionLetter($id)
+    {
+        $booking = Booking::with(['exhibition', 'booth', 'user'])->findOrFail($id);
+
+        if (!$booking->possession_letter_issued) {
+            return back()->with('error', 'Possession letter has not been generated yet.');
+        }
+
+        // Find the possession letter document
+        $document = Document::where('booking_id', $booking->id)
+            ->where('type', 'Possession Letter')
+            ->latest()
+            ->first();
+
+        if (!$document || !Storage::disk('public')->exists($document->file_path)) {
+            return back()->with('error', 'Possession letter file not found.');
+        }
+
+        return Storage::disk('public')->download($document->file_path, 'Possession_Letter_' . $booking->booking_number . '.pdf');
     }
 }
 

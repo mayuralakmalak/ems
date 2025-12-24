@@ -74,6 +74,8 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     Route::post('/documents/{documentId}/approve', [AdminBookingController::class, 'approveDocument'])->name('bookings.documents.approve');
     Route::post('/documents/{documentId}/reject', [AdminBookingController::class, 'rejectDocument'])->name('bookings.documents.reject');
     Route::post('/badges/{badgeId}/approve', [AdminBookingController::class, 'approveBadge'])->name('badges.approve');
+    Route::post('/bookings/{id}/generate-possession-letter', [AdminBookingController::class, 'generatePossessionLetter'])->name('bookings.generate-possession-letter');
+    Route::get('/bookings/{id}/download-possession-letter', [AdminBookingController::class, 'downloadPossessionLetter'])->name('bookings.download-possession-letter');
     
     // Financial Management
     Route::get('/financial', [FinancialController::class, 'index'])->name('financial.index');
@@ -117,6 +119,7 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     
     // Settings
     Route::get('/settings', [\App\Http\Controllers\Admin\SettingsController::class, 'index'])->name('settings.index');
+    Route::post('/settings/general', [\App\Http\Controllers\Admin\SettingsController::class, 'saveGeneralSettings'])->name('settings.save-general');
     Route::post('/settings/payment-gateway', [\App\Http\Controllers\Admin\SettingsController::class, 'savePaymentGateway'])->name('settings.save-payment-gateway');
     Route::post('/settings/email-sms', [\App\Http\Controllers\Admin\SettingsController::class, 'saveEmailSms'])->name('settings.save-email-sms');
     Route::post('/settings/otp-dlt', [\App\Http\Controllers\Admin\SettingsController::class, 'saveOtpDlt'])->name('settings.save-otp-dlt');
@@ -192,6 +195,7 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     Route::post('/communications/delete', [\App\Http\Controllers\Admin\CommunicationController::class, 'delete'])->name('communications.delete');
     Route::post('/communications/archive', [\App\Http\Controllers\Admin\CommunicationController::class, 'archive'])->name('communications.archive');
     Route::post('/communications/unarchive', [\App\Http\Controllers\Admin\CommunicationController::class, 'unarchive'])->name('communications.unarchive');
+    Route::get('/communications/thread/{threadId}/new-messages', [\App\Http\Controllers\Admin\CommunicationController::class, 'getNewMessages'])->name('communications.new-messages');
     
     // Email Management (Wireframe 36)
     Route::get('/emails', [\App\Http\Controllers\Admin\EmailManagementController::class, 'index'])->name('emails.index');
@@ -225,7 +229,9 @@ Route::middleware('auth')->group(function () {
     Route::put('/bookings/{id}', [BookingController::class, 'update'])->name('bookings.update');
     Route::get('/bookings/{id}/cancel', [BookingController::class, 'showCancel'])->name('bookings.cancel.show');
     Route::post('/bookings/{id}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
+    Route::get('/bookings/{id}/replace-booth', [BookingController::class, 'showReplaceBooth'])->name('bookings.replace-booth');
     Route::post('/bookings/{id}/replace', [BookingController::class, 'replace'])->name('bookings.replace');
+    Route::get('/bookings/{id}/download-possession-letter', [BookingController::class, 'downloadPossessionLetter'])->name('bookings.download-possession-letter');
     
     // Payment
     Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
@@ -257,6 +263,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/messages/mark-as-read', [MessageController::class, 'markAsRead'])->name('messages.mark-as-read');
     Route::post('/messages/delete', [MessageController::class, 'delete'])->name('messages.delete');
     Route::post('/messages/unarchive', [MessageController::class, 'unarchive'])->name('messages.unarchive');
+    Route::get('/messages/thread/{threadId}/new-messages', [MessageController::class, 'getNewMessages'])->name('messages.new-messages');
     
     // Wallet
     Route::get('/wallet', [WalletController::class, 'index'])->name('wallet.index');

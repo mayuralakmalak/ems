@@ -149,7 +149,11 @@ class ExhibitorManagementController extends Controller
             'exhibition_id' => 'nullable|exists:exhibitions,id',
         ]);
 
+        // Create a new thread_id for this message
+        $threadId = uniqid('thread_', true) . '_' . time();
+        
         Message::create([
+            'thread_id' => $threadId,
             'sender_id' => auth()->id(),
             'receiver_id' => $exhibitor->id,
             'exhibition_id' => $validated['exhibition_id'] ?? null,

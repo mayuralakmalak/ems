@@ -97,6 +97,213 @@
 @endpush
 
 @section('content')
+<!-- General Settings -->
+<div class="settings-section">
+    <h4 class="section-title">General Company Information</h4>
+    <p class="section-subtitle">Configure your exhibition company's general information and contact details.</p>
+    
+    <form action="{{ route('admin.settings.save-general') }}" method="POST">
+        @csrf
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Company Name <span class="text-danger">*</span></label>
+                    <input type="text" name="company_name" class="form-control" value="{{ isset($generalSettings['company_name']) ? $generalSettings['company_name'] : '' }}" required>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Company Email</label>
+                    <input type="email" name="company_email" class="form-control" value="{{ isset($generalSettings['company_email']) ? $generalSettings['company_email'] : '' }}">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Contact Number</label>
+                    <input type="text" name="contact_number" class="form-control" value="{{ isset($generalSettings['contact_number']) ? $generalSettings['contact_number'] : '' }}">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Support Email</label>
+                    <input type="email" name="support_email" class="form-control" value="{{ isset($generalSettings['support_email']) ? $generalSettings['support_email'] : '' }}">
+                </div>
+            </div>
+            <div class="col-md-12">
+                <div class="form-group">
+                    <label class="form-label">Address</label>
+                    <textarea name="address" class="form-control" rows="2">{{ isset($generalSettings['address']) ? $generalSettings['address'] : '' }}</textarea>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label class="form-label">City</label>
+                    <input type="text" name="city" class="form-control" value="{{ isset($generalSettings['city']) ? $generalSettings['city'] : '' }}">
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label class="form-label">State</label>
+                    <input type="text" name="state" class="form-control" value="{{ isset($generalSettings['state']) ? $generalSettings['state'] : '' }}">
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label class="form-label">Country</label>
+                    <select name="country" class="form-select">
+                        <option value="">Select Country</option>
+                        @if(isset($countries) && $countries->count() > 0)
+                            @foreach($countries as $country)
+                                <option value="{{ $country->name }}" {{ (isset($generalSettings['country']) && $generalSettings['country'] == $country->name) ? 'selected' : '' }}>
+                                    {{ $country->name }}
+                                </option>
+                            @endforeach
+                        @else
+                            <option value="">No countries available</option>
+                        @endif
+                    </select>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Pincode/ZIP Code</label>
+                    <input type="text" name="pincode" class="form-control" value="{{ isset($generalSettings['pincode']) ? $generalSettings['pincode'] : '' }}">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Website</label>
+                    <input type="url" name="website" class="form-control" value="{{ isset($generalSettings['website']) ? $generalSettings['website'] : '' }}" placeholder="https://example.com">
+                </div>
+            </div>
+        </div>
+        <button type="submit" class="btn-save">Save General Settings</button>
+    </form>
+</div>
+
+<!-- Bank Account Details -->
+<div class="settings-section">
+    <h4 class="section-title">Bank Account Details</h4>
+    <p class="section-subtitle">Configure your company's bank account information for payment processing.</p>
+    
+    <form action="{{ route('admin.settings.save-general') }}" method="POST">
+        @csrf
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Bank Name</label>
+                    <input type="text" name="bank_name" class="form-control" value="{{ isset($generalSettings['bank_name']) ? $generalSettings['bank_name'] : '' }}">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Account Number</label>
+                    <input type="text" name="bank_account_number" class="form-control" value="{{ isset($generalSettings['bank_account_number']) ? $generalSettings['bank_account_number'] : '' }}">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">IFSC Code</label>
+                    <input type="text" name="bank_ifsc_code" class="form-control" value="{{ isset($generalSettings['bank_ifsc_code']) ? $generalSettings['bank_ifsc_code'] : '' }}">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">SWIFT Code</label>
+                    <input type="text" name="bank_swift_code" class="form-control" value="{{ isset($generalSettings['bank_swift_code']) ? $generalSettings['bank_swift_code'] : '' }}">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Branch Name</label>
+                    <input type="text" name="bank_branch" class="form-control" value="{{ isset($generalSettings['bank_branch']) ? $generalSettings['bank_branch'] : '' }}">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Branch Address</label>
+                    <input type="text" name="bank_address" class="form-control" value="{{ isset($generalSettings['bank_address']) ? $generalSettings['bank_address'] : '' }}">
+                </div>
+            </div>
+        </div>
+        <button type="submit" class="btn-save">Save Bank Details</button>
+    </form>
+</div>
+
+<!-- Tax & Legal Information -->
+<div class="settings-section">
+    <h4 class="section-title">Tax & Legal Information</h4>
+    <p class="section-subtitle">Configure your company's tax identification numbers and legal details.</p>
+    
+    <form action="{{ route('admin.settings.save-general') }}" method="POST">
+        @csrf
+        <div class="row">
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label class="form-label">GST Number</label>
+                    <input type="text" name="gst_number" class="form-control" value="{{ isset($generalSettings['gst_number']) ? $generalSettings['gst_number'] : '' }}">
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label class="form-label">PAN Number</label>
+                    <input type="text" name="pan_number" class="form-control" value="{{ isset($generalSettings['pan_number']) ? $generalSettings['pan_number'] : '' }}">
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label class="form-label">Tax ID</label>
+                    <input type="text" name="tax_id" class="form-control" value="{{ isset($generalSettings['tax_id']) ? $generalSettings['tax_id'] : '' }}">
+                </div>
+            </div>
+        </div>
+        <button type="submit" class="btn-save">Save Tax Information</button>
+    </form>
+</div>
+
+<!-- Payment & System Settings -->
+<div class="settings-section">
+    <h4 class="section-title">Payment & System Settings</h4>
+    <p class="section-subtitle">Configure payment terms and system preferences.</p>
+    
+    <form action="{{ route('admin.settings.save-general') }}" method="POST">
+        @csrf
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Currency</label>
+                    <select name="currency" class="form-select">
+                        <option value="INR" {{ isset($generalSettings['currency']) && $generalSettings['currency'] == 'INR' ? 'selected' : '' }}>INR - Indian Rupee</option>
+                        <option value="USD" {{ isset($generalSettings['currency']) && $generalSettings['currency'] == 'USD' ? 'selected' : '' }}>USD - US Dollar</option>
+                        <option value="EUR" {{ isset($generalSettings['currency']) && $generalSettings['currency'] == 'EUR' ? 'selected' : '' }}>EUR - Euro</option>
+                        <option value="GBP" {{ isset($generalSettings['currency']) && $generalSettings['currency'] == 'GBP' ? 'selected' : '' }}>GBP - British Pound</option>
+                        <option value="AED" {{ isset($generalSettings['currency']) && $generalSettings['currency'] == 'AED' ? 'selected' : '' }}>AED - UAE Dirham</option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Timezone</label>
+                    <select name="timezone" class="form-select">
+                        <option value="Asia/Kolkata" {{ isset($generalSettings['timezone']) && $generalSettings['timezone'] == 'Asia/Kolkata' ? 'selected' : '' }}>Asia/Kolkata (IST)</option>
+                        <option value="UTC" {{ isset($generalSettings['timezone']) && $generalSettings['timezone'] == 'UTC' ? 'selected' : '' }}>UTC</option>
+                        <option value="America/New_York" {{ isset($generalSettings['timezone']) && $generalSettings['timezone'] == 'America/New_York' ? 'selected' : '' }}>America/New_York (EST)</option>
+                        <option value="Europe/London" {{ isset($generalSettings['timezone']) && $generalSettings['timezone'] == 'Europe/London' ? 'selected' : '' }}>Europe/London (GMT)</option>
+                        <option value="Asia/Dubai" {{ isset($generalSettings['timezone']) && $generalSettings['timezone'] == 'Asia/Dubai' ? 'selected' : '' }}>Asia/Dubai (GST)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-md-12">
+                <div class="form-group">
+                    <label class="form-label">Payment Terms</label>
+                    <textarea name="payment_terms" class="form-control" rows="4" placeholder="Enter payment terms and conditions...">{{ isset($generalSettings['payment_terms']) ? $generalSettings['payment_terms'] : '' }}</textarea>
+                </div>
+            </div>
+        </div>
+        <button type="submit" class="btn-save">Save Payment & System Settings</button>
+    </form>
+</div>
+
 <!-- Payment Gateway -->
 <div class="settings-section">
     <h4 class="section-title">Payment Gateway</h4>
@@ -210,28 +417,9 @@
             </div>
             <div class="col-md-6">
                 <div class="form-group">
-                    <label class="form-label">Twilio SID</label>
-                    <input type="text" name="twilio_sid" class="form-control">
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="form-group">
-                    <label class="form-label">Twilio Auth Token</label>
-                    <input type="text" name="twilio_auth_token" class="form-control">
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="form-group">
-                    <label class="form-label">Twilio From Number</label>
-                    <input type="text" name="twilio_from_number" class="form-control">
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="form-group">
                     <label class="form-label">SMS Gateway</label>
                     <select name="sms_gateway" class="form-select">
-                        <option value="Twilio" selected>Twilio</option>
-                        <option value="AWS SNS">AWS SNS</option>
+                        <option value="AWS SNS" selected>AWS SNS</option>
                         <option value="Other">Other</option>
                     </select>
                 </div>

@@ -54,14 +54,9 @@ class MessageController extends Controller
                 })
                 ->values();
         } else {
-            // Inbox / Sent / Deleted: group by other participant (like WhatsApp)
+            // Inbox / Sent / Deleted: group by thread_id to show separate threads
             $threads = $filteredMessages
-                ->groupBy(function ($message) use ($user) {
-                    // Group by the other user's id
-                    return $message->sender_id === $user->id
-                        ? $message->receiver_id
-                        : $message->sender_id;
-                })
+                ->groupBy('thread_id')
                 ->map(function ($group) use ($user) {
                     $lastMessage = $group->sortByDesc('created_at')->first();
                     $otherUser = $lastMessage->sender_id === $user->id
@@ -76,6 +71,7 @@ class MessageController extends Controller
                         'last_message' => $lastMessage,
                         'other_user' => $otherUser,
                         'unread_count' => $unreadCount,
+                        'thread_id' => $lastMessage->thread_id,
                     ];
                 })
                 ->values();
@@ -121,22 +117,8 @@ class MessageController extends Controller
         if (!$superAdmin) {
             $superAdmin = User::where('id', 1)->first();
         }
-        
-        // Check if there's an existing conversation
-        $existingConversation = Message::where(function($query) use ($superAdmin) {
-            $query->where('sender_id', auth()->id())
-                  ->where('receiver_id', $superAdmin->id);
-        })->orWhere(function($query) use ($superAdmin) {
-            $query->where('sender_id', $superAdmin->id)
-                  ->where('receiver_id', auth()->id());
-        })->orderBy('created_at', 'desc')->first();
 
-        if ($existingConversation) {
-            // Redirect to existing conversation
-            return redirect()->route('messages.show', $existingConversation->id);
-        }
-
-        // Return new chat view
+        // Always return new chat view - each compose creates a new thread
         return view('frontend.messages.create', compact('superAdmin'));
     }
 
@@ -146,16 +128,23 @@ class MessageController extends Controller
             'receiver_id' => 'required|exists:users,id',
             'message' => 'required|string|max:5000',
             'exhibition_id' => 'nullable|exists:exhibitions,id',
+            'thread_id' => 'nullable|string',
         ]);
 
         $userId = auth()->id();
         $receiverId = $request->receiver_id;
         $isNewChat = $request->input('is_new_chat', false);
+        $threadId = $request->input('thread_id');
 
-        // If this is explicitly a new chat (from new chat interface),
-        // archive any existing active conversation between these two users
-        if ($isNewChat) {
-            Message::where(function ($query) use ($userId, $receiverId) {
+        // Determine thread_id
+        if ($isNewChat || empty($threadId)) {
+            // Create a new unique thread_id for new chats
+            $threadId = uniqid('thread_', true) . '_' . time();
+        } else {
+            // Use existing thread_id when replying
+            // Verify the thread_id belongs to a conversation between these two users
+            $existingThread = Message::where('thread_id', $threadId)
+                ->where(function ($query) use ($userId, $receiverId) {
                     $query->where(function ($q) use ($userId, $receiverId) {
                         $q->where('sender_id', $userId)
                           ->where('receiver_id', $receiverId);
@@ -164,13 +153,17 @@ class MessageController extends Controller
                           ->where('receiver_id', $userId);
                     });
                 })
-                ->where('status', '!=', 'archived')
-                ->where('status', '!=', 'deleted')
-                ->update(['status' => 'archived']);
+                ->first();
+            
+            if (!$existingThread) {
+                // Thread doesn't exist or doesn't belong to this conversation, create new one
+                $threadId = uniqid('thread_', true) . '_' . time();
+            }
         }
 
         // Create new message
         $message = Message::create([
+            'thread_id' => $threadId,
             'sender_id' => $userId,
             'receiver_id' => $receiverId,
             'exhibition_id' => $request->exhibition_id,
@@ -225,8 +218,13 @@ class MessageController extends Controller
             ? $message->receiver_id
             : $message->sender_id;
 
-        // Load full conversation between the two users (thread-style)
-        $conversation = Message::where(function ($query) use ($userId, $otherUserId) {
+        // Load full conversation for this specific thread only
+        $threadId = $message->thread_id;
+        
+        // If thread_id is missing (shouldn't happen after migration, but handle it)
+        if (empty($threadId)) {
+            // Fallback: get all messages between these two users (old behavior)
+            $conversation = Message::where(function ($query) use ($userId, $otherUserId) {
                 $query->where(function ($q) use ($userId, $otherUserId) {
                     $q->where('sender_id', $userId)
                       ->where('receiver_id', $otherUserId);
@@ -235,8 +233,17 @@ class MessageController extends Controller
                       ->where('receiver_id', $userId);
                 });
             })
+            ->where('status', '!=', 'archived')
+            ->where('status', '!=', 'deleted')
             ->orderBy('created_at')
             ->get();
+        } else {
+            $conversation = Message::where('thread_id', $threadId)
+                ->where('status', '!=', 'archived')
+                ->where('status', '!=', 'deleted')
+                ->orderBy('created_at')
+                ->get();
+        }
 
         // Mark all messages received by the user in this conversation as read
         Message::whereIn('id', $conversation->where('receiver_id', $userId)
@@ -249,7 +256,7 @@ class MessageController extends Controller
 
         $otherUser = User::find($otherUserId);
 
-        return view('frontend.messages.show', compact('conversation', 'otherUser'));
+        return view('frontend.messages.show', compact('conversation', 'otherUser', 'message', 'threadId'));
     }
 
     public function edit(string $id)
@@ -288,22 +295,13 @@ class MessageController extends Controller
                   ->orWhere('receiver_id', $userId);
         })->findOrFail($id);
 
-        // Archive all messages in this conversation thread
-        $otherUserId = $message->sender_id === $userId
-            ? $message->receiver_id
-            : $message->sender_id;
-
-        Message::where(function ($query) use ($userId, $otherUserId) {
-            $query->where(function ($q) use ($userId, $otherUserId) {
-                $q->where('sender_id', $userId)
-                  ->where('receiver_id', $otherUserId);
-            })->orWhere(function ($q) use ($userId, $otherUserId) {
-                $q->where('sender_id', $otherUserId)
-                  ->where('receiver_id', $userId);
-            });
-        })
-        ->where('status', '!=', 'archived')
-        ->update(['status' => 'archived']);
+        // Archive all messages in this thread
+        if ($message->thread_id) {
+            Message::where('thread_id', $message->thread_id)
+                ->where('status', '!=', 'archived')
+                ->where('status', '!=', 'deleted')
+                ->update(['status' => 'archived']);
+        }
 
         return back()->with('success', 'Conversation archived successfully.');
     }
@@ -317,33 +315,21 @@ class MessageController extends Controller
 
         $userId = auth()->id();
         
-        // Archive all messages in the selected conversations
+        // Archive all messages in the selected threads
         foreach ($request->message_ids as $messageId) {
             $message = Message::where(function($query) use ($userId) {
                 $query->where('sender_id', $userId)
                       ->orWhere('receiver_id', $userId);
             })->find($messageId);
 
-            if (!$message) {
-                continue; // Skip if message not found
+            if (!$message || !$message->thread_id) {
+                continue; // Skip if message not found or has no thread_id
             }
 
-            $otherUserId = $message->sender_id === $userId
-                ? $message->receiver_id
-                : $message->sender_id;
-
-            Message::where(function ($query) use ($userId, $otherUserId) {
-                $query->where(function ($q) use ($userId, $otherUserId) {
-                    $q->where('sender_id', $userId)
-                      ->where('receiver_id', $otherUserId);
-                })->orWhere(function ($q) use ($userId, $otherUserId) {
-                    $q->where('sender_id', $otherUserId)
-                      ->where('receiver_id', $userId);
-                });
-            })
-            ->where('status', '!=', 'archived')
-            ->where('status', '!=', 'deleted')
-            ->update(['status' => 'archived']);
+            Message::where('thread_id', $message->thread_id)
+                ->where('status', '!=', 'archived')
+                ->where('status', '!=', 'deleted')
+                ->update(['status' => 'archived']);
         }
 
         if ($request->ajax() || $request->wantsJson()) {
@@ -362,37 +348,25 @@ class MessageController extends Controller
 
         $userId = auth()->id();
         
-        // Get all messages in the selected conversations
+        // Get all messages in the selected threads
         foreach ($request->message_ids as $messageId) {
             $message = Message::where(function($query) use ($userId) {
                 $query->where('sender_id', $userId)
                       ->orWhere('receiver_id', $userId);
             })->find($messageId);
 
-            if (!$message) {
-                continue; // Skip if message not found
+            if (!$message || !$message->thread_id) {
+                continue; // Skip if message not found or has no thread_id
             }
 
-            $otherUserId = $message->sender_id === $userId
-                ? $message->receiver_id
-                : $message->sender_id;
-
-            // Mark all unread messages in this conversation as read
-            Message::where(function ($query) use ($userId, $otherUserId) {
-                $query->where(function ($q) use ($userId, $otherUserId) {
-                    $q->where('sender_id', $userId)
-                      ->where('receiver_id', $otherUserId);
-                })->orWhere(function ($q) use ($userId, $otherUserId) {
-                    $q->where('sender_id', $otherUserId)
-                      ->where('receiver_id', $userId);
-                });
-            })
-            ->where('receiver_id', $userId)
-            ->where('is_read', false)
-            ->update([
-                'is_read' => true,
-                'read_at' => now(),
-            ]);
+            // Mark all unread messages in this thread as read
+            Message::where('thread_id', $message->thread_id)
+                ->where('receiver_id', $userId)
+                ->where('is_read', false)
+                ->update([
+                    'is_read' => true,
+                    'read_at' => now(),
+                ]);
         }
 
         if ($request->ajax() || $request->wantsJson()) {
@@ -411,39 +385,27 @@ class MessageController extends Controller
 
         $userId = auth()->id();
         
-        // Delete all messages in the selected conversations
+        // Delete all messages in the selected threads
         foreach ($request->message_ids as $messageId) {
             $message = Message::where(function($query) use ($userId) {
                 $query->where('sender_id', $userId)
                       ->orWhere('receiver_id', $userId);
             })->find($messageId);
 
-            if (!$message) {
-                continue; // Skip if message not found
+            if (!$message || !$message->thread_id) {
+                continue; // Skip if message not found or has no thread_id
             }
-
-            $otherUserId = $message->sender_id === $userId
-                ? $message->receiver_id
-                : $message->sender_id;
 
             // Check if message is already deleted - if so, permanently delete (hard delete)
             // Otherwise, mark as deleted (soft delete)
-            $conversationQuery = Message::where(function ($query) use ($userId, $otherUserId) {
-                $query->where(function ($q) use ($userId, $otherUserId) {
-                    $q->where('sender_id', $userId)
-                      ->where('receiver_id', $otherUserId);
-                })->orWhere(function ($q) use ($userId, $otherUserId) {
-                    $q->where('sender_id', $otherUserId)
-                      ->where('receiver_id', $userId);
-                });
-            });
+            $threadQuery = Message::where('thread_id', $message->thread_id);
 
             if ($message->status === 'deleted') {
                 // Permanently delete
-                $conversationQuery->delete();
+                $threadQuery->delete();
             } else {
                 // Soft delete - mark as deleted
-                $conversationQuery->update(['status' => 'deleted']);
+                $threadQuery->update(['status' => 'deleted']);
             }
         }
 
@@ -463,34 +425,22 @@ class MessageController extends Controller
 
         $userId = auth()->id();
         
-        // Unarchive all messages in the selected conversations
+        // Unarchive all messages in the selected threads
         foreach ($request->message_ids as $messageId) {
             $message = Message::where(function($query) use ($userId) {
                 $query->where('sender_id', $userId)
                       ->orWhere('receiver_id', $userId);
             })->find($messageId);
 
-            if (!$message) {
-                continue; // Skip if message not found
+            if (!$message || !$message->thread_id) {
+                continue; // Skip if message not found or has no thread_id
             }
 
-            $otherUserId = $message->sender_id === $userId
-                ? $message->receiver_id
-                : $message->sender_id;
-
-            // Unarchive all messages in this conversation
-            Message::where(function ($query) use ($userId, $otherUserId) {
-                $query->where(function ($q) use ($userId, $otherUserId) {
-                    $q->where('sender_id', $userId)
-                      ->where('receiver_id', $otherUserId);
-                })->orWhere(function ($q) use ($userId, $otherUserId) {
-                    $q->where('sender_id', $otherUserId)
-                      ->where('receiver_id', $userId);
-                });
-            })
-            ->where('status', 'archived')
-            ->where('status', '!=', 'deleted')
-            ->update(['status' => 'inbox']);
+            // Unarchive all messages in this thread
+            Message::where('thread_id', $message->thread_id)
+                ->where('status', 'archived')
+                ->where('status', '!=', 'deleted')
+                ->update(['status' => 'inbox']);
         }
 
         if ($request->ajax() || $request->wantsJson()) {
@@ -498,5 +448,54 @@ class MessageController extends Controller
         }
 
         return back()->with('success', 'Conversations unarchived successfully.');
+    }
+
+    /**
+     * Get new messages for a thread (for real-time updates)
+     */
+    public function getNewMessages($threadId, Request $request)
+    {
+        $userId = auth()->id();
+        $lastMessageId = $request->input('last_message_id', 0);
+
+        // Get messages in this thread that are newer than the last message
+        $newMessages = Message::where('thread_id', $threadId)
+            ->where('id', '>', $lastMessageId)
+            ->where(function($query) use ($userId) {
+                $query->where('sender_id', $userId)
+                      ->orWhere('receiver_id', $userId);
+            })
+            ->where('status', '!=', 'archived')
+            ->where('status', '!=', 'deleted')
+            ->with(['sender', 'receiver'])
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        // Mark received messages as read
+        if ($newMessages->where('receiver_id', $userId)->where('is_read', false)->count() > 0) {
+            Message::whereIn('id', $newMessages->where('receiver_id', $userId)
+                    ->where('is_read', false)
+                    ->pluck('id'))
+                ->update([
+                    'is_read' => true,
+                    'read_at' => now(),
+                ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'messages' => $newMessages->map(function($message) use ($userId) {
+                return [
+                    'id' => $message->id,
+                    'sender_id' => $message->sender_id,
+                    'receiver_id' => $message->receiver_id,
+                    'message' => $message->message,
+                    'created_at' => $message->created_at->format('M d, Y, h:i A'),
+                    'is_user' => $message->sender_id === $userId,
+                    'sender_name' => $message->sender_id === $userId ? 'You' : ($message->sender->name ?? 'Admin'),
+                ];
+            }),
+            'last_message_id' => $newMessages->max('id') ?? $lastMessageId,
+        ]);
     }
 }

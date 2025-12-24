@@ -537,15 +537,52 @@ class BookingController extends Controller
         
         DB::beginTransaction();
         try {
-            // Check if booths are available
+            /**
+             * HARD CONCURRENCY GUARD
+             *
+             * We must ensure that when two exhibitors try to book the same booth
+             * at the same time, only the first one can proceed.
+             *
+             * Strategy:
+             *  1) Lock the selected booth rows FOR UPDATE so concurrent requests
+             *     for the same booths serialize.
+             *  2) After locking, re-check availability using the latest values.
+             *  3) Immediately mark the booths as not available (is_available=false)
+             *     while keeping is_booked=false – they will only become fully
+             *     "booked" after admin approval.
+             */
+
+            // Lock booths first to avoid race conditions
             $booths = Booth::whereIn('id', $boothIds)
                 ->where('exhibition_id', $exhibition->id)
-                ->where('is_available', true)
+                ->lockForUpdate()
                 ->get();
 
+            // Ensure all requested booths actually exist for this exhibition
             if ($booths->count() !== count($boothIds)) {
                 DB::rollBack();
-                return back()->withInput()->with('error', 'One or more selected booths are not available. Please select different booths.');
+                return back()
+                    ->withInput()
+                    ->with('error', 'One or more selected booths are not valid for this exhibition. Please select different booths.');
+            }
+
+            // Ensure all booths are still available at the moment of booking
+            $unavailableBooths = $booths->filter(function ($booth) {
+                return !$booth->is_available;
+            });
+
+            if ($unavailableBooths->isNotEmpty()) {
+                DB::rollBack();
+                return back()
+                    ->withInput()
+                    ->with('error', 'One or more selected booths were just booked by another exhibitor. Please select different booths.');
+            }
+
+            // Reserve booths immediately so a second concurrent request cannot take them
+            foreach ($booths as $booth) {
+                $booth->is_available = false;
+                // Do NOT mark as fully booked here – that happens after admin approval
+                $booth->save();
             }
 
             $boothSelections = [];
@@ -1112,10 +1149,151 @@ class BookingController extends Controller
             ->with('success', 'Your cancellation request has been submitted. Admin will review and decide the refund or wallet credit.');
     }
 
+    public function showReplaceBooth(string $id)
+    {
+        $booking = Booking::with(['booth', 'exhibition.floors', 'exhibition.booths'])
+            ->where('user_id', auth()->id())
+            ->findOrFail($id);
+
+        // Check if booking is cancelled
+        if ($booking->status === 'cancelled') {
+            return redirect()->route('bookings.show', $booking->id)
+                ->with('error', 'Cannot replace booth for a cancelled booking.');
+        }
+
+        // Check if booth exists
+        if (!$booking->booth) {
+            return redirect()->route('bookings.show', $booking->id)
+                ->with('error', 'No booth associated with this booking.');
+        }
+
+        $exhibition = $booking->exhibition;
+        $currentBooth = $booking->booth;
+
+        // Get selected floor from request or default to first active floor
+        $selectedFloorId = request()->query('floor_id');
+        $selectedFloor = null;
+        
+        // Load floors if not already loaded
+        if (!$exhibition->relationLoaded('floors')) {
+            $exhibition->load('floors');
+        }
+        
+        if ($selectedFloorId && $exhibition->floors) {
+            $selectedFloor = $exhibition->floors->firstWhere('id', $selectedFloorId);
+        }
+        
+        // If no floor selected or selected floor not found, use first active floor
+        if (!$selectedFloor && $exhibition->floors && $exhibition->floors->isNotEmpty()) {
+            $selectedFloor = $exhibition->floors->where('is_active', true)->first();
+            if ($selectedFloor) {
+                $selectedFloorId = $selectedFloor->id;
+            }
+        }
+
+        // Filter booths by:
+        // 1. Same exhibition
+        // 2. Same category
+        // 3. Same size_sqft (booth configuration)
+        // 4. Available and not booked
+        // 5. Exclude current booth
+        $availableBooths = Booth::where('exhibition_id', $exhibition->id)
+            ->where('category', $currentBooth->category)
+            ->where('size_sqft', $currentBooth->size_sqft)
+            ->where('is_available', true)
+            ->where('is_booked', false)
+            ->where('id', '!=', $currentBooth->id)
+            ->where(function($query) {
+                // Show main booths (including merged booth itself) but not split parents
+                $query->where(function($q) {
+                    $q->whereNull('parent_booth_id')
+                      ->where('is_split', false);
+                })->orWhere(function($q) {
+                    // Split children
+                    $q->whereNotNull('parent_booth_id')
+                      ->where('is_split', true);
+                });
+            });
+
+        // Filter by selected floor if floor is selected
+        if ($selectedFloor && $selectedFloorId) {
+            $availableBooths->where('floor_id', $selectedFloorId);
+        }
+
+        $availableBooths = $availableBooths->orderBy('name', 'asc')->get();
+
+        // Get all booths for floor plan display (to show unavailable ones too)
+        $allBooths = Booth::where('exhibition_id', $exhibition->id);
+        
+        if ($selectedFloor && $selectedFloorId) {
+            $allBooths->where('floor_id', $selectedFloorId);
+        }
+        
+        $allBooths = $allBooths->where(function($query) {
+            $query->where(function($q) {
+                $q->whereNull('parent_booth_id')
+                  ->where('is_split', false);
+            })->orWhere(function($q) {
+                $q->whereNotNull('parent_booth_id')
+                  ->where('is_split', true);
+            });
+        })->orderBy('name', 'asc')->get();
+
+        // Get reserved booths (pending bookings)
+        $reservedBookings = Booking::where('exhibition_id', $exhibition->id)
+            ->where('approval_status', 'pending')
+            ->whereNotIn('status', ['cancelled', 'rejected'])
+            ->get();
+        
+        $reservedBoothIds = [];
+        foreach ($reservedBookings as $reservedBooking) {
+            if ($reservedBooking->booth_id) {
+                $reservedBoothIds[] = $reservedBooking->booth_id;
+            }
+            if ($reservedBooking->selected_booth_ids) {
+                $reservedBoothIds = array_merge($reservedBoothIds, $reservedBooking->selected_booth_ids);
+            }
+        }
+
+        // Get booked booths
+        $bookedBoothIds = Booking::where('exhibition_id', $exhibition->id)
+            ->where('status', 'confirmed')
+            ->where('approval_status', 'approved')
+            ->whereNotNull('booth_id')
+            ->pluck('booth_id')
+            ->toArray();
+
+        return view('frontend.bookings.replace-booth', compact(
+            'booking',
+            'exhibition',
+            'currentBooth',
+            'availableBooths',
+            'allBooths',
+            'reservedBoothIds',
+            'bookedBoothIds',
+            'selectedFloor',
+            'selectedFloorId'
+        ));
+    }
+
     public function replace(Request $request, string $id)
     {
-        $booking = Booking::where('user_id', auth()->id())->findOrFail($id);
+        $booking = Booking::with('booth')
+            ->where('user_id', auth()->id())
+            ->findOrFail($id);
+
+        // Check if booking is cancelled
+        if ($booking->status === 'cancelled') {
+            return back()->with('error', 'Cannot replace booth for a cancelled booking.');
+        }
+
+        // Check if booth exists
+        if (!$booking->booth) {
+            return back()->with('error', 'No booth associated with this booking.');
+        }
+
         $exhibition = $booking->exhibition;
+        $currentBooth = $booking->booth;
         
         $request->validate([
             'new_booth_id' => 'required|exists:booths,id',
@@ -1124,11 +1302,21 @@ class BookingController extends Controller
         $newBooth = Booth::where('id', $request->new_booth_id)
             ->where('exhibition_id', $exhibition->id)
             ->where('is_available', true)
+            ->where('is_booked', false)
             ->firstOrFail();
+
+        // Validate same category and size_sqft
+        if ($newBooth->category !== $currentBooth->category) {
+            return back()->with('error', 'Selected booth must have the same category (' . $currentBooth->category . ').');
+        }
+
+        if ($newBooth->size_sqft != $currentBooth->size_sqft) {
+            return back()->with('error', 'Selected booth must have the same size (' . $currentBooth->size_sqft . ' sq ft).');
+        }
 
         DB::beginTransaction();
         try {
-            // Free old booth
+            // Free old booth (immediately available)
             if ($booking->booth) {
                 $booking->booth->update([
                     'is_available' => true,
@@ -1136,15 +1324,10 @@ class BookingController extends Controller
                 ]);
             }
 
-            // Calculate price difference
-            $priceDifference = $newBooth->price - $booking->booth->price;
-            $newTotalAmount = $booking->total_amount + $priceDifference;
-
-            // Update booking
+            // Update booking - keep total_amount the same
+            // Services, items, payments, and badges are linked by booking_id, so they automatically stay
             $booking->update([
                 'booth_id' => $newBooth->id,
-                'status' => 'replaced',
-                'total_amount' => $newTotalAmount,
             ]);
 
             // Mark new booth as booked
@@ -1155,10 +1338,38 @@ class BookingController extends Controller
 
             DB::commit();
 
-            return back()->with('success', 'Booth replaced successfully. Price difference: ₹' . number_format($priceDifference, 2));
+            return redirect()
+                ->route('bookings.show', $booking->id)
+                ->with('success', 'Booth replaced successfully. All additional services, items, payments, and badges have been preserved.');
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Booth replacement failed: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Download possession letter (Exhibitor)
+     */
+    public function downloadPossessionLetter($id)
+    {
+        $booking = Booking::with(['exhibition', 'booth', 'user'])
+            ->where('user_id', auth()->id())
+            ->findOrFail($id);
+
+        if (!$booking->possession_letter_issued) {
+            return back()->with('error', 'Possession letter has not been generated yet.');
+        }
+
+        // Find the possession letter document
+        $document = \App\Models\Document::where('booking_id', $booking->id)
+            ->where('type', 'Possession Letter')
+            ->latest()
+            ->first();
+
+        if (!$document || !Storage::disk('public')->exists($document->file_path)) {
+            return back()->with('error', 'Possession letter file not found.');
+        }
+
+        return Storage::disk('public')->download($document->file_path, 'Possession_Letter_' . $booking->booking_number . '.pdf');
     }
 }
