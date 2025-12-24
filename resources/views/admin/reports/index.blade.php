@@ -10,17 +10,22 @@
             <h2 class="mb-1"><i class="bi bi-graph-up-arrow me-2"></i>Reports & Analytics</h2>
             <p class="text-muted mb-0">View booking, financial and service usage reports</p>
         </div>
-        <form method="GET" class="d-flex align-items-center gap-2">
-            <label class="me-2 mb-0">Filter by Exhibition:</label>
-            <select name="exhibition_id" class="form-select" onchange="this.form.submit()">
-                <option value="">All Exhibitions</option>
-                @foreach($exhibitions as $ex)
-                    <option value="{{ $ex->id }}" {{ $selectedExhibitionId == $ex->id ? 'selected' : '' }}>
-                        {{ $ex->name }}
-                    </option>
-                @endforeach
-            </select>
-        </form>
+        <div class="d-flex align-items-center gap-2">
+            <a href="{{ route('admin.reports.exception') }}" class="btn btn-warning">
+                <i class="bi bi-exclamation-triangle me-2"></i>Exception Report
+            </a>
+            <form method="GET" class="d-flex align-items-center gap-2">
+                <label class="me-2 mb-0">Filter by Exhibition:</label>
+                <select name="exhibition_id" class="form-select" onchange="this.form.submit()">
+                    <option value="">All Exhibitions</option>
+                    @foreach($exhibitions as $ex)
+                        <option value="{{ $ex->id }}" {{ $selectedExhibitionId == $ex->id ? 'selected' : '' }}>
+                            {{ $ex->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </form>
+        </div>
     </div>
 </div>
 

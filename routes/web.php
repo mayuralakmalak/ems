@@ -112,6 +112,8 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     
     // Reports
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/exception', [ReportController::class, 'exceptionReport'])->name('reports.exception');
+    Route::post('/reports/exception/generate', [ReportController::class, 'generateExceptionReport'])->name('reports.exception.generate');
     
     // Settings
     Route::get('/settings', [\App\Http\Controllers\Admin\SettingsController::class, 'index'])->name('settings.index');

@@ -11,8 +11,11 @@ use App\Models\Payment;
 use App\Models\Service;
 use App\Models\BookingService;
 use App\Models\Document;
+use App\Models\AdminException;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class ReportController extends Controller
 {
@@ -183,5 +186,118 @@ class ReportController extends Controller
             'popularSizes',
             'popularCategories'
         ));
+    }
+
+    /**
+     * Show exception report page with exhibition and client selection
+     */
+    public function exceptionReport(Request $request)
+    {
+        // Get exhibitions that have ended
+        $exhibitions = Exhibition::where('end_date', '<', Carbon::now())
+            ->orderBy('end_date', 'desc')
+            ->get();
+
+        $selectedExhibitionId = $request->get('exhibition_id');
+        $selectedClientIds = $request->get('client_ids', []);
+
+        // Handle array format from form submission
+        if (is_string($selectedClientIds)) {
+            $selectedClientIds = [$selectedClientIds];
+        } elseif (!is_array($selectedClientIds)) {
+            $selectedClientIds = [];
+        }
+
+        $exceptions = collect();
+        $clients = collect();
+
+        if ($selectedExhibitionId) {
+            $exhibition = Exhibition::findOrFail($selectedExhibitionId);
+
+            // Validate that exhibition has ended
+            if ($exhibition->end_date >= Carbon::now()) {
+                return redirect()->route('admin.reports.exception')
+                    ->with('error', 'Exception report can only be generated after the exhibition end date.');
+            }
+
+            // Get all clients (users) who have bookings for this exhibition
+            $clients = User::whereHas('bookings', function ($query) use ($selectedExhibitionId) {
+                $query->where('exhibition_id', $selectedExhibitionId);
+            })
+            ->with(['bookings' => function ($query) use ($selectedExhibitionId) {
+                $query->where('exhibition_id', $selectedExhibitionId);
+            }])
+            ->get();
+
+            // Get exceptions for selected clients or all clients if none selected
+            $exceptionQuery = AdminException::with(['user', 'booking', 'exhibition', 'createdBy'])
+                ->where('exhibition_id', $selectedExhibitionId);
+
+            if (!empty($selectedClientIds)) {
+                $exceptionQuery->whereIn('user_id', $selectedClientIds);
+            }
+
+            $exceptions = $exceptionQuery->orderBy('created_at', 'desc')->get();
+        }
+
+        return view('admin.reports.exception', compact(
+            'exhibitions',
+            'selectedExhibitionId',
+            'clients',
+            'selectedClientIds',
+            'exceptions'
+        ));
+    }
+
+    /**
+     * Generate and download exception report
+     */
+    public function generateExceptionReport(Request $request)
+    {
+        $request->validate([
+            'exhibition_id' => 'required|exists:exhibitions,id',
+            'client_ids' => 'nullable|array',
+            'client_ids.*' => 'exists:users,id',
+            'format' => 'nullable|in:pdf,excel',
+        ]);
+
+        $exhibition = Exhibition::findOrFail($request->exhibition_id);
+
+        // Validate that exhibition has ended
+        if ($exhibition->end_date >= Carbon::now()) {
+            return back()->with('error', 'Exception report can only be generated after the exhibition end date.');
+        }
+
+        $exceptionQuery = AdminException::with(['user', 'booking', 'exhibition', 'createdBy'])
+            ->where('exhibition_id', $request->exhibition_id);
+
+        if (!empty($request->client_ids)) {
+            $exceptionQuery->whereIn('user_id', $request->client_ids);
+        }
+
+        $exceptions = $exceptionQuery->orderBy('user_id')->orderBy('created_at', 'desc')->get();
+
+        // Group exceptions by client
+        $groupedExceptions = $exceptions->groupBy('user_id');
+
+        $format = $request->get('format', 'pdf');
+
+        if ($format === 'excel') {
+            // TODO: Implement Excel export if needed
+            return back()->with('info', 'Excel export coming soon. Please use PDF format.');
+        }
+
+        // Generate PDF report
+        return $this->generatePdfReport($exhibition, $groupedExceptions, $exceptions);
+    }
+
+    /**
+     * Generate PDF report for exceptions
+     */
+    private function generatePdfReport($exhibition, $groupedExceptions, $exceptions)
+    {
+        // For now, return a view that can be printed as PDF
+        // In production, you might want to use a package like dompdf or barryvdh/laravel-dompdf
+        return view('admin.reports.exception-pdf', compact('exhibition', 'groupedExceptions', 'exceptions'));
     }
 }
