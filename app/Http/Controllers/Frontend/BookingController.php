@@ -724,6 +724,10 @@ class BookingController extends Controller
             }
 
             // Create all part payments based on payment schedule
+            // IMPORTANT: Payment amounts are calculated and stored at booking creation time.
+            // If admin later changes the payment schedule percentages, existing bookings
+            // will continue to use their stored payment amounts. Only new bookings will
+            // use the updated payment schedule percentages.
             $paymentSchedules = $exhibition->paymentSchedules()->orderBy('part_number', 'asc')->get();
             
             if ($paymentSchedules->isEmpty()) {

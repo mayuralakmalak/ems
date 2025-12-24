@@ -603,23 +603,55 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr class="due-today">
-                                <td>Initial Payment</td>
-                                <td>₹{{ number_format($initialAmount, 2) }}</td>
-                                <td>Today</td>
-                            </tr>
                             @php
-                                $remainingAmount = $booking->total_amount - $initialAmount;
-                                $installmentCount = $booking->exhibition->paymentSchedules->count() - 1;
-                                $installmentAmount = $installmentCount > 0 ? $remainingAmount / $installmentCount : 0;
+                                // Use stored payments from database to ensure amounts don't change when admin updates payment schedule
+                                // This preserves the original payment amounts that were set when the booking was created
+                                $hasStoredPayments = isset($storedPayments) && $storedPayments->count() > 0;
                             @endphp
-                            @foreach($booking->exhibition->paymentSchedules->skip(1) as $schedule)
-                            <tr>
-                                <td>{{ $schedule->part_number }} Installment Payment</td>
-                                <td>₹{{ number_format($installmentAmount, 2) }}</td>
-                                <td>{{ $schedule->due_date->format('Y.m.d') }}</td>
-                            </tr>
-                            @endforeach
+                            
+                            @if($hasStoredPayments)
+                                {{-- Display stored payments from database --}}
+                                @foreach($storedPayments as $payment)
+                                @php
+                                    // Determine payment label
+                                    $paymentLabel = 'Initial Payment';
+                                    $isInitial = $payment->payment_type === 'initial';
+                                    
+                                    if (!$isInitial) {
+                                        // Count installment payments to determine which installment this is
+                                        $installmentNumber = $storedPayments
+                                            ->where('payment_type', 'installment')
+                                            ->where('id', '<=', $payment->id)
+                                            ->count();
+                                        
+                                        $ordinal = 'th';
+                                        if ($installmentNumber == 1) $ordinal = 'st';
+                                        elseif ($installmentNumber == 2) $ordinal = 'nd';
+                                        elseif ($installmentNumber == 3) $ordinal = 'rd';
+                                        
+                                        $paymentLabel = $installmentNumber . $ordinal . ' Installment Payment';
+                                    }
+                                @endphp
+                                <tr class="{{ $isInitial ? 'due-today' : '' }}">
+                                    <td>{{ $paymentLabel }}</td>
+                                    <td>₹{{ number_format($payment->amount, 2) }}</td>
+                                    <td>
+                                        @if($isInitial)
+                                            Today
+                                        @else
+                                            {{ $payment->due_date ? $payment->due_date->format('Y.m.d') : 'N/A' }}
+                                        @endif
+                                    </td>
+                                </tr>
+                                @endforeach
+                            @else
+                                {{-- Fallback: If no stored payments exist yet, show initial payment only --}}
+                                <tr class="due-today">
+                                    <td>Initial Payment</td>
+                                    <td>₹{{ number_format($initialAmount, 2) }}</td>
+                                    <td>Today</td>
+                                </tr>
+                            @endif
                         </tbody>
                     </table>
                 </div>

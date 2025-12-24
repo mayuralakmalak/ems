@@ -112,8 +112,15 @@ class PaymentController extends Controller
         }
         
         $walletBalance = auth()->user()->wallet_balance;
+        
+        // Get all stored payments for this booking (ordered by part number/type)
+        // This ensures we display the actual stored amounts, not recalculated ones
+        $storedPayments = $booking->payments()
+            ->orderByRaw("CASE WHEN payment_type = 'initial' THEN 1 ELSE 2 END")
+            ->orderBy('due_date', 'asc')
+            ->get();
 
-        return view('frontend.payments.create', compact('booking', 'outstanding', 'initialPercent', 'initialAmount', 'walletBalance', 'specificPayment'));
+        return view('frontend.payments.create', compact('booking', 'outstanding', 'initialPercent', 'initialAmount', 'walletBalance', 'specificPayment', 'storedPayments'));
     }
 
     public function pay(int $paymentId)
