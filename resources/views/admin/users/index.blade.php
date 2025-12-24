@@ -12,14 +12,24 @@
 </div>
 
 <div class="card">
-    <div class="card-header">
+    <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>User List</h5>
+        <form id="bulkDeleteForm" action="{{ route('admin.users.bulk-delete') }}" method="POST" style="display: none;">
+            @csrf
+            <input type="hidden" name="user_ids" id="bulkDeleteIds">
+        </form>
+        <button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>
+            <i class="bi bi-trash me-1"></i>Delete Selected
+        </button>
     </div>
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-hover align-middle">
                 <thead>
                     <tr>
+                        <th width="50">
+                            <input type="checkbox" id="selectAll" class="form-check-input">
+                        </th>
                         <th>Name</th>
                         <th>Email</th>
                         <th>Company</th>
@@ -31,6 +41,11 @@
                 <tbody>
                     @forelse($users as $user)
                     <tr>
+                        <td>
+                            @if(! $user->hasRole('Admin'))
+                            <input type="checkbox" class="form-check-input user-checkbox" value="{{ $user->id }}" name="user_ids[]">
+                            @endif
+                        </td>
                         <td>
                             <strong>{{ $user->name }}</strong><br>
                             <small class="text-muted">{{ $user->phone }}</small>
@@ -53,7 +68,7 @@
                                     <i class="bi bi-pencil"></i>
                                 </a>
                                 @if(! $user->hasRole('Admin'))
-                                <form action="{{ route('admin.users.destroy', $user->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this user?');">
+                                <form action="{{ route('admin.users.destroy', $user->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this user?');">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="btn btn-sm btn-danger" title="Delete User">
@@ -66,7 +81,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="text-center py-5">
+                        <td colspan="7" class="text-center py-5">
                             <div class="text-muted">
                                 <i class="bi bi-inbox" style="font-size: 3rem;"></i>
                                 <p class="mt-3 mb-0">No users found</p>
@@ -85,6 +100,41 @@
         @endif
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.user-checkbox');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    const bulkDeleteForm = document.getElementById('bulkDeleteForm');
+    const bulkDeleteIds = document.getElementById('bulkDeleteIds');
+
+    selectAll.addEventListener('change', function() {
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = selectAll.checked;
+        });
+        bulkDeleteBtn.disabled = !selectAll.checked;
+    });
+
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const checked = document.querySelectorAll('.user-checkbox:checked');
+            bulkDeleteBtn.disabled = checked.length === 0;
+            selectAll.checked = checked.length === checkboxes.length;
+        });
+    });
+
+    bulkDeleteBtn.addEventListener('click', function() {
+        const checked = Array.from(document.querySelectorAll('.user-checkbox:checked')).map(cb => cb.value);
+        if (checked.length > 0) {
+            if (confirm('Are you sure you want to delete ' + checked.length + ' selected user(s)?')) {
+                bulkDeleteIds.value = JSON.stringify(checked);
+                bulkDeleteForm.submit();
+            }
+        }
+    });
+});
+</script>
 @endsection
 
 
