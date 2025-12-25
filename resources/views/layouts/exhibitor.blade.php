@@ -209,11 +209,19 @@
     <div class="sidebar">
         <div class="sidebar-brand">
             <div class="sidebar-brand-content">
-                <div class="sidebar-brand-avatar">
-                    {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
-                </div>
+                @php
+                    $generalSettings = \App\Models\Setting::getByGroup('general');
+                    $companyLogo = $generalSettings['company_logo'] ?? null;
+                @endphp
+                @if($companyLogo && \Storage::disk('public')->exists($companyLogo))
+                    <img src="{{ \Storage::url($companyLogo) }}" alt="Company Logo" style="width: 45px; height: 45px; object-fit: contain; border-radius: 8px; background: rgba(255,255,255,0.1); padding: 5px;">
+                @else
+                    <div class="sidebar-brand-avatar">
+                        {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                    </div>
+                @endif
                 <div class="sidebar-brand-info">
-                    <div class="sidebar-brand-name">{{ auth()->user()->name }}</div>
+                    <div class="sidebar-brand-name">{{ $generalSettings['company_name'] ?? (auth()->user()->name) }}</div>
                     <div class="sidebar-brand-role">Exhibitor Manager</div>
                 </div>
             </div>

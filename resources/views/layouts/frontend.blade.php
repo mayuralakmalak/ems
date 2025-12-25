@@ -69,8 +69,16 @@
     <nav class="navbar navbar-expand-lg app-header">
         <div class="container py-2">
             <a class="app-brand" href="{{ route('home') }}">
-                <span class="app-brand-badge"><i class="bi bi-calendar-event"></i></span>
-                <span>EMS</span>
+                @php
+                    $generalSettings = \App\Models\Setting::getByGroup('general');
+                    $companyLogo = $generalSettings['company_logo'] ?? null;
+                @endphp
+                @if($companyLogo && \Storage::disk('public')->exists($companyLogo))
+                    <img src="{{ \Storage::url($companyLogo) }}" alt="Company Logo" style="width: 36px; height: 36px; object-fit: contain; border-radius: 12px; margin-right: 8px;">
+                @else
+                    <span class="app-brand-badge"><i class="bi bi-calendar-event"></i></span>
+                @endif
+                <span>{{ $generalSettings['company_name'] ?? 'EMS' }}</span>
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>

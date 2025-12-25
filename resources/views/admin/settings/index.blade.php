@@ -102,9 +102,21 @@
     <h4 class="section-title">General Company Information</h4>
     <p class="section-subtitle">Configure your exhibition company's general information and contact details.</p>
     
-    <form action="{{ route('admin.settings.save-general') }}" method="POST">
+    <form action="{{ route('admin.settings.save-general') }}" method="POST" enctype="multipart/form-data">
         @csrf
         <div class="row">
+            <div class="col-md-12">
+                <div class="form-group">
+                    <label class="form-label">Company Logo</label>
+                    @if(isset($generalSettings['company_logo']) && $generalSettings['company_logo'])
+                        <div class="mb-2">
+                            <img src="{{ Storage::url($generalSettings['company_logo']) }}" alt="Company Logo" style="max-height: 80px; max-width: 200px; object-fit: contain; border: 1px solid #e2e8f0; padding: 5px; border-radius: 5px;">
+                        </div>
+                    @endif
+                    <input type="file" name="company_logo" class="form-control" accept="image/*">
+                    <small class="text-muted">Recommended size: 200x80px. Max file size: 2MB. Supported formats: JPG, PNG, GIF</small>
+                </div>
+            </div>
             <div class="col-md-6">
                 <div class="form-group">
                     <label class="form-label">Company Name <span class="text-danger">*</span></label>

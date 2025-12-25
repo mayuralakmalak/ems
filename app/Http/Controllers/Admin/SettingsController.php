@@ -34,6 +34,7 @@ class SettingsController extends Controller
             'country' => 'nullable|string|max:100',
             'pincode' => 'nullable|string|max:20',
             'website' => 'nullable|url|max:255',
+            'company_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'bank_name' => 'nullable|string|max:255',
             'bank_account_number' => 'nullable|string|max:50',
             'bank_ifsc_code' => 'nullable|string|max:20',
@@ -47,6 +48,20 @@ class SettingsController extends Controller
             'currency' => 'nullable|string|max:10',
             'timezone' => 'nullable|string|max:50',
         ]);
+        
+        // Handle company logo upload
+        if ($request->hasFile('company_logo')) {
+            // Delete old logo if exists
+            $generalSettings = Setting::getByGroup('general');
+            $oldLogo = $generalSettings['company_logo'] ?? null;
+            if ($oldLogo && Storage::disk('public')->exists($oldLogo)) {
+                Storage::disk('public')->delete($oldLogo);
+            }
+            
+            // Store new logo
+            $logoPath = $request->file('company_logo')->store('company-logos', 'public');
+            Setting::set('company_logo', $logoPath, 'general');
+        }
         
         // Save all general settings
         $fields = [

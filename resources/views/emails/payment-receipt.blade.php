@@ -105,6 +105,15 @@
 <body>
     <div class="email-container">
         <div class="header">
+            @php
+                $generalSettings = \App\Models\Setting::getByGroup('general');
+                $companyLogo = $generalSettings['company_logo'] ?? null;
+            @endphp
+            @if($companyLogo && \Storage::disk('public')->exists($companyLogo))
+                <div style="margin-bottom: 15px;">
+                    <img src="{{ \Storage::url($companyLogo) }}" alt="Company Logo" style="max-height: 60px; max-width: 200px; object-fit: contain;">
+                </div>
+            @endif
             <h1>Payment Receipt</h1>
         </div>
         

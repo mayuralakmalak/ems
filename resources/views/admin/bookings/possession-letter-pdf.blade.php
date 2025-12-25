@@ -129,8 +129,21 @@
 </head>
 <body>
     <div class="header">
+        @php
+            $generalSettings = \App\Models\Setting::getByGroup('general');
+            $companyLogo = $generalSettings['company_logo'] ?? null;
+            $logoPath = null;
+            if ($companyLogo && \Storage::disk('public')->exists($companyLogo)) {
+                $logoPath = storage_path('app/public/' . $companyLogo);
+            }
+        @endphp
+        @if($logoPath && file_exists($logoPath))
+            <div style="margin-bottom: 15px;">
+                <img src="{{ $logoPath }}" alt="Company Logo" style="max-height: 60px; max-width: 200px; object-fit: contain;">
+            </div>
+        @endif
         <h1>POSSESSION LETTER</h1>
-        <div class="subtitle">Exhibition Management System</div>
+        <div class="subtitle">{{ $generalSettings['company_name'] ?? 'Exhibition Management System' }}</div>
     </div>
 
     <div class="date-section">

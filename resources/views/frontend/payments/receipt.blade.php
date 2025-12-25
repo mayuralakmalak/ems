@@ -179,10 +179,22 @@
         default => 'badge-info'
     };
 @endphp
+@php
+    $generalSettings = \App\Models\Setting::getByGroup('general');
+    $companyLogo = $generalSettings['company_logo'] ?? null;
+    $logoPath = null;
+    if ($companyLogo && \Storage::disk('public')->exists($companyLogo)) {
+        $logoPath = storage_path('app/public/' . $companyLogo);
+    }
+@endphp
 <div class="page">
     <div class="header">
         <div style="line-height:1.3;">
-            <p style="margin:0; font-size:24px; font-weight:800; opacity:0.96;">EMS</p>
+            @if($logoPath && file_exists($logoPath))
+                <img src="{{ $logoPath }}" alt="Company Logo" style="max-height: 50px; max-width: 180px; object-fit: contain; margin-bottom: 8px;">
+            @else
+                <p style="margin:0; font-size:24px; font-weight:800; opacity:0.96;">EMS</p>
+            @endif
             <p style="margin:2px 0 0; font-size:12px; font-weight:600; opacity:0.9;">Payment Receipt</p>
         </div>
         <div class="meta">
