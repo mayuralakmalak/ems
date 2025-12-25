@@ -49,6 +49,7 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     
     // User Management
     Route::resource('users', UserController::class);
+    Route::post('/users/bulk-delete', [UserController::class, 'bulkDelete'])->name('users.bulk-delete');
     
     // Booth Management
     Route::get('/exhibitions/{exhibitionId}/booths', [\App\Http\Controllers\Admin\BoothController::class, 'index'])->name('booths.index');
@@ -106,6 +107,10 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     // Role Management
     Route::get('/roles', [\App\Http\Controllers\Admin\RoleController::class, 'index'])->name('roles.index');
     Route::post('/roles', [\App\Http\Controllers\Admin\RoleController::class, 'store'])->name('roles.store');
+    Route::get('/roles/{id}/edit', [\App\Http\Controllers\Admin\RoleController::class, 'edit'])->name('roles.edit');
+    Route::put('/roles/{id}', [\App\Http\Controllers\Admin\RoleController::class, 'update'])->name('roles.update');
+    Route::delete('/roles/{id}', [\App\Http\Controllers\Admin\RoleController::class, 'destroy'])->name('roles.destroy');
+    Route::post('/roles/bulk-delete', [\App\Http\Controllers\Admin\RoleController::class, 'bulkDelete'])->name('roles.bulk-delete');
     Route::get('/roles/{id}/edit-permissions', [\App\Http\Controllers\Admin\RoleController::class, 'editPermissions'])->name('roles.edit-permissions');
     Route::put('/roles/{id}/permissions', [\App\Http\Controllers\Admin\RoleController::class, 'updatePermissions'])->name('roles.update-permissions');
     

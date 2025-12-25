@@ -315,6 +315,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.roles.*') ? 'active' : '' }}" href="{{ route('admin.roles.index') }}">
+                                <i class="bi bi-shield-check me-2"></i> Roles & Permissions
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('admin.exhibitors.*') ? 'active' : '' }}" href="{{ route('admin.exhibitors.index') }}">
                                 <i class="bi bi-people-fill me-2"></i> Exhibitors
                             </a>
