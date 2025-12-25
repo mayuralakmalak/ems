@@ -66,36 +66,42 @@ class RegisteredUserController extends Controller
         $mobilePhoneCode = $request->mobile_phone_code ?? '';
         $phonePhoneCode = $request->phone_phone_code ?? '';
         
-        // Format mobile number with country code prefix
+        // Process mobile number - store only the number part (without code)
         $mobileNumber = $request->mobile_number;
         if ($mobilePhoneCode && !empty($mobileNumber)) {
             // Remove any existing country code if present
             $mobileNumber = preg_replace('/^\+?' . preg_quote($mobilePhoneCode, '/') . '/', '', $mobileNumber);
-            // Add country code prefix
-            $mobileNumber = '+' . $mobilePhoneCode . $mobileNumber;
-        } elseif (!empty($mobileNumber) && !str_starts_with($mobileNumber, '+')) {
-            // If no country code but number doesn't start with +, keep as is
-            $mobileNumber = $mobileNumber;
+            // Clean the number (remove any non-digit characters except leading +)
+            $mobileNumber = preg_replace('/[^0-9]/', '', $mobileNumber);
+        } elseif (!empty($mobileNumber)) {
+            // If no country code provided, try to extract it or keep as is
+            $mobileNumber = preg_replace('/[^0-9]/', '', $mobileNumber);
         }
         
-        // Format phone number with country code prefix
+        // Process phone number - store only the number part (without code)
         $phoneNumber = $request->phone_number;
         if ($phoneNumber && $phonePhoneCode) {
             // Remove any existing country code if present
             $phoneNumber = preg_replace('/^\+?' . preg_quote($phonePhoneCode, '/') . '/', '', $phoneNumber);
-            // Add country code prefix
-            $phoneNumber = '+' . $phonePhoneCode . $phoneNumber;
-        } elseif ($phoneNumber && !str_starts_with($phoneNumber, '+')) {
-            // If no country code but number doesn't start with +, keep as is
-            $phoneNumber = $phoneNumber;
+            // Clean the number (remove any non-digit characters)
+            $phoneNumber = preg_replace('/[^0-9]/', '', $phoneNumber);
+        } elseif ($phoneNumber) {
+            // If no country code provided, clean the number
+            $phoneNumber = preg_replace('/[^0-9]/', '', $phoneNumber);
         }
+        
+        // Format full phone for backward compatibility (with code)
+        $fullMobileNumber = $mobilePhoneCode && $mobileNumber ? '+' . $mobilePhoneCode . $mobileNumber : ($mobileNumber ? $mobileNumber : null);
+        $fullPhoneNumber = $phonePhoneCode && $phoneNumber ? '+' . $phonePhoneCode . $phoneNumber : ($phoneNumber ? $phoneNumber : null);
         
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
-            'phone' => $mobileNumber, // Keep for backward compatibility
-            'mobile_number' => $mobileNumber,
-            'phone_number' => $phoneNumber,
+            'phone' => $fullMobileNumber, // Keep for backward compatibility
+            'mobile_number' => $mobileNumber, // Store only number part
+            'mobile_number_phone_code' => $mobilePhoneCode ? '+' . $mobilePhoneCode : null, // Store code separately
+            'phone_number' => $phoneNumber, // Store only number part
+            'phone_number_phone_code' => $phonePhoneCode ? '+' . $phonePhoneCode : null, // Store code separately
             'password' => Hash::make($request->password),
             'company_name' => $request->company_name,
             'website' => $request->company_website,

@@ -36,8 +36,27 @@
             color: white;
             padding: 20px 0;
             overflow-y: auto;
+            overflow-x: hidden;
             z-index: 1000;
             box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+        
+        /* Custom scrollbar for sidebar */
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .sidebar::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.1);
+        }
+        
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.3);
+            border-radius: 3px;
+        }
+        
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.5);
         }
         
         .sidebar-brand {

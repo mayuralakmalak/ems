@@ -130,7 +130,7 @@
         display: block;
     }
     
-    .form-control {
+    .form-control, .form-select {
         width: 100%;
         padding: 12px 14px;
         border: 1px solid rgba(226, 232, 240, 0.35);
@@ -142,11 +142,36 @@
         font-weight: 500;
     }
     
+    .form-select {
+        background-color: rgba(255,255,255,0.08);
+        color: #ffffff !important;
+    }
+    
+    .form-select option {
+        background: #1f2937;
+        color: #ffffff;
+    }
+    
+    .input-group {
+        display: flex;
+        gap: 0;
+    }
+    
+    .input-group .form-select {
+        border-radius: 10px 0 0 10px;
+        border-right: none;
+    }
+    
+    .input-group .form-control {
+        border-radius: 0 10px 10px 0;
+        border-left: none;
+    }
+    
     .form-control::placeholder {
         color: #94a3b8;
     }
     
-    .form-control:focus {
+    .form-control:focus, .form-select:focus {
         border-color: #818cf8;
         box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
         outline: none;
@@ -271,38 +296,76 @@
         <p class="login-subtitle">Access your dashboard with OTP or email.</p>
         
         <div class="login-toggle">
-            <button type="button" class="toggle-btn active" id="otpTab" onclick="showOtpForm()">Login with OTP</button>
-            <button type="button" class="toggle-btn" id="emailTab" onclick="showEmailForm()">Login with Email</button>
+            <button type="button" class="toggle-btn {{ $errors->has('email') || $errors->has('password') ? '' : 'active' }}" id="otpTab" onclick="showOtpForm()">Login with OTP</button>
+            <button type="button" class="toggle-btn {{ $errors->has('email') || $errors->has('password') ? 'active' : '' }}" id="emailTab" onclick="showEmailForm()">Login with Email</button>
         </div>
         
         <!-- OTP Login Form -->
-        <div id="otpForm" class="login-form active">
+        <div id="otpForm" class="login-form {{ $errors->has('email') || $errors->has('password') ? '' : 'active' }}">
             @if(session('otp_sent'))
                 <div class="alert alert-success">
                     OTP sent! Check your phone. OTP: <strong>{{ session('otp') }}</strong> (Development only)
                 </div>
             @endif
             
-            @if(session('error'))
-                <div class="alert alert-danger">{{ session('error') }}</div>
-            @endif
-            
             <form method="POST" action="{{ route('otp.send') }}" id="otpLoginForm" novalidate>
                 @csrf
                 
                 <div class="form-group">
-                    <label for="phone_otp" class="form-label">Phone</label>
-                    <input 
-                        type="tel" 
-                        class="form-control @error('phone') is-invalid @enderror" 
-                        id="phone_otp" 
-                        name="phone" 
-                        value="{{ old('phone', session('phone')) }}" 
-                        required
-                        placeholder="+91 97234567890">
-                    @error('phone')
-                        <div class="text-danger">{{ $message }}</div>
-                    @enderror
+                    <label for="mobile_number" class="form-label">Mobile Number</label>
+                    <div style="display: flex; gap: 0;">
+                        <div style="flex: 0 0 120px;">
+                            <select 
+                                class="form-select @error('mobile_phone_code') is-invalid @enderror" 
+                                id="mobile_phone_code" 
+                                name="mobile_phone_code" 
+                                required
+                                style="width: 100%; border-radius: 10px 0 0 10px; border-right: 2px solid rgba(226, 232, 240, 0.5);">
+                                <option value="">Phone Code</option>
+                                @foreach($countries as $country)
+                                    @php
+                                        $phoneCode = !empty($country->phone_code) ? $country->phone_code : (!empty($country->phonecode) ? $country->phonecode : '');
+                                        $emoji = $country->emoji ?? '';
+                                        $displayText = '';
+                                        if ($phoneCode) {
+                                            if ($emoji) {
+                                                $displayText = $emoji . ' +' . $phoneCode;
+                                            } else {
+                                                $displayText = '+' . $phoneCode;
+                                            }
+                                        }
+                                        $isSelected = old('mobile_phone_code', '91') == $phoneCode;
+                                    @endphp
+                                    @if($phoneCode)
+                                        <option
+                                            value="{{ $phoneCode }}"
+                                            data-emoji="{{ $emoji }}"
+                                            {{ $isSelected ? 'selected' : '' }}
+                                        >
+                                            {{ $displayText }}
+                                        </option>
+                                    @endif
+                                @endforeach
+                            </select>
+                            @error('mobile_phone_code')
+                                <div class="text-danger" style="font-size: 0.85rem; margin-top: 4px;">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div style="flex: 1;">
+                            <input 
+                                type="tel" 
+                                class="form-control @error('mobile_number') is-invalid @enderror" 
+                                id="mobile_number" 
+                                name="mobile_number" 
+                                value="{{ old('mobile_number') }}" 
+                                required
+                                placeholder="mobile number"
+                                style="border-left: 2px solid rgba(226, 232, 240, 0.5); border-radius: 0 10px 10px 0;">
+                            @error('mobile_number')
+                                <div class="text-danger" style="font-size: 0.85rem; margin-top: 4px;">{{ $message }}</div>
+                            @enderror
+                        </div>
+                    </div>
                 </div>
                 
                 <button type="submit" class="btn-submit">Submit</button>
@@ -311,7 +374,6 @@
             @if(session('otp_sent'))
             <form method="POST" action="{{ route('otp.verify') }}" class="mt-4" id="verifyOtpForm" novalidate>
                 @csrf
-                <input type="hidden" name="phone" value="{{ session('phone') }}">
                 
                 <div class="form-group">
                     <label for="otp" class="form-label">OTP</label>
@@ -339,7 +401,7 @@
         </div>
         
         <!-- Email/Password Login Form -->
-        <div id="emailForm" class="login-form">
+        <div id="emailForm" class="login-form {{ $errors->has('email') || $errors->has('password') ? 'active' : '' }}">
             @if (session('status'))
                 <div class="alert alert-success">
                     <i class="bi bi-check-circle-fill me-2"></i>
@@ -443,10 +505,12 @@ $(function() {
         errorElement: 'div',
         errorClass: 'text-danger',
         rules: {
-            phone: { required: true, minlength: 8 }
+            mobile_phone_code: { required: true },
+            mobile_number: { required: true, minlength: 8 }
         },
         messages: {
-            phone: { required: 'Phone is required' }
+            mobile_phone_code: { required: 'Phone code is required' },
+            mobile_number: { required: 'Mobile number is required' }
         }
     });
 

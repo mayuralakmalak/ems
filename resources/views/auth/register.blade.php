@@ -365,59 +365,59 @@
                 <div class="col-md-6">
                     <div class="form-group">
                         <label for="mobile_number" class="form-label">Mobile Number</label>
-                        <div class="input-group">
-                            <select 
-                                class="form-select @error('mobile_phone_code') is-invalid @enderror" 
-                                id="mobile_phone_code" 
-                                name="mobile_phone_code" 
-                                required
-                                style="max-width: 200px; background: rgba(255,255,255,0.04); border: 1px solid rgba(226, 232, 240, 0.35); color: #ffffff; border-right: none; border-radius: 10px 0 0 10px;">
-                                <option value="">Phone Code</option>
-                                @foreach($countries as $country)
-                                    @php
-                                        $phoneCode = !empty($country->phone_code) ? $country->phone_code : (!empty($country->phonecode) ? $country->phonecode : '');
-                                        $emoji = $country->emoji ?? '';
-                                        $countryName = $country->name ?? '';
-                                        $displayText = '';
-                                        if ($phoneCode) {
-                                            if ($emoji && $countryName) {
-                                                $displayText = $emoji . ' ' . $countryName . ' +' . $phoneCode;
-                                            } elseif ($emoji) {
-                                                $displayText = $emoji . ' +' . $phoneCode;
-                                            } elseif ($countryName) {
-                                                $displayText = $countryName . ' +' . $phoneCode;
-                                            } else {
-                                                $displayText = '+' . $phoneCode;
+                        <div style="display: flex; gap: 0;">
+                            <div style="flex: 0 0 120px;">
+                                <select 
+                                    class="form-select @error('mobile_phone_code') is-invalid @enderror" 
+                                    id="mobile_phone_code" 
+                                    name="mobile_phone_code" 
+                                    required
+                                    style="width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(226, 232, 240, 0.35); color: #ffffff; border-right: 2px solid rgba(226, 232, 240, 0.5); border-radius: 10px 0 0 10px;">
+                                    <option value="">Phone Code</option>
+                                    @foreach($countries as $country)
+                                        @php
+                                            $phoneCode = !empty($country->phone_code) ? $country->phone_code : (!empty($country->phonecode) ? $country->phonecode : '');
+                                            $emoji = $country->emoji ?? '';
+                                            $displayText = '';
+                                            if ($phoneCode) {
+                                                if ($emoji) {
+                                                    $displayText = $emoji . ' +' . $phoneCode;
+                                                } else {
+                                                    $displayText = '+' . $phoneCode;
+                                                }
                                             }
-                                        }
-                                    @endphp
-                                    @if($phoneCode)
-                                        <option
-                                            value="{{ $phoneCode }}"
-                                            data-emoji="{{ $emoji }}"
-                                            {{ old('mobile_phone_code') == $phoneCode ? 'selected' : '' }}
-                                        >
-                                            {{ $displayText }}
-                                        </option>
-                                    @endif
-                                @endforeach
-                            </select>
-                            <input 
-                                type="tel" 
-                                class="form-control @error('mobile_number') is-invalid @enderror" 
-                                id="mobile_number" 
-                                name="mobile_number" 
-                                value="{{ old('mobile_number') }}" 
-                                required
-                                placeholder="mobile number"
-                                style="border-left: none; border-radius: 0 10px 10px 0;">
+                                            $isSelected = old('mobile_phone_code', '91') == $phoneCode;
+                                        @endphp
+                                        @if($phoneCode)
+                                            <option
+                                                value="{{ $phoneCode }}"
+                                                data-emoji="{{ $emoji }}"
+                                                {{ $isSelected ? 'selected' : '' }}
+                                            >
+                                                {{ $displayText }}
+                                            </option>
+                                        @endif
+                                    @endforeach
+                                </select>
+                                @error('mobile_phone_code')
+                                    <div class="text-danger" style="font-size: 0.85rem; margin-top: 4px;">{{ $message }}</div>
+                                @enderror
+                            </div>
+                            <div style="flex: 1;">
+                                <input 
+                                    type="tel" 
+                                    class="form-control @error('mobile_number') is-invalid @enderror" 
+                                    id="mobile_number" 
+                                    name="mobile_number" 
+                                    value="{{ old('mobile_number') }}" 
+                                    required
+                                    placeholder="mobile number"
+                                    style="border-left: 2px solid rgba(226, 232, 240, 0.5); border-radius: 0 10px 10px 0;">
+                                @error('mobile_number')
+                                    <div class="text-danger" style="font-size: 0.85rem; margin-top: 4px;">{{ $message }}</div>
+                                @enderror
+                            </div>
                         </div>
-                        @error('mobile_number')
-                            <div class="text-danger">{{ $message }}</div>
-                        @enderror
-                        @error('mobile_phone_code')
-                            <div class="text-danger">{{ $message }}</div>
-                        @enderror
                     </div>
                 </div>
             </div>
@@ -426,53 +426,59 @@
                 <div class="col-md-6">
                     <div class="form-group">
                         <label for="phone_number" class="form-label">Phone Number</label>
-                        <div class="input-group">
-                            <select 
-                                class="form-select @error('phone_phone_code') is-invalid @enderror" 
-                                id="phone_phone_code" 
-                                name="phone_phone_code" 
-                                style="max-width: 200px; background: rgba(255,255,255,0.04); border: 1px solid rgba(226, 232, 240, 0.35); color: #ffffff; border-right: none; border-radius: 10px 0 0 10px;">
+                        <div class="input-group" style="display: flex; gap: 0;">
+                            <div style="flex: 0 0 120px;">
+                                <select 
+                                    class="form-select @error('phone_phone_code') is-invalid @enderror" 
+                                    id="phone_phone_code" 
+                                    name="phone_phone_code" 
+                                    style="width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(226, 232, 240, 0.35); color: #ffffff; border-right: 2px solid rgba(226, 232, 240, 0.5); border-radius: 10px 0 0 10px;">
                                 <option value="">Phone Code</option>
                                 @foreach($countries as $country)
                                     @php
                                         $phoneCode = !empty($country->phone_code) ? $country->phone_code : (!empty($country->phonecode) ? $country->phonecode : '');
                                         $emoji = $country->emoji ?? '';
-                                        $countryName = $country->name ?? '';
                                         $displayText = '';
                                         if ($phoneCode) {
-                                            if ($emoji && $countryName) {
-                                                $displayText = $emoji . ' ' . $countryName . ' +' . $phoneCode;
-                                            } elseif ($emoji) {
+                                            if ($emoji) {
                                                 $displayText = $emoji . ' +' . $phoneCode;
-                                            } elseif ($countryName) {
-                                                $displayText = $countryName . ' +' . $phoneCode;
                                             } else {
                                                 $displayText = '+' . $phoneCode;
                                             }
                                         }
+                                        $isSelected = old('phone_phone_code', '91') == $phoneCode;
                                     @endphp
                                     @if($phoneCode)
                                         <option
                                             value="{{ $phoneCode }}"
                                             data-emoji="{{ $emoji }}"
-                                            {{ old('phone_phone_code') == $phoneCode ? 'selected' : '' }}
+                                            {{ $isSelected ? 'selected' : '' }}
                                         >
                                             {{ $displayText }}
                                         </option>
                                     @endif
                                 @endforeach
                             </select>
-                            <input 
-                                type="tel" 
-                                class="form-control @error('phone_number') is-invalid @enderror" 
-                                id="phone_number" 
-                                name="phone_number" 
-                                value="{{ old('phone_number') }}" 
-                                placeholder="phone number"
-                                style="border-left: none; border-radius: 0 10px 10px 0;">
+                            @error('phone_phone_code')
+                                <div class="text-danger" style="font-size: 0.85rem; margin-top: 4px;">{{ $message }}</div>
+                            @enderror
+                            </div>
+                            <div style="flex: 1;">
+                                <input 
+                                    type="tel" 
+                                    class="form-control @error('phone_number') is-invalid @enderror" 
+                                    id="phone_number" 
+                                    name="phone_number" 
+                                    value="{{ old('phone_number') }}" 
+                                    placeholder="phone number"
+                                    style="border-left: 2px solid rgba(226, 232, 240, 0.5); border-radius: 0 10px 10px 0;">
+                                @error('phone_number')
+                                    <div class="text-danger" style="font-size: 0.85rem; margin-top: 4px;">{{ $message }}</div>
+                                @enderror
+                            </div>
                         </div>
-                        @error('phone_number')
-                            <div class="text-danger">{{ $message }}</div>
+                        @error('phone_phone_code')
+                            <div class="text-danger" style="font-size: 0.85rem; margin-top: 4px;">{{ $message }}</div>
                         @enderror
                         @error('phone_phone_code')
                             <div class="text-danger">{{ $message }}</div>

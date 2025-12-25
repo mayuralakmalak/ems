@@ -17,7 +17,7 @@
             <span class="message-author">
                 {{ $isAdmin ? 'You' : ($otherUser->name ?? 'Exhibitor') }}
             </span>
-            <span class="message-date">{{ $msg->created_at->format('M d, Y, h:i A') }}</span>
+            <span class="message-date">{{ $msg->created_at->setTimezone('Asia/Kolkata')->format('M d, Y, h:i A') }}</span>
         </div>
         <div class="message-text">
             {{ $msg->message }}
@@ -31,13 +31,10 @@
         @csrf
         <input type="hidden" name="exhibitor_id" value="{{ $otherUser->id }}">
         <input type="hidden" name="thread_id" value="{{ $conversation->first()->thread_id ?? '' }}">
-        <textarea name="message" class="reply-input" rows="2" placeholder="Reply to {{ $otherUser->name ?? 'Exhibitor' }}..." required id="messageInput"></textarea>
-        <div class="reply-actions">
-            <button type="button" class="btn-attach">
-                <i class="bi bi-paperclip me-2"></i>Attach File
-            </button>
+        <div class="reply-input-wrapper">
+            <textarea name="message" class="reply-input" rows="2" placeholder="Reply to {{ $otherUser->name ?? 'Exhibitor' }}..." required id="messageInput"></textarea>
             <button type="submit" class="btn-send">
-                <i class="bi bi-send me-2"></i>Send
+                <i class="bi bi-send"></i>
             </button>
         </div>
     </form>
@@ -143,46 +140,64 @@
     // Handle form submission
     replyForm.addEventListener('submit', function(e) {
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
         
         const formData = new FormData(replyForm);
         const messageText = formData.get('message');
         
         if (!messageText || !messageText.trim()) {
             alert('Please enter a message');
-            return;
+            return false;
         }
         
         // Disable form while sending
         const submitBtn = replyForm.querySelector('button[type="submit"]');
-        const originalText = submitBtn.innerHTML;
+        const originalIcon = submitBtn.querySelector('i');
+        const originalClass = originalIcon.className;
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Sending...';
+        originalIcon.className = 'bi bi-hourglass-split';
         
         // Immediately add message to UI (optimistic update)
+        // Format date in Indian timezone
+        const now = new Date();
+        const indianTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+        const formattedDate = indianTime.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+        
         const tempMessage = {
             id: 'temp-' + Date.now(),
             message: messageText,
-            created_at: new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }),
+            created_at: formattedDate,
             sender_name: 'You',
             is_admin: true
         };
         addMessageToUI(tempMessage, true);
         messageInput.value = '';
         
-        // Send message
+        // Send message via AJAX
         fetch(replyForm.action, {
             method: 'POST',
             body: formData,
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            }
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || formData.get('_token')
+            },
+            credentials: 'same-origin'
         })
         .then(response => {
-            if (response.headers.get('content-type')?.includes('application/json')) {
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
                 return response.json();
             }
-            return { success: true };
+            // If not JSON, try to parse as text
+            return response.text().then(text => {
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    return { success: true };
+                }
+            });
         })
         .then(data => {
             if (data.success) {
@@ -191,8 +206,20 @@
                 if (tempMsg) {
                     tempMsg.remove();
                 }
+                // Update thread_id if provided
+                if (data.thread_id && threadId !== data.thread_id) {
+                    conversationMessages.setAttribute('data-thread-id', data.thread_id);
+                    if (threadId && threadId.trim() !== '') {
+                        startPolling();
+                    }
+                }
                 // Fetch new messages immediately to get the real message
                 setTimeout(fetchNewMessages, 500);
+                
+                // Trigger inbox update to refresh the list
+                if (typeof updateInboxList === 'function') {
+                    setTimeout(updateInboxList, 1000);
+                }
             } else {
                 // Remove temp message on error
                 const tempMsg = document.querySelector('[data-message-id^="temp-"]');
@@ -213,8 +240,10 @@
         })
         .finally(() => {
             submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
+            originalIcon.className = originalClass;
         });
+        
+        return false;
     });
     
     // Start polling when page loads (only if threadId exists)

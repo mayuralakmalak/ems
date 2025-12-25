@@ -20,13 +20,10 @@
         <input type="hidden" name="receiver_id" value="{{ $superAdmin->id }}">
         <input type="hidden" name="exhibition_id" value="">
         <input type="hidden" name="is_new_chat" value="1">
-        <textarea name="message" class="reply-input" rows="2" placeholder="Type your message here..." required></textarea>
-        <div class="reply-actions">
-            <button type="button" class="btn-attach">
-                <i class="bi bi-paperclip me-2"></i>Attach File
-            </button>
+        <div class="reply-input-wrapper">
+            <textarea name="message" class="reply-input" rows="2" placeholder="Type your message here..." required></textarea>
             <button type="button" class="btn-send" id="sendMessageBtn">
-                <i class="bi bi-send me-2"></i>Send
+                <i class="bi bi-send"></i>
             </button>
         </div>
     </form>
@@ -71,9 +68,10 @@
         }
         
         // Disable form while sending
-        const originalText = sendBtn.innerHTML;
+        const originalIcon = sendBtn.querySelector('i');
+        const originalClass = originalIcon.className;
         sendBtn.disabled = true;
-        sendBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Sending...';
+        originalIcon.className = 'bi bi-hourglass-split';
         
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || formData.get('_token');
         console.log('CSRF Token:', csrfToken ? 'Found' : 'Missing');
@@ -124,12 +122,28 @@
                         } else {
                             console.log('loadMessage not available, fetching directly');
                             // If loadMessage is not available, fetch the conversation directly
-                            fetch(`{{ url('/messages') }}/${data.message_id}`)
+                            fetch(`{{ url('/messages') }}/${data.message_id}`, {
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'Accept': 'text/html'
+                                }
+                            })
                                 .then(response => response.text())
                                 .then(html => {
                                     const messageDetail = document.getElementById('messageDetail');
                                     if (messageDetail) {
                                         messageDetail.innerHTML = html;
+                                        
+                                        // Execute any scripts in the loaded HTML
+                                        const scripts = messageDetail.querySelectorAll('script');
+                                        scripts.forEach(oldScript => {
+                                            const newScript = document.createElement('script');
+                                            Array.from(oldScript.attributes).forEach(attr => {
+                                                newScript.setAttribute(attr.name, attr.value);
+                                            });
+                                            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                                        });
                                     }
                                 })
                                 .catch(err => {
@@ -145,19 +159,19 @@
                 
                 // Re-enable form (though it will be replaced by conversation view)
                 sendBtn.disabled = false;
-                sendBtn.innerHTML = originalText;
+                originalIcon.className = originalClass;
             } else {
                 console.error('Response indicates failure:', data);
                 alert(data.message || 'Failed to send message');
                 sendBtn.disabled = false;
-                sendBtn.innerHTML = originalText;
+                originalIcon.className = originalClass;
             }
         })
         .catch(error => {
             console.error('Error sending message:', error);
             alert('Failed to send message: ' + error.message);
             sendBtn.disabled = false;
-            sendBtn.innerHTML = originalText;
+            originalIcon.className = originalClass;
         });
         
         return false;

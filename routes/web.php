@@ -201,6 +201,7 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     Route::post('/communications/archive', [\App\Http\Controllers\Admin\CommunicationController::class, 'archive'])->name('communications.archive');
     Route::post('/communications/unarchive', [\App\Http\Controllers\Admin\CommunicationController::class, 'unarchive'])->name('communications.unarchive');
     Route::get('/communications/thread/{threadId}/new-messages', [\App\Http\Controllers\Admin\CommunicationController::class, 'getNewMessages'])->name('communications.new-messages');
+    Route::get('/communications/inbox/updates', [\App\Http\Controllers\Admin\CommunicationController::class, 'getInboxUpdates'])->name('communications.inbox-updates');
     
     // Email Management (Wireframe 36)
     Route::get('/emails', [\App\Http\Controllers\Admin\EmailManagementController::class, 'index'])->name('emails.index');
@@ -269,6 +270,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/messages/delete', [MessageController::class, 'delete'])->name('messages.delete');
     Route::post('/messages/unarchive', [MessageController::class, 'unarchive'])->name('messages.unarchive');
     Route::get('/messages/thread/{threadId}/new-messages', [MessageController::class, 'getNewMessages'])->name('messages.new-messages');
+    Route::get('/messages/inbox/updates', [MessageController::class, 'getInboxUpdates'])->name('messages.inbox-updates');
     
     // Wallet
     Route::get('/wallet', [WalletController::class, 'index'])->name('wallet.index');

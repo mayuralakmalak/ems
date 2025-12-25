@@ -190,12 +190,13 @@ class MessageController extends Controller
             ]);
         }
 
-        // If AJAX request, return JSON response
-        if ($request->ajax() || $request->wantsJson()) {
+        // Always return JSON for AJAX requests, or if X-Requested-With header is present
+        if ($request->ajax() || $request->wantsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
             return response()->json([
                 'success' => true,
                 'message' => 'Message sent successfully.',
                 'message_id' => $message->id,
+                'thread_id' => $threadId,
             ]);
         }
 
@@ -490,12 +491,105 @@ class MessageController extends Controller
                     'sender_id' => $message->sender_id,
                     'receiver_id' => $message->receiver_id,
                     'message' => $message->message,
-                    'created_at' => $message->created_at->format('M d, Y, h:i A'),
+                    'created_at' => $message->created_at->setTimezone('Asia/Kolkata')->format('M d, Y, h:i A'),
                     'is_user' => $message->sender_id === $userId,
                     'sender_name' => $message->sender_id === $userId ? 'You' : ($message->sender->name ?? 'Admin'),
                 ];
             }),
             'last_message_id' => $newMessages->max('id') ?? $lastMessageId,
+        ]);
+    }
+
+    /**
+     * Get updated inbox list (for real-time updates)
+     */
+    public function getInboxUpdates(Request $request)
+    {
+        $user = auth()->user();
+        $folder = $request->get('folder', 'inbox');
+        $lastUpdateTime = $request->input('last_update_time', 0);
+        
+        // Get all messages where user is sender or receiver
+        $messages = Message::where(function($query) use ($user) {
+            $query->where('sender_id', $user->id)
+                  ->orWhere('receiver_id', $user->id);
+        })
+        ->with(['sender', 'receiver'])
+        ->orderBy('created_at', 'desc')
+        ->get();
+
+        // Filter messages based on folder
+        if ($folder === 'sent') {
+            $filteredMessages = $messages->where('sender_id', $user->id)->where('status', '!=', 'deleted');
+        } elseif ($folder === 'archived') {
+            $filteredMessages = $messages->where('status', 'archived');
+        } elseif ($folder === 'deleted') {
+            $filteredMessages = $messages->where('status', 'deleted');
+        } else {
+            $filteredMessages = $messages->where('status', '!=', 'archived')->where('status', '!=', 'deleted');
+        }
+
+        // Build chat-style threads
+        if ($folder === 'archived') {
+            $threads = $filteredMessages
+                ->sortByDesc('created_at')
+                ->map(function ($message) use ($user) {
+                    $otherUser = $message->sender_id === $user->id
+                        ? $message->receiver
+                        : $message->sender;
+
+                    return [
+                        'id' => $message->id,
+                        'last_message' => $message->message,
+                        'last_message_preview' => \Str::limit($message->message, 50),
+                        'other_user_name' => $otherUser->name ?? 'Admin',
+                        'other_user_id' => $otherUser->id ?? null,
+                        'created_at' => $message->created_at->setTimezone('Asia/Kolkata')->format('M d, Y'),
+                        'unread_count' => 0,
+                    ];
+                })
+                ->values();
+        } else {
+            $threads = $filteredMessages
+                ->groupBy('thread_id')
+                ->map(function ($group) use ($user) {
+                    $lastMessage = $group->sortByDesc('created_at')->first();
+                    $otherUser = $lastMessage->sender_id === $user->id
+                        ? $lastMessage->receiver
+                        : $lastMessage->sender;
+
+                    $unreadCount = $group->where('receiver_id', $user->id)
+                        ->where('is_read', false)
+                        ->count();
+
+                    return [
+                        'id' => $lastMessage->id,
+                        'last_message' => $lastMessage->message,
+                        'last_message_preview' => \Str::limit($lastMessage->message, 50),
+                        'other_user_name' => $otherUser->name ?? 'Admin',
+                        'other_user_id' => $otherUser->id ?? null,
+                        'created_at' => $lastMessage->created_at->setTimezone('Asia/Kolkata')->format('M d, Y'),
+                        'unread_count' => $unreadCount,
+                        'thread_id' => $lastMessage->thread_id,
+                    ];
+                })
+                ->values();
+        }
+
+        $unreadCount = $messages->where('receiver_id', $user->id)
+            ->where('is_read', false)
+            ->where('status', '!=', 'archived')
+            ->where('status', '!=', 'deleted')
+            ->count();
+
+        return response()->json([
+            'success' => true,
+            'threads' => $threads,
+            'unread_count' => $unreadCount,
+            'inbox_count' => $messages->where('receiver_id', $user->id)->where('status', '!=', 'archived')->where('status', '!=', 'deleted')->count(),
+            'sent_count' => $messages->where('sender_id', $user->id)->where('status', '!=', 'archived')->where('status', '!=', 'deleted')->count(),
+            'archived_count' => $messages->where('status', 'archived')->count(),
+            'deleted_count' => $messages->where('status', 'deleted')->count(),
         ]);
     }
 }

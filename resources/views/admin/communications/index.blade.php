@@ -231,42 +231,46 @@
         border-top: 2px solid #e2e8f0;
         padding-top: 15px;
     }
+    .reply-input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: flex-end;
+    }
     .reply-input {
         width: 100%;
-        padding: 10px 12px;
+        padding: 10px 50px 10px 12px;
         border: 1px solid #cbd5e1;
         border-radius: 8px;
-        margin-bottom: 10px;
         resize: none;
         min-height: 60px;
         max-height: 100px;
         font-size: 0.9rem;
         line-height: 1.4;
     }
-    .reply-actions {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    .btn-attach {
-        padding: 8px 16px;
-        background: #ffffff;
-        border: 1px solid #cbd5e1;
-        border-radius: 8px;
-        color: #64748b;
-        cursor: pointer;
-        font-size: 0.9rem;
-        font-weight: 500;
-    }
     .btn-send {
-        padding: 8px 20px;
+        position: absolute;
+        right: 8px;
+        bottom: 8px;
+        width: 44px;
+        height: 44px;
         background: #6366f1;
         color: #ffffff;
         border: none;
-        border-radius: 8px;
-        font-size: 0.95rem;
-        font-weight: 500;
+        border-radius: 50%;
+        font-size: 1.1rem;
         cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        transition: background 0.2s ease;
+    }
+    .btn-send:hover {
+        background: #4f46e5;
+    }
+    .btn-send:disabled {
+        background: #9ca3af;
+        cursor: not-allowed;
     }
 
     .exhibitor-item {
@@ -364,7 +368,7 @@
                         </div>
                         <div class="message-subject">{{ Str::limit($lastMessage->message, 50) }}</div>
                     </div>
-                    <div class="message-time">{{ $lastMessage->created_at->format('M d, Y') }}</div>
+                    <div class="message-time">{{ $lastMessage->created_at->setTimezone('Asia/Kolkata')->format('M d, Y') }}</div>
                     @if($unreadCount > 0 && $folder === 'inbox')
                         <div class="unread-dot"></div>
                     @endif
@@ -417,13 +421,29 @@
 @push('scripts')
 <script>
 function loadMessage(messageId) {
-    fetch(`{{ url('/admin/communications') }}/${messageId}`)
+    fetch(`{{ url('/admin/communications') }}/${messageId}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'text/html'
+        }
+    })
         .then(response => response.text())
         .then(html => {
-            document.getElementById('messageDetail').innerHTML = html;
-            
-            // The real-time polling script is already included in the loaded HTML
-            // No need to attach handlers here as they're in the show.blade.php template
+            const messageDetail = document.getElementById('messageDetail');
+            if (messageDetail) {
+                messageDetail.innerHTML = html;
+                
+                // Execute any scripts in the loaded HTML
+                const scripts = messageDetail.querySelectorAll('script');
+                scripts.forEach(oldScript => {
+                    const newScript = document.createElement('script');
+                    Array.from(oldScript.attributes).forEach(attr => {
+                        newScript.setAttribute(attr.name, attr.value);
+                    });
+                    newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                    oldScript.parentNode.replaceChild(newScript, oldScript);
+                });
+            }
         })
         .catch(error => {
             console.error('Error loading message:', error);
@@ -717,6 +737,123 @@ function unarchiveSelected() {
         window.location.reload();
     });
 }
+
+// Real-time inbox updates
+(function() {
+    let inboxPollingInterval = null;
+    let isPollingInbox = false;
+    const currentFolder = '{{ $folder }}';
+    
+    window.updateInboxList = function() {
+        if (isPollingInbox) return;
+        isPollingInbox = true;
+        
+        fetch('{{ route("admin.communications.inbox-updates") }}?folder=' + currentFolder, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update folder counts
+                const inboxCountEl = document.querySelector('.folder-item[onclick*="inbox"] .folder-count');
+                const sentCountEl = document.querySelector('.folder-item[onclick*="sent"] span:last-child');
+                const archivedCountEl = document.querySelector('.folder-item[onclick*="archived"] span:last-child');
+                const deletedCountEl = document.querySelector('.folder-item[onclick*="deleted"] span:last-child');
+                
+                if (inboxCountEl) inboxCountEl.textContent = data.unread_count;
+                if (sentCountEl) sentCountEl.textContent = data.sent_count;
+                if (archivedCountEl) archivedCountEl.textContent = data.archived_count;
+                if (deletedCountEl) deletedCountEl.textContent = data.deleted_count;
+                
+                // Update inbox title
+                const inboxTitle = document.querySelector('.center-panel h5');
+                if (inboxTitle && currentFolder === 'inbox') {
+                    inboxTitle.textContent = `Inbox (${data.unread_count} Unread)`;
+                }
+                
+                // Update message list if needed (only if no conversation is open)
+                const messageDetail = document.getElementById('messageDetail');
+                const isConversationOpen = messageDetail && !messageDetail.querySelector('.text-center.py-5.text-muted');
+                
+                if (!isConversationOpen && data.threads) {
+                    const messageList = document.querySelector('.message-list');
+                    if (messageList) {
+                        // Store current scroll position
+                        const scrollTop = messageList.scrollTop;
+                        
+                        // Rebuild message list
+                        let html = '';
+                        if (data.threads.length === 0) {
+                            html = '<div class="text-center py-5 text-muted"><p>No messages found</p></div>';
+                        } else {
+                            data.threads.forEach(thread => {
+                                const unreadClass = thread.unread_count > 0 ? 'unread' : '';
+                                html += `
+                                    <div class="message-item ${unreadClass}" onclick="loadMessage(${thread.id})">
+                                        <input type="checkbox" class="message-checkbox" value="${thread.id}" onclick="event.stopPropagation()">
+                                        <div class="message-avatar">
+                                            <i class="bi bi-person"></i>
+                                        </div>
+                                        <div class="message-content">
+                                            <div class="message-sender">${escapeHtml(thread.other_user_name)}</div>
+                                            <div class="message-subject">${escapeHtml(thread.last_message_preview)}</div>
+                                        </div>
+                                        <div class="message-time">${thread.created_at}</div>
+                                        ${thread.unread_count > 0 && currentFolder === 'inbox' ? '<div class="unread-dot"></div>' : ''}
+                                    </div>
+                                `;
+                            });
+                        }
+                        messageList.innerHTML = html;
+                        
+                        // Restore scroll position
+                        messageList.scrollTop = scrollTop;
+                    }
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error updating inbox:', error);
+        })
+        .finally(() => {
+            isPollingInbox = false;
+        });
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    function startInboxPolling() {
+        if (inboxPollingInterval) return;
+        inboxPollingInterval = setInterval(window.updateInboxList, 3000); // Poll every 3 seconds
+    }
+    
+    function stopInboxPolling() {
+        if (inboxPollingInterval) {
+            clearInterval(inboxPollingInterval);
+            inboxPollingInterval = null;
+        }
+    }
+    
+    // Start polling when page loads
+    startInboxPolling();
+    
+    // Stop polling when page is hidden
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            stopInboxPolling();
+        } else {
+            startInboxPolling();
+        }
+    });
+})();
 </script>
 @endpush
 @endsection
