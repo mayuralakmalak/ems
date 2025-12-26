@@ -47,6 +47,10 @@ class SettingsController extends Controller
             'payment_terms' => 'nullable|string|max:1000',
             'currency' => 'nullable|string|max:10',
             'timezone' => 'nullable|string|max:50',
+            'facebook_url' => 'nullable|url|max:255',
+            'instagram_url' => 'nullable|url|max:255',
+            'twitter_url' => 'nullable|url|max:255',
+            'youtube_url' => 'nullable|url|max:255',
         ]);
         
         // Handle company logo upload
@@ -69,7 +73,8 @@ class SettingsController extends Controller
             'address', 'city', 'state', 'country', 'pincode', 'website',
             'bank_name', 'bank_account_number', 'bank_ifsc_code', 'bank_swift_code',
             'bank_branch', 'bank_address', 'gst_number', 'pan_number', 'tax_id',
-            'payment_terms', 'currency', 'timezone'
+            'payment_terms', 'currency', 'timezone',
+            'facebook_url', 'instagram_url', 'twitter_url', 'youtube_url'
         ];
         
         foreach ($fields as $field) {

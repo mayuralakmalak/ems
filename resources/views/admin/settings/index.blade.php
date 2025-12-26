@@ -193,6 +193,43 @@
     </form>
 </div>
 
+<!-- Social Media Links -->
+<div class="settings-section">
+    <h4 class="section-title">Social Media Links</h4>
+    <p class="section-subtitle">Configure your company's social media profile links.</p>
+    
+    <form action="{{ route('admin.settings.save-general') }}" method="POST">
+        @csrf
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Facebook URL</label>
+                    <input type="url" name="facebook_url" class="form-control" value="{{ isset($generalSettings['facebook_url']) ? $generalSettings['facebook_url'] : '' }}" placeholder="https://facebook.com/yourpage">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Instagram URL</label>
+                    <input type="url" name="instagram_url" class="form-control" value="{{ isset($generalSettings['instagram_url']) ? $generalSettings['instagram_url'] : '' }}" placeholder="https://instagram.com/yourpage">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Twitter/X URL</label>
+                    <input type="url" name="twitter_url" class="form-control" value="{{ isset($generalSettings['twitter_url']) ? $generalSettings['twitter_url'] : '' }}" placeholder="https://twitter.com/yourpage">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">YouTube URL</label>
+                    <input type="url" name="youtube_url" class="form-control" value="{{ isset($generalSettings['youtube_url']) ? $generalSettings['youtube_url'] : '' }}" placeholder="https://youtube.com/yourchannel">
+                </div>
+            </div>
+        </div>
+        <button type="submit" class="btn-save">Save Social Media Links</button>
+    </form>
+</div>
+
 <!-- Bank Account Details -->
 <div class="settings-section">
     <h4 class="section-title">Bank Account Details</h4>

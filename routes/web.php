@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\FinancialController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\BookingController as AdminBookingController;
 use App\Http\Controllers\Frontend\ExhibitionController as FrontendExhibitionController;
+use App\Http\Controllers\Frontend\HomeController;
 use App\Http\Controllers\Frontend\BookingController;
 use App\Http\Controllers\Frontend\Auth\OtpController;
 use App\Http\Controllers\Frontend\DashboardController;
@@ -22,7 +23,7 @@ use App\Http\Controllers\Frontend\NotificationController as FrontendNotification
 use Illuminate\Support\Facades\Route;
 
 // Public Routes
-Route::get('/', [FrontendExhibitionController::class, 'index'])->name('home');
+Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/exhibitions', [FrontendExhibitionController::class, 'list'])->name('exhibitions.list');
 Route::get('/exhibitions/{id}', [FrontendExhibitionController::class, 'show'])->name('exhibitions.show');
 Route::get('/exhibitions/{id}/floorplan', [\App\Http\Controllers\Frontend\FloorplanController::class, 'show'])->name('floorplan.show.public');

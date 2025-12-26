@@ -17,7 +17,7 @@ class AuthenticatedSessionController extends Controller
      */
     public function create(): View
     {
-        $countries = Country::active()->ordered()->get(['id', 'name', 'code', 'phone_code', 'phonecode', 'emoji', 'is_active', 'sort_order']);
+        $countries = Country::active()->ordered()->get(['id', 'name', 'code', 'phone_code', 'phonecode', 'emoji', 'is_active', 'sort_order'])->unique('id')->values();
         return view('auth.login', compact('countries'));
     }
 

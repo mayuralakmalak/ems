@@ -5,11 +5,19 @@
 @push('styles')
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+    /* Only override body background, keep header/footer styles intact */
     body {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         background: radial-gradient(circle at 20% 20%, #eef2ff 0, #f8fafc 45%), 
                     radial-gradient(circle at 80% 0%, #e0f2fe 0, #f8fafc 40%), 
-                    #f8fafc;
+                    #f8fafc !important;
+    }
+    
+    /* Ensure navbar and footer maintain their styles */
+    body .navbar {
+        background: white !important;
+    }
+    body footer {
+        background-color: #6B3FA0 !important;
     }
     
     main {
@@ -496,7 +504,315 @@
 <script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.19.5/dist/jquery.validate.min.js"></script>
 <script src="{{ asset('js/country-state.js') }}"></script>
 <script>
+// Function to make select dropdowns searchable/filterable
+function makeSelectSearchable(selectId, searchPlaceholder) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    
+    // Prevent multiple initializations
+    if (select.hasAttribute('data-searchable-initialized')) {
+        return;
+    }
+    select.setAttribute('data-searchable-initialized', 'true');
+    
+    // Store original options and remove duplicates
+    let originalOptions = Array.from(select.options).map(opt => ({
+        value: opt.value,
+        text: opt.textContent,
+        selected: opt.selected,
+        dataPhoneCode: opt.getAttribute('data-phone-code'),
+        dataEmoji: opt.getAttribute('data-emoji'),
+        dataId: opt.getAttribute('data-id')
+    }));
+    
+    // Remove duplicates based on value
+    const seen = new Set();
+    originalOptions = originalOptions.filter(opt => {
+        if (opt.value === '') return true; // Always keep placeholder
+        if (seen.has(opt.value)) return false;
+        seen.add(opt.value);
+        return true;
+    });
+    
+    // Prevent default dropdown and add search functionality
+    select.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        showSearch();
+    });
+    
+    select.addEventListener('focus', function(e) {
+        e.preventDefault();
+        showSearch();
+    });
+    
+    select.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            showSearch();
+        }
+    });
+    
+    function showSearch() {
+        // Remove any existing overlay first
+        const existingOverlay = document.getElementById(selectId + '_search_overlay');
+        if (existingOverlay && existingOverlay.parentNode) {
+            existingOverlay.parentNode.removeChild(existingOverlay);
+        }
+        
+        // Create search overlay
+        const overlay = document.createElement('div');
+        overlay.id = selectId + '_search_overlay';
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backgroundColor = 'rgba(0,0,0,0.3)';
+        overlay.style.zIndex = '9998';
+        overlay.style.display = 'flex';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        
+        // Create search container
+        const container = document.createElement('div');
+        container.style.position = 'relative';
+        container.style.width = '90%';
+        container.style.maxWidth = '500px';
+        container.style.backgroundColor = '#1e293b';
+        container.style.borderRadius = '12px';
+        container.style.padding = '20px';
+        container.style.boxShadow = '0 20px 60px rgba(0,0,0,0.5)';
+        
+        // Create search input
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.placeholder = searchPlaceholder || 'Type to search...';
+        searchInput.style.width = '100%';
+        searchInput.style.padding = '12px 16px';
+        searchInput.style.border = '1px solid rgba(226, 232, 240, 0.35)';
+        searchInput.style.borderRadius = '10px';
+        searchInput.style.backgroundColor = 'rgba(255,255,255,0.08)';
+        searchInput.style.color = '#ffffff';
+        searchInput.style.fontSize = '1rem';
+        searchInput.style.marginBottom = '12px';
+        searchInput.autofocus = true;
+        
+        // Create results container
+        const results = document.createElement('div');
+        results.id = selectId + '_results';
+        results.style.maxHeight = '300px';
+        results.style.overflowY = 'auto';
+        results.style.border = '1px solid rgba(226, 232, 240, 0.2)';
+        results.style.borderRadius = '8px';
+        results.style.backgroundColor = 'rgba(255,255,255,0.04)';
+        
+        container.appendChild(searchInput);
+        container.appendChild(results);
+        overlay.appendChild(container);
+        document.body.appendChild(overlay);
+        
+        // Auto-focus search input after a small delay to ensure DOM is ready
+        setTimeout(function() {
+            searchInput.focus();
+        }, 100);
+        
+        // Filter and display options
+        function displayOptions(filterTerm = '') {
+            results.innerHTML = '';
+            const term = filterTerm.toLowerCase().trim();
+            const displayedValues = new Set(); // Track displayed values to prevent duplicates
+            
+            originalOptions.forEach(function(opt) {
+                // Skip if already displayed (duplicate)
+                if (opt.value !== '' && displayedValues.has(opt.value)) {
+                    return;
+                }
+                
+                if (opt.value === '') {
+                    // Always show placeholder
+                    const item = createOptionItem(opt, '');
+                    results.appendChild(item);
+                    return;
+                }
+                
+                if (!term) {
+                    // Show all if no filter
+                    displayedValues.add(opt.value);
+                    const item = createOptionItem(opt, '');
+                    results.appendChild(item);
+                    return;
+                }
+                
+                // Check if matches
+                const optText = opt.text.toLowerCase();
+                const optValue = opt.value.toLowerCase();
+                const phoneCode = (opt.dataPhoneCode || optValue).replace(/\+/g, '').replace(/\s/g, '');
+                const searchClean = term.replace(/\+/g, '').replace(/\s/g, '');
+                
+                if (optText.includes(term) || optValue.includes(term) || phoneCode.includes(searchClean)) {
+                    displayedValues.add(opt.value);
+                    const item = createOptionItem(opt, term);
+                    results.appendChild(item);
+                }
+            });
+        }
+        
+        function createOptionItem(opt, highlightTerm) {
+            const item = document.createElement('div');
+            item.style.padding = '12px 16px';
+            item.style.cursor = 'pointer';
+            item.style.borderBottom = '1px solid rgba(226, 232, 240, 0.1)';
+            item.style.color = '#e2e8f0';
+            item.style.transition = 'background 0.2s';
+            
+            if (opt.value === select.value) {
+                item.style.backgroundColor = 'rgba(99, 102, 241, 0.2)';
+            }
+            
+            // Add hover effect for focused option
+            item.addEventListener('mouseenter', function() {
+                this.classList.add('focused-option');
+            });
+            
+            item.textContent = opt.text;
+            item.addEventListener('mouseenter', function() {
+                this.style.backgroundColor = 'rgba(99, 102, 241, 0.15)';
+                // Remove focus from other options
+                results.querySelectorAll('.focused-option').forEach(el => el.classList.remove('focused-option'));
+                this.classList.add('focused-option');
+            });
+            item.addEventListener('mouseleave', function() {
+                if (opt.value !== select.value) {
+                    this.style.backgroundColor = 'transparent';
+                }
+            });
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Set the value
+                select.value = opt.value;
+                
+                // Close overlay immediately - use the overlay from parent scope
+                const overlayElement = document.getElementById(selectId + '_search_overlay');
+                if (overlayElement && overlayElement.parentNode) {
+                    overlayElement.parentNode.removeChild(overlayElement);
+                }
+                
+                // Trigger change event after overlay is removed
+                setTimeout(function() {
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                }, 50);
+            });
+            
+            return item;
+        }
+        
+        // Add CSS for focused option
+        const style = document.createElement('style');
+        style.textContent = `
+            .focused-option {
+                background-color: rgba(99, 102, 241, 0.25) !important;
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Initial display
+        displayOptions();
+        
+        // Filter on input
+        searchInput.addEventListener('input', function() {
+            displayOptions(this.value);
+            // Remove focus from options when filtering
+            results.querySelectorAll('.focused-option').forEach(el => el.classList.remove('focused-option'));
+        });
+        
+        // Close on overlay click
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) {
+                if (overlay && overlay.parentNode) {
+                    overlay.parentNode.removeChild(overlay);
+                }
+            }
+        });
+        
+        // Handle keyboard navigation
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                if (overlay && overlay.parentNode) {
+                    overlay.parentNode.removeChild(overlay);
+                }
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                // Select first visible option or focused option
+                const focusedOption = results.querySelector('.focused-option');
+                const firstOption = focusedOption || results.querySelector('div[style*="cursor: pointer"]');
+                if (firstOption) {
+                    firstOption.click();
+                }
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                // Focus first option or move to next
+                const options = Array.from(results.querySelectorAll('div[style*="cursor: pointer"]'));
+                if (options.length > 0) {
+                    const currentFocused = results.querySelector('.focused-option');
+                    if (currentFocused) {
+                        currentFocused.classList.remove('focused-option');
+                        const currentIndex = options.indexOf(currentFocused);
+                        if (currentIndex < options.length - 1) {
+                            options[currentIndex + 1].classList.add('focused-option');
+                            options[currentIndex + 1].scrollIntoView({ block: 'nearest' });
+                        }
+                    } else {
+                        options[0].classList.add('focused-option');
+                        options[0].scrollIntoView({ block: 'nearest' });
+                    }
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                const options = Array.from(results.querySelectorAll('div[style*="cursor: pointer"]'));
+                if (options.length > 0) {
+                    const currentFocused = results.querySelector('.focused-option');
+                    if (currentFocused) {
+                        currentFocused.classList.remove('focused-option');
+                        const currentIndex = options.indexOf(currentFocused);
+                        if (currentIndex > 0) {
+                            options[currentIndex - 1].classList.add('focused-option');
+                            options[currentIndex - 1].scrollIntoView({ block: 'nearest' });
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Update originalOptions when select options change (for state dropdown)
+    const observer = new MutationObserver(function() {
+        const newOptions = Array.from(select.options).map(opt => ({
+            value: opt.value,
+            text: opt.textContent,
+            selected: opt.selected,
+            dataPhoneCode: opt.getAttribute('data-phone-code'),
+            dataEmoji: opt.getAttribute('data-emoji'),
+            dataId: opt.getAttribute('data-id')
+        }));
+        
+        // Remove duplicates
+        const seen = new Set();
+        originalOptions = newOptions.filter(opt => {
+            if (opt.value === '') return true; // Always keep placeholder
+            if (seen.has(opt.value)) return false;
+            seen.add(opt.value);
+            return true;
+        });
+    });
+    observer.observe(select, { childList: true });
+}
+
 $(function() {
+    // Make phone code dropdown searchable in login form
+    makeSelectSearchable('mobile_phone_code', 'Type phone code (e.g., 91, 92)...');
+    
     if (typeof applyCountryState === 'function') {
         applyCountryState();
     }

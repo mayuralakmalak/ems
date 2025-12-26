@@ -22,7 +22,7 @@ class RegisteredUserController extends Controller
      */
     public function create(): View
     {
-        $countries = Country::active()->ordered()->get(['id', 'name', 'code', 'phone_code', 'phonecode', 'emoji', 'is_active', 'sort_order']);
+        $countries = Country::active()->ordered()->get(['id', 'name', 'code', 'phone_code', 'phonecode', 'emoji', 'is_active', 'sort_order'])->unique('id')->values();
         return view('auth.register', compact('countries'));
     }
 
@@ -142,7 +142,9 @@ class RegisteredUserController extends Controller
             // Simple query - get all states for the country, ordered by name
             $states = State::where('country_id', $countryId)
                 ->orderBy('name', 'asc')
-                ->get(['id', 'name']);
+                ->get(['id', 'name'])
+                ->unique('id')
+                ->values();
             
             return response()->json(['states' => $states]);
         } catch (\Exception $e) {
