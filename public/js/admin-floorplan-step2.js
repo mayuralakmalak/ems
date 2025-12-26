@@ -951,10 +951,34 @@ class AdminFloorplanManager {
             // Update existing
             const booth = this.booths.find(b => b.id === this.selectedBooth);
             if (booth) {
+                const oldBoothId = this.selectedBooth;
+                const oldElement = this.getBoothElement(oldBoothId);
+
+                // Update booth ID in the object
                 booth.id = boothId;
-                this.updateBoothFromProperties();
+
+                // Update the visual element's ID attribute and label immediately
+                if (oldElement) {
+                    oldElement.setAttribute('data-booth-id', boothId);
+                    const label = oldElement.querySelector('text');
+                    if (label) {
+                        label.textContent = boothId;
+                    }
+                }
+
+                // Update selection references
+                if (this.selectedBooths.has(oldBoothId)) {
+                    this.selectedBooths.delete(oldBoothId);
+                    this.selectedBooths.add(boothId);
+                }
+
+                // Update selectedBooth BEFORE calling updateBoothFromProperties (it uses this.selectedBooth)
                 this.selectedBooth = boothId;
+
+                // Update other properties
+                this.updateBoothFromProperties();
                 this.updateBoothsList();
+                this.updateBoothVisuals();
             }
         } else {
             // Create new

@@ -9,6 +9,7 @@ use App\Models\Floor;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class FloorplanController extends Controller
 {
@@ -279,10 +280,8 @@ class FloorplanController extends Controller
     private function syncBoothsFromPayload(array $payload, int $exhibitionId, ?int $floorId = null): void
     {
         $boothsData = collect($payload['booths'] ?? []);
-        if ($boothsData->isEmpty()) {
-            return;
-        }
-
+        
+        // Get query for existing booths
         $query = Booth::where('exhibition_id', $exhibitionId);
         
         // If floor_id is provided, only sync booths for that floor
@@ -292,64 +291,239 @@ class FloorplanController extends Controller
             // For backward compatibility: only sync booths without floor_id
             $query->whereNull('floor_id');
         }
-        
-        $existingBooths = $query->whereIn('name', $boothsData->pluck('id')->filter())
-            ->get()
-            ->keyBy('name');
 
-        // Valid size IDs for this exhibition to avoid FK errors and to provide sensible defaults
-        $validSizeIds = DB::table('exhibition_booth_sizes')
-            ->where('exhibition_id', $exhibitionId)
-            ->pluck('id')
-            ->values()
-            ->toArray();
+        // If payload has booths, sync them
+        if ($boothsData->isNotEmpty()) {
+            $existingBooths = $query->whereIn('name', $boothsData->pluck('id')->filter())
+                ->get()
+                ->keyBy('name');
 
-        foreach ($boothsData as $boothData) {
-            $boothName = $boothData['id'] ?? null;
-            if (!$boothName) {
-                continue;
+            // Valid size IDs for this exhibition to avoid FK errors and to provide sensible defaults
+            $validSizeIds = DB::table('exhibition_booth_sizes')
+                ->where('exhibition_id', $exhibitionId)
+                ->pluck('id')
+                ->values()
+                ->toArray();
+
+            foreach ($boothsData as $boothData) {
+                $boothName = $boothData['id'] ?? null;
+                if (!$boothName) {
+                    continue;
+                }
+
+                $booth = $existingBooths[$boothName] ?? new Booth([
+                    'exhibition_id' => $exhibitionId,
+                    'floor_id' => $floorId,
+                    'name' => $boothName,
+                ]);
+
+                $booth->category = $boothData['category'] ?? $booth->category ?? 'Standard';
+                $booth->booth_type = $booth->booth_type ?? 'Raw';
+                $booth->size_sqft = $boothData['area'] ?? $booth->size_sqft ?? 0;
+                $booth->sides_open = $boothData['openSides'] ?? $booth->sides_open ?? 1;
+                $booth->price = $boothData['price'] ?? $booth->price ?? 0;
+                $booth->is_free = $booth->is_free ?? false;
+                // Preserve existing status from database (don't overwrite with defaults)
+                // Only set defaults if this is a new booth
+                if ($booth->exists === false) {
+                    $booth->is_available = true;
+                    $booth->is_booked = false;
+                }
+                $booth->merged_booths = $boothData['merged_booths'] ?? $booth->merged_booths ?? null;
+                $booth->position_x = $boothData['x'] ?? $booth->position_x;
+                $booth->position_y = $boothData['y'] ?? $booth->position_y;
+                $booth->width = $boothData['width'] ?? $booth->width;
+                $booth->height = $boothData['height'] ?? $booth->height;
+                
+                // Set floor_id if provided
+                if ($floorId) {
+                    $booth->floor_id = $floorId;
+                }
+
+                // Determine size ID:
+                // 1) Use explicit sizeId from payload if valid
+                // 2) Otherwise, default to the first available exhibition booth size (if any)
+                $sizeId = $boothData['sizeId'] ?? null;
+                if (($sizeId === null || !in_array($sizeId, $validSizeIds)) && !empty($validSizeIds)) {
+                    $sizeId = $validSizeIds[0];
+                }
+                $booth->exhibition_booth_size_id = ($sizeId && in_array($sizeId, $validSizeIds)) ? $sizeId : null;
+
+                $booth->save();
             }
+        }
 
-            $booth = $existingBooths[$boothName] ?? new Booth([
+        // After syncing booths from payload, identify and delete booths that are not in the payload
+        $boothsInPayload = $boothsData->pluck('id')->filter()->values()->toArray();
+        
+        // Get all existing booths for this exhibition/floor (create fresh query to avoid cloning issues)
+        // When floor_id is provided, also check booths with null floor_id for backward compatibility
+        $allExistingBoothsQuery = Booth::where('exhibition_id', $exhibitionId);
+        if ($floorId) {
+            // Include both booths for this floor AND booths with null floor_id (legacy booths)
+            // This ensures we can delete legacy booths that are no longer in the payload
+            $allExistingBoothsQuery->where(function($q) use ($floorId) {
+                $q->where('floor_id', $floorId)
+                  ->orWhereNull('floor_id');
+            });
+        } else {
+            $allExistingBoothsQuery->whereNull('floor_id');
+        }
+        $allExistingBooths = $allExistingBoothsQuery->get();
+        
+        // Find booths that are not in the payload
+        $boothsToDelete = $allExistingBooths->filter(function($booth) use ($boothsInPayload) {
+            return !in_array($booth->name, $boothsInPayload, true);
+        });
+        
+        // Log for debugging
+        Log::debug("Floorplan sync: Checking booths for deletion", [
+            'exhibition_id' => $exhibitionId,
+            'floor_id' => $floorId,
+            'booths_in_payload' => $boothsInPayload,
+            'total_existing_booths' => $allExistingBooths->count(),
+            'booths_to_delete_count' => $boothsToDelete->count(),
+            'booths_to_delete_names' => $boothsToDelete->pluck('name')->toArray(),
+        ]);
+        
+        // Attempt to delete booths that are not in payload
+        $deletedCount = 0;
+        $skippedCount = 0;
+        $skippedReasons = [];
+        
+        foreach ($boothsToDelete as $booth) {
+            $canDelete = $this->canDeleteBooth($booth);
+            
+            if ($canDelete['can_delete']) {
+                // Safe to delete - remove from database
+                $booth->delete();
+                $deletedCount++;
+                Log::info("Deleted booth {$booth->id} ({$booth->name})", [
+                    'exhibition_id' => $exhibitionId,
+                    'floor_id' => $floorId,
+                    'booth_id' => $booth->id,
+                ]);
+            } else {
+                // Cannot delete - log reason
+                $skippedCount++;
+                $skippedReasons[] = "Booth '{$booth->name}': {$canDelete['reason']}";
+                
+                // Log to Laravel log for debugging
+                Log::warning("Cannot delete booth {$booth->id} ({$booth->name}): {$canDelete['reason']}", [
+                    'exhibition_id' => $exhibitionId,
+                    'floor_id' => $floorId,
+                    'booth_id' => $booth->id,
+                ]);
+            }
+        }
+        
+        // Log summary if there were deletions or skips
+        if ($deletedCount > 0 || $skippedCount > 0) {
+            Log::info("Floorplan sync: Deleted {$deletedCount} booths, Skipped {$skippedCount} booths", [
                 'exhibition_id' => $exhibitionId,
                 'floor_id' => $floorId,
-                'name' => $boothName,
+                'deleted_count' => $deletedCount,
+                'skipped_count' => $skippedCount,
+                'skipped_reasons' => $skippedReasons
             ]);
-
-            $booth->category = $boothData['category'] ?? $booth->category ?? 'Standard';
-            $booth->booth_type = $booth->booth_type ?? 'Raw';
-            $booth->size_sqft = $boothData['area'] ?? $booth->size_sqft ?? 0;
-            $booth->sides_open = $boothData['openSides'] ?? $booth->sides_open ?? 1;
-            $booth->price = $boothData['price'] ?? $booth->price ?? 0;
-            $booth->is_free = $booth->is_free ?? false;
-            // Preserve existing status from database (don't overwrite with defaults)
-            // Only set defaults if this is a new booth
-            if ($booth->exists === false) {
-                $booth->is_available = true;
-                $booth->is_booked = false;
-            }
-            $booth->merged_booths = $boothData['merged_booths'] ?? $booth->merged_booths ?? null;
-            $booth->position_x = $boothData['x'] ?? $booth->position_x;
-            $booth->position_y = $boothData['y'] ?? $booth->position_y;
-            $booth->width = $boothData['width'] ?? $booth->width;
-            $booth->height = $boothData['height'] ?? $booth->height;
-            
-            // Set floor_id if provided
-            if ($floorId) {
-                $booth->floor_id = $floorId;
-            }
-
-            // Determine size ID:
-            // 1) Use explicit sizeId from payload if valid
-            // 2) Otherwise, default to the first available exhibition booth size (if any)
-            $sizeId = $boothData['sizeId'] ?? null;
-            if (($sizeId === null || !in_array($sizeId, $validSizeIds)) && !empty($validSizeIds)) {
-                $sizeId = $validSizeIds[0];
-            }
-            $booth->exhibition_booth_size_id = ($sizeId && in_array($sizeId, $validSizeIds)) ? $sizeId : null;
-
-            $booth->save();
         }
+    }
+
+    /**
+     * Check if a booth can be safely deleted.
+     * Returns array with 'can_delete' boolean and 'reason' string if cannot delete.
+     */
+    private function canDeleteBooth(Booth $booth): array
+    {
+        // 1. Check if booth is marked as booked
+        if ($booth->is_booked) {
+            return ['can_delete' => false, 'reason' => 'Booth is marked as booked'];
+        }
+
+        // 2. Check if booth has any bookings (via booth_id)
+        $hasBookings = \App\Models\Booking::where('booth_id', $booth->id)
+            ->whereNotIn('status', ['cancelled', 'rejected'])
+            ->exists();
+        
+        if ($hasBookings) {
+            return ['can_delete' => false, 'reason' => 'Booth has active bookings'];
+        }
+
+        // 3. Check if booth is referenced in any booking's selected_booth_ids
+        $referencedInBookings = \App\Models\Booking::where('exhibition_id', $booth->exhibition_id)
+            ->whereNotIn('status', ['cancelled', 'rejected'])
+            ->get()
+            ->filter(function($booking) use ($booth) {
+                $selectedIds = $booking->selected_booth_ids ?? [];
+                if (empty($selectedIds) || !is_array($selectedIds)) {
+                    return false;
+                }
+                
+                // Handle array of objects format: [{'id': 1, 'name': 'B001'}, ...]
+                $firstItem = reset($selectedIds);
+                if (is_array($firstItem) && isset($firstItem['id'])) {
+                    return collect($selectedIds)->pluck('id')->contains($booth->id);
+                }
+                
+                // Handle simple array format: [1, 2, 3]
+                return in_array($booth->id, $selectedIds, true);
+            })
+            ->isNotEmpty();
+        
+        if ($referencedInBookings) {
+            return ['can_delete' => false, 'reason' => 'Booth is referenced in active bookings'];
+        }
+
+        // 4. Check if booth has child booths (is a parent)
+        if ($booth->childBooths()->exists()) {
+            return ['can_delete' => false, 'reason' => 'Booth has child booths (split/merge relationship)'];
+        }
+
+        // 5. Check if booth is referenced in merged_booths array of other booths
+        $referencedInMerged = Booth::where('exhibition_id', $booth->exhibition_id)
+            ->whereNotNull('merged_booths')
+            ->get()
+            ->filter(function($otherBooth) use ($booth) {
+                $mergedIds = $otherBooth->merged_booths ?? [];
+                return is_array($mergedIds) && in_array($booth->id, $mergedIds, true);
+            })
+            ->isNotEmpty();
+        
+        if ($referencedInMerged) {
+            return ['can_delete' => false, 'reason' => 'Booth is referenced in merged booth records'];
+        }
+
+        // 6. Check if booth has pending bookings (reserved)
+        $hasPendingBookings = \App\Models\Booking::where('exhibition_id', $booth->exhibition_id)
+            ->where('approval_status', 'pending')
+            ->whereNotIn('status', ['cancelled', 'rejected'])
+            ->get()
+            ->filter(function($booking) use ($booth) {
+                // Check primary booth_id
+                if ($booking->booth_id == $booth->id) {
+                    return true;
+                }
+                
+                // Check selected_booth_ids
+                $selectedIds = $booking->selected_booth_ids ?? [];
+                if (empty($selectedIds) || !is_array($selectedIds)) {
+                    return false;
+                }
+                
+                $firstItem = reset($selectedIds);
+                if (is_array($firstItem) && isset($firstItem['id'])) {
+                    return collect($selectedIds)->pluck('id')->contains($booth->id);
+                }
+                
+                return in_array($booth->id, $selectedIds, true);
+            })
+            ->isNotEmpty();
+        
+        if ($hasPendingBookings) {
+            return ['can_delete' => false, 'reason' => 'Booth has pending bookings (reserved)'];
+        }
+
+        return ['can_delete' => true, 'reason' => null];
     }
 
     /**
