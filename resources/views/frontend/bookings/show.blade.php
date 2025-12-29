@@ -465,30 +465,118 @@
                     <i class="bi bi-grid-3x3-gap booth-icon"></i>Booth Details
                 </h5>
                 
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="detail-item">
-                            <div class="detail-label">Booth Number</div>
-                            <div class="detail-value">{{ $booking->booth->name ?? 'N/A' }}</div>
-                        </div>
-                        <div class="detail-item">
-                            <div class="detail-label">Booth Category</div>
-                            <div class="detail-value">{{ $booking->booth->category ?? 'N/A' }}</div>
-                        </div>
-                        <div class="detail-item">
-                            <div class="detail-label">Booth Type</div>
-                            <div class="detail-value">{{ $booking->booth->booth_type ?? 'N/A' }}</div>
-                        </div>
+                @php
+                    // Get all booths from selected_booth_ids (for multiple booth bookings)
+                    $boothEntries = collect($booking->selected_booth_ids ?? []);
+                    if ($boothEntries->isEmpty() && $booking->booth_id) {
+                        // Fallback to primary booth if no selected_booth_ids
+                        $boothEntries = collect([[
+                            'id' => $booking->booth_id,
+                            'name' => $booking->booth->name ?? 'N/A',
+                            'category' => $booking->booth->category ?? 'N/A',
+                            'booth_type' => $booking->booth->booth_type ?? 'N/A',
+                            'size_sqft' => $booking->booth->size_sqft ?? 0,
+                            'price' => $booking->booth->price ?? 0,
+                            'type' => $booking->booth->booth_type ?? 'Raw',
+                            'sides' => $booking->booth->sides_open ?? 1,
+                        ]]);
+                    }
+                    
+                    // Load booth models for additional details if needed
+                    $boothIds = $boothEntries->map(function($entry) {
+                        return is_array($entry) ? ($entry['id'] ?? null) : $entry;
+                    })->filter()->values();
+                    $booths = \App\Models\Booth::whereIn('id', $boothIds)->get()->keyBy('id');
+                    
+                    // Build display array with all booth details
+                    $boothDisplay = $boothEntries->map(function($entry) use ($booths) {
+                        $isArray = is_array($entry);
+                        $id = $isArray ? ($entry['id'] ?? null) : $entry;
+                        $model = $id ? ($booths[$id] ?? null) : null;
+                        return [
+                            'id' => $id,
+                            'name' => $isArray ? ($entry['name'] ?? $model?->name ?? 'N/A') : ($model?->name ?? 'N/A'),
+                            'category' => $isArray ? ($entry['category'] ?? $model?->category ?? 'N/A') : ($model?->category ?? 'N/A'),
+                            'type' => $isArray ? ($entry['type'] ?? $entry['booth_type'] ?? $model?->booth_type ?? 'N/A') : ($model?->booth_type ?? 'N/A'),
+                            'sides' => $isArray ? ($entry['sides'] ?? $model?->sides_open ?? 1) : ($model?->sides_open ?? 1),
+                            'size_sqft' => $isArray ? ($entry['size_sqft'] ?? $model?->size_sqft ?? 0) : ($model?->size_sqft ?? 0),
+                            'price' => $isArray ? ($entry['price'] ?? $model?->price ?? 0) : ($model?->price ?? 0),
+                        ];
+                    })->filter(fn($b) => $b['id'] && $b['name'] !== 'N/A');
+                @endphp
+                
+                @if($boothDisplay->count() > 1)
+                    <!-- Multiple Booths Table -->
+                    <div class="table-responsive mb-3">
+                        <table class="table table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Booth Number</th>
+                                    <th>Category</th>
+                                    <th>Type</th>
+                                    <th>Sides Open</th>
+                                    <th>Size (sq ft)</th>
+                                    <th class="text-end">Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($boothDisplay as $booth)
+                                <tr>
+                                    <td><strong>{{ $booth['name'] }}</strong></td>
+                                    <td>{{ $booth['category'] }}</td>
+                                    <td>{{ $booth['type'] }}</td>
+                                    <td>{{ $booth['sides'] }} Side{{ $booth['sides'] > 1 ? 's' : '' }}</td>
+                                    <td>{{ number_format($booth['size_sqft'], 0) }}</td>
+                                    <td class="text-end"><strong>₹{{ number_format($booth['price'], 2) }}</strong></td>
+                                </tr>
+                                @endforeach
+                                <tr class="table-info">
+                                    <td colspan="5" class="text-end"><strong>Total Booth Price:</strong></td>
+                                    <td class="text-end"><strong>₹{{ number_format($boothDisplay->sum('price'), 2) }}</strong></td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
-                    <div class="col-md-6">
-                        <div class="detail-item">
-                            <div class="detail-label">Location</div>
-                            <div class="detail-value">
-                                {{ $booking->exhibition->venue }}, {{ $booking->exhibition->city }}
+                @else
+                    <!-- Single Booth Display -->
+                    @php $singleBooth = $boothDisplay->first(); @endphp
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="detail-item">
+                                <div class="detail-label">Booth Number</div>
+                                <div class="detail-value">{{ $singleBooth['name'] ?? 'N/A' }}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Booth Category</div>
+                                <div class="detail-value">{{ $singleBooth['category'] ?? 'N/A' }}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Booth Type</div>
+                                <div class="detail-value">{{ $singleBooth['type'] ?? 'N/A' }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="detail-item">
+                                <div class="detail-label">Sides Open</div>
+                                <div class="detail-value">{{ $singleBooth['sides'] ?? 1 }} Side{{ ($singleBooth['sides'] ?? 1) > 1 ? 's' : '' }}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Size</div>
+                                <div class="detail-value">{{ number_format($singleBooth['size_sqft'] ?? 0, 0) }} sq ft</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Price</div>
+                                <div class="detail-value"><strong>₹{{ number_format($singleBooth['price'] ?? 0, 2) }}</strong></div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Location</div>
+                                <div class="detail-value">
+                                    {{ $booking->exhibition->venue }}, {{ $booking->exhibition->city }}
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                @endif
                 
                 <ul class="booth-features">
                     <li>High visibility location</li>
@@ -504,7 +592,11 @@
                         <i class="bi bi-arrow-repeat me-2"></i>Replace Booth
                     </a>
                     <small class="text-muted d-block mt-2">
-                        You can replace this booth with another booth of the same category and size ({{ $booking->booth->size_sqft }} sq ft).
+                        @if($boothDisplay->count() > 1)
+                            You can replace booths with other booths of the same category and size.
+                        @else
+                            You can replace this booth with another booth of the same category and size ({{ $singleBooth['size_sqft'] ?? 0 }} sq ft).
+                        @endif
                     </small>
                 </div>
                 @endif
@@ -845,6 +937,27 @@
                     $servicesTotal = $booking->bookingServices->sum(function($bs) {
                         return $bs->quantity * $bs->unit_price;
                     });
+                    
+                    // Calculate booth total from selected_booth_ids (for multiple booths)
+                    $boothEntries = collect($booking->selected_booth_ids ?? []);
+                    if ($boothEntries->isEmpty() && $booking->booth_id) {
+                        // Fallback to primary booth if no selected_booth_ids
+                        $boothEntries = collect([[
+                            'id' => $booking->booth_id,
+                            'price' => $booking->booth->price ?? 0,
+                        ]]);
+                    }
+                    $boothTotal = $boothEntries->sum(function($entry) {
+                        if (is_array($entry)) {
+                            return (float) ($entry['price'] ?? 0);
+                        }
+                        return 0;
+                    });
+                    // If still 0, fallback to primary booth price
+                    if ($boothTotal == 0 && $booking->booth) {
+                        $boothTotal = $booking->booth->price ?? 0;
+                    }
+                    
                     $taxes = ($booking->total_amount - $servicesTotal) * 0.1; // 10% tax
                     $discount = ($booking->total_amount * ($booking->discount_percent ?? 0)) / 100;
                     $totalAmount = $booking->total_amount;
@@ -854,7 +967,7 @@
                 
                 <div class="summary-item">
                     <span class="summary-label">Booth/Fee</span>
-                    <span class="summary-value">₹{{ number_format($booking->booth->price ?? 0, 2) }}</span>
+                    <span class="summary-value">₹{{ number_format($boothTotal, 2) }}</span>
                 </div>
                 @if($servicesTotal > 0)
                 <div class="summary-item">

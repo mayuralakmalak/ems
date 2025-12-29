@@ -236,7 +236,31 @@
                 <td>
                     <div class="exhibition-name">{{ $booking->exhibition->name }}</div>
                 </td>
-                <td>{{ $booking->booth->name ?? 'N/A' }}</td>
+                <td>
+                    @php
+                        // Get all booths from selected_booth_ids
+                        $boothEntries = collect($booking->selected_booth_ids ?? []);
+                        if ($boothEntries->isEmpty() && $booking->booth_id) {
+                            // Fallback to primary booth if no selected_booth_ids
+                            $boothEntries = collect([['id' => $booking->booth_id, 'name' => $booking->booth->name ?? 'N/A', 'price' => $booking->booth->price ?? 0]]);
+                        }
+                        // Extract booth names and prices
+                        $boothNames = $boothEntries->map(function($entry) {
+                            if (is_array($entry)) {
+                                return ($entry['name'] ?? 'Booth #' . ($entry['id'] ?? 'N/A'));
+                            }
+                            return 'Booth #' . $entry;
+                        })->filter()->values();
+                    @endphp
+                    @if($boothNames->count() > 0)
+                        <div>{{ $boothNames->implode(', ') }}</div>
+                        @if($boothNames->count() > 1)
+                            <small class="text-muted">({{ $boothNames->count() }} booths)</small>
+                        @endif
+                    @else
+                        {{ $booking->booth->name ?? 'N/A' }}
+                    @endif
+                </td>
                 <td>{{ $booking->created_at->format('Y-m-d') }}</td>
                 <td>
                     @php
