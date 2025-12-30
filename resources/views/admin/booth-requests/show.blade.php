@@ -134,9 +134,31 @@
         <div class="detail-item">
             <div class="detail-label">Booths</div>
             <div class="detail-value">
-                @foreach($boothRequest->booths() as $booth)
-                    <span class="badge bg-secondary me-1">{{ $booth->name }}</span>
-                @endforeach
+                @if(isset($displayBooths) && $displayBooths->isNotEmpty())
+                    @foreach($displayBooths as $booth)
+                        <div class="mb-2 p-2 border rounded" style="background: #f9fafb;">
+                            <div class="fw-bold">{{ $booth->name }}</div>
+                            <div class="small text-muted">
+                                <span class="me-3"><strong>Size:</strong> {{ $booth->size_sqft ?? 'N/A' }} sqft</span>
+                                <span class="me-3"><strong>Type:</strong> {{ $booth->booth_type ?? 'N/A' }}</span>
+                                <span class="me-3"><strong>Category:</strong> {{ $booth->category ?? 'N/A' }}</span>
+                                <span><strong>Sides Open:</strong> {{ $booth->sides_open ?? 'N/A' }}</span>
+                            </div>
+                        </div>
+                    @endforeach
+                @else
+                    @foreach($boothRequest->booths() as $booth)
+                        <div class="mb-2 p-2 border rounded" style="background: #f9fafb;">
+                            <div class="fw-bold">{{ $booth->name }}</div>
+                            <div class="small text-muted">
+                                <span class="me-3"><strong>Size:</strong> {{ $booth->size_sqft ?? 'N/A' }} sqft</span>
+                                <span class="me-3"><strong>Type:</strong> {{ $booth->booth_type ?? 'N/A' }}</span>
+                                <span class="me-3"><strong>Category:</strong> {{ $booth->category ?? 'N/A' }}</span>
+                                <span><strong>Sides Open:</strong> {{ $booth->sides_open ?? 'N/A' }}</span>
+                            </div>
+                        </div>
+                    @endforeach
+                @endif
             </div>
         </div>
         <div class="detail-item">
@@ -267,28 +289,85 @@
 
             <div class="detail-section">
                 <h5 class="section-header">Booth Details</h5>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="detail-item">
-                            <div class="detail-label">Booth Number</div>
-                            <div class="detail-value">{{ $booking->booth->name ?? 'N/A' }}</div>
+                @php
+                    $boothsToDisplay = isset($displayBooths) && $displayBooths->isNotEmpty() 
+                        ? $displayBooths 
+                        : (($booking->booth) ? collect([$booking->booth]) : collect());
+                @endphp
+                
+                @if($boothsToDisplay->count() > 0)
+                    @foreach($boothsToDisplay as $booth)
+                        <div class="mb-4 p-3 border rounded" style="background: #f9fafb;">
+                            <h6 class="fw-bold mb-3">{{ $booth->name }}</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="detail-item">
+                                        <div class="detail-label">Booth Number</div>
+                                        <div class="detail-value">{{ $booth->name ?? 'N/A' }}</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Category</div>
+                                        <div class="detail-value">{{ $booth->category ?? 'N/A' }}</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Type</div>
+                                        <div class="detail-value">{{ $booth->booth_type ?? 'N/A' }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="detail-item">
+                                        <div class="detail-label">Size</div>
+                                        <div class="detail-value">{{ $booth->size_sqft ?? 'N/A' }} sqft</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Sides Open</div>
+                                        <div class="detail-value">{{ $booth->sides_open ?? 'N/A' }}</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Price</div>
+                                        <div class="detail-value">₹{{ number_format($booth->price ?? 0, 2) }}</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Location</div>
+                                        <div class="detail-value">{{ $booking->exhibition->venue ?? 'N/A' }}, {{ $booking->exhibition->city ?? '' }}</div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="detail-item">
-                            <div class="detail-label">Category</div>
-                            <div class="detail-value">{{ $booking->booth->category ?? 'N/A' }}</div>
+                    @endforeach
+                @else
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="detail-item">
+                                <div class="detail-label">Booth Number</div>
+                                <div class="detail-value">{{ $booking->booth->name ?? 'N/A' }}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Category</div>
+                                <div class="detail-value">{{ $booking->booth->category ?? 'N/A' }}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Type</div>
+                                <div class="detail-value">{{ $booking->booth->booth_type ?? 'N/A' }}</div>
+                            </div>
                         </div>
-                        <div class="detail-item">
-                            <div class="detail-label">Type</div>
-                            <div class="detail-value">{{ $booking->booth->booth_type ?? 'N/A' }}</div>
+                        <div class="col-md-6">
+                            <div class="detail-item">
+                                <div class="detail-label">Size</div>
+                                <div class="detail-value">{{ $booking->booth->size_sqft ?? 'N/A' }} sqft</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Sides Open</div>
+                                <div class="detail-value">{{ $booking->booth->sides_open ?? 'N/A' }}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Location</div>
+                                <div class="detail-value">{{ $booking->exhibition->venue ?? 'N/A' }}, {{ $booking->exhibition->city ?? '' }}</div>
+                            </div>
                         </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="detail-item">
-                            <div class="detail-label">Location</div>
-                            <div class="detail-value">{{ $booking->exhibition->venue ?? 'N/A' }}, {{ $booking->exhibition->city ?? '' }}</div>
-                        </div>
-                    </div>
-                </div>
+                @endif
+                
                 <ul class="booth-features">
                     <li>High visibility location</li>
                     <li>Dedicated Power Outlet</li>

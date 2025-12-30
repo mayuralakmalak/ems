@@ -159,6 +159,12 @@
         cursor: pointer;
         transition: all 0.3s ease;
         background: white;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        min-height: 150px;
     }
     
     .payment-method-card:hover {
@@ -187,6 +193,21 @@
         font-weight: 500;
         color: #1e293b;
         font-size: 0.95rem;
+    }
+    
+    .wallet-warning {
+        display: none;
+        color: #ef4444;
+        font-size: 0.8rem;
+        margin-top: 8px;
+    }
+    
+    .wallet-warning.show {
+        display: block;
+    }
+    
+    .row.g-3 > .col-md-4 {
+        /* display: flex; */
     }
     
     .payment-details-form {
@@ -426,7 +447,7 @@
                                 <div class="payment-method-label">Wallet</div>
                                 <small style="color: #64748b;">Balance: ₹{{ number_format($walletBalance, 2) }}</small>
                                 @unless($canUseWallet)
-                                    <small class="d-block mt-1" style="color: #ef4444; font-size: 0.8rem;">
+                                    <small class="wallet-warning" id="walletWarning">
                                         Wallet balance is lower than the initial payment amount.
                                     </small>
                                 @endunless
@@ -671,14 +692,27 @@ let initialAmount = {{ $initialAmount }};
 // Payment method selection
 document.querySelectorAll('.payment-method-card').forEach(card => {
     card.addEventListener('click', function() {
+        const method = this.getAttribute('data-method');
+        const walletWarning = document.getElementById('walletWarning');
+        
+        // Hide wallet warning when clicking other methods
+        if (walletWarning && method !== 'wallet') {
+            walletWarning.classList.remove('show');
+        }
+        
         // Block selection when card is disabled (e.g., wallet with insufficient balance)
         if (this.dataset.disabled === '1') {
+            // Show the warning message when trying to select wallet with insufficient balance
+            if (method === 'wallet' && walletWarning) {
+                walletWarning.classList.add('show');
+            }
             alert('Your wallet balance is not enough to pay the initial amount. Please use another payment method.');
             return;
         }
+        
         document.querySelectorAll('.payment-method-card').forEach(c => c.classList.remove('selected'));
         this.classList.add('selected');
-        selectedMethod = this.getAttribute('data-method');
+        selectedMethod = method;
         document.getElementById('selectedPaymentMethod').value = selectedMethod;
         
         // Show payment details for card/upi/netbanking

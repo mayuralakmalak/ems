@@ -871,10 +871,15 @@ class AdminFloorplanManager {
         document.getElementById('boothArea').value = booth.area;
         const sizeSqftSelect = document.getElementById('boothSizeSqft');
         if (sizeSqftSelect) {
-            // Prefer existing explicit sizeId; otherwise default to first non-empty option
+            // Prefer existing explicit sizeId; also check exhibition_booth_size_id; otherwise default to first non-empty option
             let selectedValue = null;
             if (typeof booth.sizeId !== 'undefined' && booth.sizeId !== null) {
                 selectedValue = booth.sizeId;
+            } else if (typeof booth.exhibition_booth_size_id !== 'undefined' && booth.exhibition_booth_size_id !== null) {
+                // Use exhibition_booth_size_id if sizeId is not set
+                selectedValue = booth.exhibition_booth_size_id;
+                // Sync sizeId for consistency
+                booth.sizeId = parseInt(selectedValue) || null;
             } else {
                 const firstRealOption = Array.from(sizeSqftSelect.options).find(opt => opt.value);
                 if (firstRealOption) {
@@ -886,6 +891,10 @@ class AdminFloorplanManager {
                 sizeSqftSelect.value = selectedValue;
                 // Keep booth object in sync so it gets persisted in JSON/DB
                 booth.sizeId = parseInt(selectedValue) || null;
+                // Also sync exhibition_booth_size_id if not already set
+                if (typeof booth.exhibition_booth_size_id === 'undefined' || booth.exhibition_booth_size_id === null) {
+                    booth.exhibition_booth_size_id = parseInt(selectedValue) || null;
+                }
             }
         }
         // Category fixed to default; no UI control.
@@ -917,6 +926,27 @@ class AdminFloorplanManager {
                     }
                 }
                 booth.sizeId = rawValue ? parseInt(rawValue) || null : null;
+                booth.exhibition_booth_size_id = booth.sizeId; // Sync exhibition_booth_size_id
+
+                // Update category based on selected size option
+                if (rawValue) {
+                    const selectedOption = sizeSqftSelect.options[sizeSqftSelect.selectedIndex];
+                    if (selectedOption) {
+                        const categoryValue = selectedOption.getAttribute('data-category');
+                        if (categoryValue) {
+                            // Normalize category value
+                            if (categoryValue === '1') {
+                                booth.category = 'Premium';
+                            } else if (categoryValue === '2') {
+                                booth.category = 'Standard';
+                            } else if (categoryValue === '3') {
+                                booth.category = 'Economy';
+                            } else {
+                                booth.category = categoryValue;
+                            }
+                        }
+                    }
+                }
             } else {
                 booth.sizeId = null;
             }
@@ -1011,8 +1041,20 @@ class AdminFloorplanManager {
         }
     }
 
-    // Delete booth
-    deleteBooth(boothId) {
+    // Delete booth (internal method - performs actual deletion)
+    deleteBooth(boothId, skipConfirmation = false) {
+        // Get booth info for better confirmation message
+        const booth = this.booths.find(b => b.id === boothId);
+        const boothName = booth ? booth.id : boothId;
+
+        // Always show confirmation unless explicitly skipped
+        if (!skipConfirmation) {
+            const confirmed = confirm(`Are you sure you want to delete booth "${boothName}"?\n\nThis action cannot be undone.`);
+            if (!confirmed) {
+                return false;
+            }
+        }
+
         this.booths = this.booths.filter(b => b.id !== boothId);
         const element = this.getBoothElement(boothId);
         if (element) element.remove();
@@ -1025,14 +1067,13 @@ class AdminFloorplanManager {
         this.updateCounts();
         // Auto-save after deleting booth
         this.autoSave();
+        return true;
     }
 
     // Delete selected booth
     deleteSelectedBooth() {
         if (this.selectedBooth) {
-            if (confirm(`Delete booth ${this.selectedBooth}?`)) {
-                this.deleteBooth(this.selectedBooth);
-            }
+            this.deleteBooth(this.selectedBooth);
         }
     }
 
@@ -1236,9 +1277,9 @@ class AdminFloorplanManager {
             includedItems: [...new Set([...booth1.includedItems, ...booth2.includedItems])] // Combine unique items
         };
 
-        // Delete original booths
-        this.deleteBooth(booth1.id);
-        this.deleteBooth(booth2.id);
+        // Delete original booths (skip confirmation as user already confirmed merge)
+        this.deleteBooth(booth1.id, true);
+        this.deleteBooth(booth2.id, true);
 
         // Add merged booth
         this.addBooth(mergedBooth);
@@ -1348,6 +1389,30 @@ class AdminFloorplanManager {
         const startYGrid = parseInt(document.getElementById('gridStartY').value);
         const prefix = document.getElementById('gridPrefix').value || 'B';
 
+        // Get selected booth size category
+        const boothSizeSelect = document.getElementById('gridBoothSizeCategory');
+        let selectedBoothSizeId = null;
+        let selectedCategory = null;
+        let selectedSizeSqft = null;
+
+        if (boothSizeSelect && boothSizeSelect.value) {
+            selectedBoothSizeId = parseInt(boothSizeSelect.value);
+            const selectedOption = boothSizeSelect.options[boothSizeSelect.selectedIndex];
+            if (selectedOption) {
+                selectedCategory = selectedOption.getAttribute('data-category');
+                selectedSizeSqft = parseFloat(selectedOption.getAttribute('data-size-sqft'));
+
+                // Normalize category value
+                if (selectedCategory === '1') {
+                    selectedCategory = 'Premium';
+                } else if (selectedCategory === '2') {
+                    selectedCategory = 'Standard';
+                } else if (selectedCategory === '3') {
+                    selectedCategory = 'Economy';
+                }
+            }
+        }
+
         const gridSize = this.gridConfig.size;
 
         // Convert grid units to pixels
@@ -1384,6 +1449,9 @@ class AdminFloorplanManager {
                     boothId = `${prefix}${String(boothNum).padStart(3, '0')}`;
                 }
 
+                // Calculate area in sq ft (approximate based on grid)
+                const area = Math.round((boothWidth * boothHeight) / (gridSize * gridSize) * 100);
+
                 const booth = {
                     id: boothId,
                     x: x,
@@ -1392,12 +1460,18 @@ class AdminFloorplanManager {
                     height: boothHeight,
                     status: 'available',
                     size: this.getSizeCategory(boothWidth, boothHeight),
-                    area: Math.round((boothWidth * boothHeight) / (gridSize * gridSize) * 100), // Approximate sq ft based on grid
+                    area: selectedSizeSqft || area, // Use selected size sqft if available, otherwise calculated
                     price: 5000 + Math.floor(Math.random() * 15000),
                     openSides: 2,
-                    category: 'Standard',
+                    category: selectedCategory || 'Standard', // Use selected category if available
                     includedItems: ['Table', '2 Chairs', 'Power Outlet']
                 };
+
+                // Add exhibition_booth_size_id and sizeId if a category was selected
+                if (selectedBoothSizeId) {
+                    booth.exhibition_booth_size_id = selectedBoothSizeId;
+                    booth.sizeId = selectedBoothSizeId; // Also set sizeId for compatibility with updateBoothProperties
+                }
 
                 this.addBooth(booth);
                 boothNum++;

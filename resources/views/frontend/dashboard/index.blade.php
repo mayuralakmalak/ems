@@ -222,6 +222,50 @@
         color: #92400e;
     }
     
+    .due-date-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .due-date-value {
+        font-weight: 500;
+        color: #1e293b;
+    }
+    
+    .due-date-badge {
+        font-size: 0.75rem;
+        padding: 2px 8px;
+        border-radius: 12px;
+        display: inline-block;
+        width: fit-content;
+    }
+    
+    .due-date-urgent {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .due-date-soon {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    .due-date-normal {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+    
+    .payment-type-badge {
+        font-size: 0.75rem;
+        padding: 2px 8px;
+        border-radius: 12px;
+        background: #e0e7ff;
+        color: #4338ca;
+        font-weight: 500;
+        display: inline-block;
+    }
+    
     .top-bar-user {
         display: flex;
         align-items: center;
@@ -355,7 +399,7 @@
                 <div class="col-6">
                     <a href="{{ route('exhibitions.list') }}" class="quick-action-btn">
                         <i class="bi bi-calendar-plus"></i>
-                        <div class="quick-action-label">Book New Stall</div>
+                        <div class="quick-action-label">Book New Booth</div>
                     </a>
                 </div>
                 <div class="col-6">
@@ -399,6 +443,7 @@
             <thead>
                 <tr>
                     <th>EVENT NAME</th>
+                    <th>PAYMENT TYPE</th>
                     <th>DUE DATE</th>
                     <th>AMOUNT</th>
                     <th>STATUS</th>
@@ -408,9 +453,66 @@
             <tbody>
                 @foreach($upcomingPayments as $payment)
                 <tr>
-                    <td>{{ $payment->booking->exhibition->name ?? 'N/A' }}</td>
-                    <td>{{ $payment->due_date ? $payment->due_date->format('Y-m-d') : 'N/A' }}</td>
-                    <td>₹{{ number_format($payment->amount, 2) }}</td>
+                    <td>
+                        <strong>{{ $payment->booking->exhibition->name ?? 'N/A' }}</strong>
+                        @if($payment->booking->booth)
+                            <br><small class="text-muted">Booth: {{ $payment->booking->booth->booth_number ?? 'N/A' }}</small>
+                        @endif
+                    </td>
+                    <td>
+                        @php
+                            $paymentTypeLabel = '';
+                            if ($payment->payment_type === 'initial') {
+                                $paymentTypeLabel = 'Initial Payment';
+                            } elseif ($payment->payment_type === 'installment') {
+                                $partNum = $payment->part_number ?? null;
+                                if ($partNum) {
+                                    $paymentTypeLabel = 'Part ' . $partNum . ' Payment';
+                                } else {
+                                    $paymentTypeLabel = 'Installment Payment';
+                                }
+                            } else {
+                                $paymentTypeLabel = ucfirst($payment->payment_type ?? 'Payment');
+                            }
+                        @endphp
+                        <span class="payment-type-badge">{{ $paymentTypeLabel }}</span>
+                    </td>
+                    <td>
+                        @if($payment->due_date)
+                            <div class="due-date-cell">
+                                <span class="due-date-value">
+                                    {{ $payment->due_date->format('M d, Y') }}
+                                </span>
+                                @if(isset($payment->days_until_due))
+                                    @php
+                                        $daysUntilDue = $payment->days_until_due;
+                                        $badgeClass = 'due-date-normal';
+                                        $badgeText = '';
+                                        
+                                        if ($daysUntilDue < 0) {
+                                            $badgeClass = 'due-date-urgent';
+                                            $badgeText = abs($daysUntilDue) . ' day(s) overdue';
+                                        } elseif ($daysUntilDue <= 7) {
+                                            $badgeClass = 'due-date-urgent';
+                                            $badgeText = $daysUntilDue . ' day(s) remaining';
+                                        } elseif ($daysUntilDue <= 30) {
+                                            $badgeClass = 'due-date-soon';
+                                            $badgeText = $daysUntilDue . ' day(s) remaining';
+                                        } else {
+                                            $badgeClass = 'due-date-normal';
+                                            $badgeText = $daysUntilDue . ' day(s) remaining';
+                                        }
+                                    @endphp
+                                    <span class="due-date-badge {{ $badgeClass }}">
+                                        {{ $badgeText }}
+                                    </span>
+                                @endif
+                            </div>
+                        @else
+                            <span class="text-muted">Not set</span>
+                        @endif
+                    </td>
+                    <td><strong>₹{{ number_format($payment->amount, 2) }}</strong></td>
                     <td>
                         @php
                             $displayStatus = $payment->status;

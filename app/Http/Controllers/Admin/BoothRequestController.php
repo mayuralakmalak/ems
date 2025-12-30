@@ -47,6 +47,43 @@ class BoothRequestController extends Controller
             ->latest()
             ->first();
         
+        // Load all booths from booth request with their details
+        $allBooths = collect();
+        if ($boothRequest->booth_ids) {
+            $allBooths = Booth::whereIn('id', $boothRequest->booth_ids)->get();
+        }
+        
+        // Also load booths from booking's selected_booth_ids if available
+        $selectedBooths = collect();
+        if ($booking && $booking->selected_booth_ids) {
+            $selectedBoothIds = [];
+            if (is_array($booking->selected_booth_ids)) {
+                // Handle array format: [{'id': 1, 'name': 'B001'}, ...]
+                if (isset($booking->selected_booth_ids[0]) && is_array($booking->selected_booth_ids[0])) {
+                    $selectedBoothIds = collect($booking->selected_booth_ids)
+                        ->pluck('id')
+                        ->filter()
+                        ->unique()
+                        ->values()
+                        ->all();
+                } else {
+                    // Handle simple array format: [1, 2, 3]
+                    $selectedBoothIds = collect($booking->selected_booth_ids)
+                        ->filter()
+                        ->unique()
+                        ->values()
+                        ->all();
+                }
+            }
+            
+            if (!empty($selectedBoothIds)) {
+                $selectedBooths = Booth::whereIn('id', $selectedBoothIds)->get();
+            }
+        }
+        
+        // Merge all booths, prioritizing selected booths from booking
+        $displayBooths = $selectedBooths->isNotEmpty() ? $selectedBooths : $allBooths;
+        
         // Map included item extras to their item definitions (for names)
         $extraItemsMap = collect();
         if ($booking && !empty($booking->included_item_extras)) {
@@ -64,7 +101,7 @@ class BoothRequestController extends Controller
             }
         }
 
-        return view('admin.booth-requests.show', compact('boothRequest', 'booking', 'extraItemsMap'));
+        return view('admin.booth-requests.show', compact('boothRequest', 'booking', 'extraItemsMap', 'displayBooths'));
     }
 
     public function approve($id)

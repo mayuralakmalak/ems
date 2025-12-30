@@ -730,6 +730,55 @@
         box-shadow: 0 4px 10px rgba(15,23,42,0.15);
         transform: translateY(-1px);
     }
+
+    /* Gallery Navigation Buttons */
+    .gallery-nav-btn {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background: rgba(255, 255, 255, 0.2);
+        border: 2px solid rgba(255, 255, 255, 0.5);
+        color: white;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 1.5rem;
+        z-index: 10;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+    }
+
+    .gallery-nav-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.8);
+        transform: translateY(-50%) scale(1.1);
+    }
+
+    .gallery-nav-btn:active {
+        transform: translateY(-50%) scale(0.95);
+    }
+
+    .gallery-prev-btn {
+        left: 20px;
+    }
+
+    .gallery-next-btn {
+        right: 20px;
+    }
+
+    .gallery-nav-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+    }
+
+    .gallery-nav-btn:disabled:hover {
+        transform: translateY(-50%);
+        background: rgba(255, 255, 255, 0.2);
+    }
 </style>
 @endpush
 
@@ -815,18 +864,6 @@
             <div class="filter-group">
                 <label>Category</label>
                 <select id="filterCategory" class="form-select">
-                    <option value="all">All Categories</option>
-                    @if(isset($categories) && $categories->isNotEmpty())
-                        @foreach($categories as $category)
-                            <option value="{{ $category['value'] }}">{{ $category['label'] }}</option>
-                        @endforeach
-                    @endif
-                </select>
-            </div>
-            
-            <div class="filter-group">
-                <label>Booth Size Category</label>
-                <select id="filterSize" class="form-select">
                     <option value="all">All Categories</option>
                     @if(isset($categories) && $categories->isNotEmpty())
                         @foreach($categories as $category)
@@ -1078,9 +1115,32 @@
         @endif
 
         @if($exhibition->stallVariations && $exhibition->stallVariations->count() > 0)
+        @php
+            // Collect all stall variation images for gallery
+            $allStallVariationImages = [];
+            foreach($exhibition->stallVariations as $variation) {
+                $views = [
+                    'Front view' => $variation->front_view,
+                    'Left side' => $variation->side_view_left,
+                    'Right side' => $variation->side_view_right,
+                    'Back view' => $variation->back_view,
+                ];
+                foreach($views as $label => $path) {
+                    if($path) {
+                        $src = \Illuminate\Support\Str::startsWith($path, ['http://', 'https://'])
+                            ? $path
+                            : asset('storage/' . ltrim($path, '/'));
+                        $allStallVariationImages[] = [
+                            'url' => $src,
+                            'title' => $variation->stall_type . ' - ' . $label
+                        ];
+                    }
+                }
+            }
+        @endphp
         <div class="floorplan-images-section">
             <div class="floorplan-images-title">Stall variations</div>
-            <div class="floorplan-images-grid">
+            <div class="floorplan-images-grid" id="stallVariationsGrid">
                 @foreach($exhibition->stallVariations as $variation)
                     @php
                         $views = [
@@ -1097,8 +1157,9 @@
                                     ? $path
                                     : asset('storage/' . ltrim($path, '/'));
                             @endphp
-                            <div class="floorplan-image-thumb"
-                                 onclick="openImageGallery(null, '{{ $src }}', '{{ $variation->stall_type }} - {{ $label }}')">
+                            <div class="floorplan-image-thumb stall-variation-thumb"
+                                 data-image-url="{{ $src }}"
+                                 data-image-title="{{ $variation->stall_type }} - {{ $label }}">
                                 <img src="{{ $src }}" alt="{{ $variation->stall_type }} - {{ $label }}">
                             </div>
                         @endif
@@ -1106,6 +1167,23 @@
                 @endforeach
             </div>
         </div>
+        <script>
+            // Initialize stall variations gallery
+            (function() {
+                const stallVariationImages = @json($allStallVariationImages);
+                const grid = document.getElementById('stallVariationsGrid');
+                if (grid && stallVariationImages.length > 0) {
+                    const thumbs = grid.querySelectorAll('.stall-variation-thumb');
+                    thumbs.forEach(thumb => {
+                        thumb.addEventListener('click', function() {
+                            const imageUrl = this.getAttribute('data-image-url');
+                            const imageTitle = this.getAttribute('data-image-title');
+                            openStallVariationsGallery(stallVariationImages, imageUrl, imageTitle);
+                        });
+                    });
+                }
+            })();
+        </script>
         @endif
         
         <!-- Included Items for Selected Size -->
@@ -1152,24 +1230,6 @@
                     <i class="bi bi-scissors me-1"></i>Request Split
                 </button>
             </div>
-        </div>
-
-        <!-- Selected Booths -->
-        <div class="panel-card">
-            <h5 class="panel-title">Selected Booths</h5>
-            <div id="selectedBoothsList" class="selected-booths">
-                <div class="empty-state">
-                    <i class="bi bi-inbox"></i>
-                    <p>No booths selected</p>
-                </div>
-            </div>
-            <div id="selectedTotal" class="selected-total" style="display: none;">
-                <div class="total-label">Total Amount</div>
-                <div class="total-value" id="totalAmount">₹0</div>
-            </div>
-            <button class="proceed-btn" id="proceedToBookBtn" disabled>
-                <i class="bi bi-cart-check me-2"></i>Proceed to Booking Form
-            </button>
         </div>
 
         <!-- Additional Services -->
@@ -1251,19 +1311,58 @@
             </div>
         </div>
         @endif
+
+        <!-- Selected Booths -->
+        <div class="panel-card">
+            <h5 class="panel-title">Selected Booths</h5>
+            <div id="selectedBoothsList" class="selected-booths">
+                <div class="empty-state">
+                    <i class="bi bi-inbox"></i>
+                    <p>No booths selected</p>
+                </div>
+            </div>
+            <div id="selectedTotal" class="selected-total" style="display: none;">
+                <div class="total-label">Total Amount</div>
+                <div class="total-value" id="totalAmount">₹0</div>
+            </div>
+            <button class="proceed-btn" id="proceedToBookBtn" disabled>
+                <i class="bi bi-cart-check me-2"></i>Proceed to Booking Form
+            </button>
+        </div>
     </div>
 </div>
 
 <!-- Image Gallery Modal -->
 <div class="modal fade" id="imageGalleryModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="galleryModalTitle">Service Image</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content" style="background: rgba(0,0,0,0.95); border: none;">
+            <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                <div style="flex: 1;">
+                    <h5 class="modal-title text-white mb-0" id="galleryModalTitle">Image Gallery</h5>
+                    <small class="text-white-50" id="galleryImageTitle" style="display: none; font-size: 0.85rem;"></small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body text-center">
-                <img id="galleryImage" src="" alt="" style="max-width: 100%; max-height: 70vh; border-radius: 8px;">
+            <div class="modal-body text-center" style="position: relative; padding: 20px;">
+                <!-- Previous Button -->
+                <button type="button" class="gallery-nav-btn gallery-prev-btn" id="galleryPrevBtn" style="display: none;">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+                
+                <!-- Image Container -->
+                <div id="galleryImageContainer" style="min-height: 60vh; display: flex; align-items: center; justify-content: center;">
+                    <img id="galleryImage" src="" alt="" style="max-width: 100%; max-height: 75vh; border-radius: 8px; object-fit: contain;">
+                </div>
+                
+                <!-- Next Button -->
+                <button type="button" class="gallery-nav-btn gallery-next-btn" id="galleryNextBtn" style="display: none;">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+                
+                <!-- Image Counter -->
+                <div id="galleryCounter" style="display: none; color: white; margin-top: 15px; font-size: 0.9rem;">
+                    <span id="currentImageIndex">1</span> / <span id="totalImages">1</span>
+                </div>
             </div>
         </div>
     </div>
@@ -1307,6 +1406,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupPriceRange();
     toggleServicesCard();
     setupFloorSelection();
+    setupGalleryNavigation();
     
     // Pre-select booths from query parameter
     const urlParams = new URLSearchParams(window.location.search);
@@ -1568,6 +1668,15 @@ function renderBoothSizeImagesPreview(booth) {
         return;
     }
 
+    // Prepare all images for gallery
+    const allImages = paths.map((p) => {
+        if (!p) return null;
+        const normalized = String(p).replace(/^\/+/, '');
+        return normalized.startsWith('http')
+            ? normalized
+            : storageBaseUrl + normalized;
+    }).filter(Boolean);
+    
     const thumbs = paths.map((p, idx) => {
         if (!p) return '';
         const normalized = String(p).replace(/^\/+/, '');
@@ -1575,8 +1684,10 @@ function renderBoothSizeImagesPreview(booth) {
             ? normalized
             : storageBaseUrl + normalized;
         const label = `Booth size image ${idx + 1}`;
+        // Store images as JSON string in data attribute (will be HTML-encoded by browser)
+        const imagesJson = JSON.stringify(allImages);
         return `
-            <div class="included-item-thumb" onclick="openImageGallery(null, '${src}', '${label}')">
+            <div class="included-item-thumb" data-gallery-images="${imagesJson.replace(/"/g, '&quot;')}" onclick="openBoothVisualsGallery(this, '${src.replace(/'/g, "\\'")}', '${label.replace(/'/g, "\\'")}')">
                 <img src="${src}" alt="${label}">
             </div>
         `;
@@ -1752,6 +1863,15 @@ function renderIncludedItemsSection(booth) {
 
     // Render size-level images (booth size preview thumbnails)
     if (sizeImages.length) {
+        // Prepare all images for gallery
+        const allImages = sizeImages.map((rawPath) => {
+            if (!rawPath) return null;
+            const normalized = String(rawPath).replace(/^\/+/, '');
+            return normalized.startsWith('http')
+                ? normalized
+                : storageBaseUrl + normalized;
+        }).filter(Boolean);
+        
         const thumbs = sizeImages.map((rawPath, idx) => {
             if (!rawPath) return '';
             const normalized = String(rawPath).replace(/^\/+/, '');
@@ -1759,8 +1879,10 @@ function renderIncludedItemsSection(booth) {
                 ? normalized
                 : storageBaseUrl + normalized;
             const label = `Size image ${idx + 1}`;
+            // Store images as JSON string in data attribute (will be HTML-encoded by browser)
+            const imagesJson = JSON.stringify(allImages);
             return `
-                <div class="included-item-thumb" onclick="openImageGallery(null, '${src}', '${label}')">
+                <div class="included-item-thumb" data-gallery-images="${imagesJson.replace(/"/g, '&quot;')}" onclick="openBoothVisualsGallery(this, '${src.replace(/'/g, "\\'")}', '${label.replace(/'/g, "\\'")}')">
                     <img src="${src}" alt="${label}">
                 </div>
             `;
@@ -1961,12 +2083,167 @@ function toggleServicesCard() {
     servicesCard.style.display = 'block';
 }
 
+// Gallery state
+let galleryImages = [];
+let currentGalleryIndex = 0;
+
+function openBoothVisualsGallery(element, imageUrl, imageTitle) {
+    // Get all images from data attribute
+    const imagesJson = element.getAttribute('data-gallery-images');
+    if (!imagesJson) {
+        // Fallback to single image
+        openImageGallery(null, imageUrl, imageTitle);
+        return;
+    }
+    
+    try {
+        const allImages = JSON.parse(imagesJson);
+        if (Array.isArray(allImages) && allImages.length > 0) {
+            galleryImages = allImages;
+            currentGalleryIndex = allImages.findIndex(img => img === imageUrl || img.url === imageUrl);
+            if (currentGalleryIndex === -1) currentGalleryIndex = 0;
+            
+            // Show navigation and counter
+            document.getElementById('galleryPrevBtn').style.display = galleryImages.length > 1 ? 'flex' : 'none';
+            document.getElementById('galleryNextBtn').style.display = galleryImages.length > 1 ? 'flex' : 'none';
+            document.getElementById('galleryCounter').style.display = galleryImages.length > 1 ? 'block' : 'none';
+            
+            updateGalleryImage();
+            document.getElementById('galleryModalTitle').textContent = 'Booth Visuals';
+            
+            const modal = new bootstrap.Modal(document.getElementById('imageGalleryModal'));
+            modal.show();
+        } else {
+            openImageGallery(null, imageUrl, imageTitle);
+        }
+    } catch (e) {
+        console.error('Error parsing gallery images:', e);
+        openImageGallery(null, imageUrl, imageTitle);
+    }
+}
+
+function openStallVariationsGallery(allImages, imageUrl, imageTitle) {
+    if (Array.isArray(allImages) && allImages.length > 0) {
+        galleryImages = allImages;
+        currentGalleryIndex = allImages.findIndex(img => img.url === imageUrl || (typeof img === 'string' && img === imageUrl));
+        if (currentGalleryIndex === -1) currentGalleryIndex = 0;
+        
+        // Show navigation and counter
+        document.getElementById('galleryPrevBtn').style.display = galleryImages.length > 1 ? 'flex' : 'none';
+        document.getElementById('galleryNextBtn').style.display = galleryImages.length > 1 ? 'flex' : 'none';
+        document.getElementById('galleryCounter').style.display = galleryImages.length > 1 ? 'block' : 'none';
+        
+        updateGalleryImage();
+        document.getElementById('galleryModalTitle').textContent = 'Stall Variations';
+        
+        const modal = new bootstrap.Modal(document.getElementById('imageGalleryModal'));
+        modal.show();
+    } else {
+        openImageGallery(null, imageUrl, imageTitle);
+    }
+}
+
 function openImageGallery(serviceId, imageUrl, serviceName) {
-    document.getElementById('galleryModalTitle').textContent = serviceName;
+    // Single image (for services, etc.)
+    galleryImages = [{ url: imageUrl, title: serviceName }];
+    currentGalleryIndex = 0;
+    
+    // Hide navigation for single image
+    document.getElementById('galleryPrevBtn').style.display = 'none';
+    document.getElementById('galleryNextBtn').style.display = 'none';
+    document.getElementById('galleryCounter').style.display = 'none';
+    
     document.getElementById('galleryImage').src = imageUrl;
     document.getElementById('galleryImage').alt = serviceName;
+    document.getElementById('galleryModalTitle').textContent = serviceName;
+    
     const modal = new bootstrap.Modal(document.getElementById('imageGalleryModal'));
     modal.show();
+}
+
+function updateGalleryImage() {
+    if (galleryImages.length === 0) return;
+    
+    const currentImage = galleryImages[currentGalleryIndex];
+    const imageUrl = typeof currentImage === 'string' ? currentImage : currentImage.url;
+    const imageTitle = typeof currentImage === 'string' ? `Image ${currentGalleryIndex + 1}` : (currentImage.title || `Image ${currentGalleryIndex + 1}`);
+    
+    const imgElement = document.getElementById('galleryImage');
+    imgElement.src = imageUrl;
+    imgElement.alt = imageTitle;
+    
+    // Update image title subtitle if available
+    const imageTitleEl = document.getElementById('galleryImageTitle');
+    if (imageTitleEl) {
+        if (typeof currentImage === 'object' && currentImage.title) {
+            imageTitleEl.textContent = currentImage.title;
+            imageTitleEl.style.display = 'block';
+        } else {
+            imageTitleEl.style.display = 'none';
+        }
+    }
+    
+    // Add loading state
+    imgElement.style.opacity = '0.5';
+    imgElement.onload = function() {
+        this.style.opacity = '1';
+    };
+    imgElement.onerror = function() {
+        this.style.opacity = '1';
+        console.error('Failed to load image:', imageUrl);
+    };
+    
+    document.getElementById('currentImageIndex').textContent = currentGalleryIndex + 1;
+    document.getElementById('totalImages').textContent = galleryImages.length;
+    
+    // Update button states
+    const prevBtn = document.getElementById('galleryPrevBtn');
+    const nextBtn = document.getElementById('galleryNextBtn');
+    if (prevBtn) prevBtn.disabled = currentGalleryIndex === 0;
+    if (nextBtn) nextBtn.disabled = currentGalleryIndex === galleryImages.length - 1;
+}
+
+function galleryNext() {
+    if (currentGalleryIndex < galleryImages.length - 1) {
+        currentGalleryIndex++;
+        updateGalleryImage();
+    }
+}
+
+function galleryPrev() {
+    if (currentGalleryIndex > 0) {
+        currentGalleryIndex--;
+        updateGalleryImage();
+    }
+}
+
+// Setup gallery navigation
+function setupGalleryNavigation() {
+    const prevBtn = document.getElementById('galleryPrevBtn');
+    const nextBtn = document.getElementById('galleryNextBtn');
+    
+    if (prevBtn) {
+        prevBtn.addEventListener('click', galleryPrev);
+    }
+    
+    if (nextBtn) {
+        nextBtn.addEventListener('click', galleryNext);
+    }
+    
+    // Keyboard navigation
+    document.addEventListener('keydown', function(e) {
+        const modal = document.getElementById('imageGalleryModal');
+        if (modal && modal.classList.contains('show')) {
+            if (e.key === 'ArrowLeft') {
+                galleryPrev();
+            } else if (e.key === 'ArrowRight') {
+                galleryNext();
+            } else if (e.key === 'Escape') {
+                const bsModal = bootstrap.Modal.getInstance(modal);
+                if (bsModal) bsModal.hide();
+            }
+        }
+    });
 }
 
 function removeBooth(boothId) {
@@ -1987,7 +2264,6 @@ function setupFilters() {
     if (categoryFilter) {
         categoryFilter.addEventListener('change', applyFilters);
     }
-    document.getElementById('filterSize').addEventListener('change', applyFilters);
     document.getElementById('statusAvailable').addEventListener('change', applyFilters);
     document.getElementById('statusReserved').addEventListener('change', applyFilters);
     document.getElementById('statusBooked').addEventListener('change', applyFilters);
@@ -1995,7 +2271,6 @@ function setupFilters() {
 
 function applyFilters() {
     const categoryFilter = document.getElementById('filterCategory')?.value || 'all';
-    const sizeFilter = document.getElementById('filterSize').value;
     const priceMax = document.getElementById('priceRange').value;
     const showAvailable = document.getElementById('statusAvailable').checked;
     const showReserved = document.getElementById('statusReserved').checked;
@@ -2003,7 +2278,6 @@ function applyFilters() {
     
     document.querySelectorAll('.booth-item').forEach(booth => {
         const category = booth.getAttribute('data-booth-category') || '';
-        const size = parseFloat(booth.getAttribute('data-booth-size'));
         const price = parseFloat(booth.getAttribute('data-booth-price'));
         const status = booth.getAttribute('data-booth-status');
         
@@ -2024,16 +2298,6 @@ function applyFilters() {
         if (categoryFilter !== 'all') {
             const boothCategory = normalizeCategory(category);
             const filterCategory = normalizeCategory(categoryFilter);
-            
-            if (boothCategory !== filterCategory) {
-                show = false;
-            }
-        }
-        
-        // Booth Size Category filter (now also uses categories from ExhibitionBoothSize)
-        if (sizeFilter !== 'all') {
-            const boothCategory = normalizeCategory(category);
-            const filterCategory = normalizeCategory(sizeFilter);
             
             if (boothCategory !== filterCategory) {
                 show = false;

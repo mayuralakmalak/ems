@@ -172,7 +172,19 @@
                             <select id="boothSizeSqft">
                                 <option value="">Select size</option>
                                 @foreach(($exhibition->boothSizes ?? collect()) as $size)
-                                    <option value="{{ $size->id }}" data-size="{{ $size->size_sqft }}">{{ $size->size_sqft }}</option>
+                                    @php
+                                        $categoryLabel = 'Standard';
+                                        if($size->category == '1' || $size->category == 'Premium') {
+                                            $categoryLabel = 'Premium';
+                                        } elseif($size->category == '3' || $size->category == 'Economy') {
+                                            $categoryLabel = 'Economy';
+                                        }
+                                    @endphp
+                                    <option value="{{ $size->id }}" 
+                                            data-size="{{ $size->size_sqft }}"
+                                            data-category="{{ $size->category }}">
+                                        {{ $size->size_sqft }} sq ft - {{ $categoryLabel }}
+                                    </option>
                                 @endforeach
                             </select>
                         </div>
@@ -308,6 +320,29 @@
                         <label class="form-label">Booth ID Prefix</label>
                         <input type="text" id="gridPrefix" class="form-control" value="B">
                     </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Booth Size Category</label>
+                        <select id="gridBoothSizeCategory" class="form-select">
+                            <option value="">Select Category (Optional)</option>
+                            @foreach(($exhibition->boothSizes ?? collect()) as $size)
+                                <option value="{{ $size->id }}" 
+                                        data-category="{{ $size->category }}"
+                                        data-size-sqft="{{ $size->size_sqft }}">
+                                    {{ $size->size_sqft }} sq ft - 
+                                    @if($size->category == '1' || $size->category == 'Premium')
+                                        Premium
+                                    @elseif($size->category == '2' || $size->category == 'Standard')
+                                        Standard
+                                    @elseif($size->category == '3' || $size->category == 'Economy')
+                                        Economy
+                                    @else
+                                        {{ $size->category }}
+                                    @endif
+                                </option>
+                            @endforeach
+                        </select>
+                        <small class="text-muted">Select a category to apply to all generated booths</small>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer d-flex justify-content-end">
@@ -392,6 +427,9 @@
 @push('scripts')
 <script src="{{ asset('js/admin-floorplan-step2.js') }}"></script>
 <script>
+// Pass booth sizes to JavaScript
+const boothSizesData = @json($exhibition->boothSizes ?? []);
+
 document.addEventListener('DOMContentLoaded', function () {
     const exhibitionId = {{ $exhibition->id }};
     const floorSelector = document.getElementById('floorSelector');

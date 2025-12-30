@@ -33,8 +33,51 @@
                         {{ $booking->exhibition->name ?? '-' }}
                     </div>
                     <div class="col-md-6 mb-3">
-                        <strong>Booth:</strong><br>
-                        {{ $booking->booth->name ?? '-' }}
+                        <strong>Booth{{ ($booking->selected_booth_ids && count($booking->selected_booth_ids) > 1) ? 's' : '' }}:</strong><br>
+                        @php
+                            // Get all booths from selected_booth_ids (for multiple booth bookings)
+                            $boothEntries = collect($booking->selected_booth_ids ?? []);
+                            if ($boothEntries->isEmpty() && $booking->booth_id) {
+                                // Fallback to primary booth if no selected_booth_ids
+                                $boothEntries = collect([[
+                                    'id' => $booking->booth_id,
+                                    'name' => $booking->booth->name ?? 'N/A',
+                                ]]);
+                            }
+                            
+                            // Extract booth IDs
+                            $boothIds = $boothEntries->map(function($entry) {
+                                return is_array($entry) ? ($entry['id'] ?? null) : $entry;
+                            })->filter()->values();
+                            
+                            // Load booth models for names
+                            $booths = \App\Models\Booth::whereIn('id', $boothIds)->get()->keyBy('id');
+                            
+                            // Build booth display list
+                            $boothDisplay = $boothEntries->map(function($entry) use ($booths) {
+                                $isArray = is_array($entry);
+                                $id = $isArray ? ($entry['id'] ?? null) : $entry;
+                                $model = $id ? ($booths[$id] ?? null) : null;
+                                return [
+                                    'id' => $id,
+                                    'name' => $isArray ? ($entry['name'] ?? $model?->name ?? 'N/A') : ($model?->name ?? 'N/A'),
+                                ];
+                            })->filter(fn($b) => $b['id'] && $b['name'] !== 'N/A');
+                        @endphp
+                        
+                        @if($boothDisplay->count() > 0)
+                            @if($boothDisplay->count() === 1)
+                                {{ $boothDisplay->first()['name'] }}
+                            @else
+                                <ul class="mb-0">
+                                    @foreach($boothDisplay as $booth)
+                                        <li>{{ $booth['name'] }} (ID: {{ $booth['id'] }})</li>
+                                    @endforeach
+                                </ul>
+                            @endif
+                        @else
+                            {{ $booking->booth->name ?? '-' }}
+                        @endif
                     </div>
                     <div class="col-md-6 mb-3">
                         <strong>Exhibitor:</strong><br>

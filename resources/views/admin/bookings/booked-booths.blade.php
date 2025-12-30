@@ -36,7 +36,48 @@
                             {{ $booking->user->name ?? '-' }}<br>
                             <small class="text-muted">{{ $booking->user->email ?? '' }}</small>
                         </td>
-                        <td>{{ $booking->booth->name ?? 'N/A' }}</td>
+                        <td>
+                            @php
+                                // Get all booths from selected_booth_ids (for multiple booth bookings)
+                                $boothEntries = collect($booking->selected_booth_ids ?? []);
+                                if ($boothEntries->isEmpty() && $booking->booth_id) {
+                                    // Fallback to primary booth if no selected_booth_ids
+                                    $boothEntries = collect([[
+                                        'id' => $booking->booth_id,
+                                        'name' => $booking->booth->name ?? 'N/A',
+                                    ]]);
+                                }
+                                
+                                // Extract booth IDs and names
+                                $boothIds = $boothEntries->map(function($entry) {
+                                    return is_array($entry) ? ($entry['id'] ?? null) : $entry;
+                                })->filter()->values();
+                                
+                                // Load booth models for names
+                                $booths = \App\Models\Booth::whereIn('id', $boothIds)->get()->keyBy('id');
+                                
+                                // Build booth names list
+                                $boothNames = $boothEntries->map(function($entry) use ($booths) {
+                                    $isArray = is_array($entry);
+                                    $id = $isArray ? ($entry['id'] ?? null) : $entry;
+                                    $model = $id ? ($booths[$id] ?? null) : null;
+                                    return $isArray ? ($entry['name'] ?? $model?->name ?? 'N/A') : ($model?->name ?? 'N/A');
+                                })->filter(fn($name) => $name !== 'N/A');
+                            @endphp
+                            
+                            @if($boothNames->count() > 0)
+                                @if($boothNames->count() === 1)
+                                    {{ $boothNames->first() }}
+                                @else
+                                    <span class="badge bg-info me-1">{{ $boothNames->count() }} Booths</span>
+                                    <small class="text-muted d-block mt-1">
+                                        {{ $boothNames->implode(', ') }}
+                                    </small>
+                                @endif
+                            @else
+                                {{ $booking->booth->name ?? 'N/A' }}
+                            @endif
+                        </td>
                         <td>
                             <span class="badge bg-{{ $booking->status === 'confirmed' ? 'success' : ($booking->status === 'cancelled' ? 'danger' : 'warning') }}">
                                 {{ ucfirst($booking->status) }}
