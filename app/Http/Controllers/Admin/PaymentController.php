@@ -169,4 +169,65 @@ class PaymentController extends Controller
         
         return back()->with('success', 'Payment rejected.');
     }
+    
+    public function history(Request $request)
+    {
+        $query = Payment::with(['booking.user', 'booking.exhibition', 'booking.booth'])
+            ->where('approval_status', 'approved');
+        
+        // Search by payment number
+        if ($request->has('search') && $request->search) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('payment_number', 'like', "%{$search}%")
+                  ->orWhere('transaction_id', 'like', "%{$search}%")
+                  ->orWhereHas('booking.user', function($userQuery) use ($search) {
+                      $userQuery->where('name', 'like', "%{$search}%")
+                                ->orWhere('email', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('booking.exhibition', function($exhibitionQuery) use ($search) {
+                      $exhibitionQuery->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+        
+        // Filter by payment method
+        if ($request->has('payment_method') && $request->payment_method) {
+            $query->where('payment_method', $request->payment_method);
+        }
+        
+        // Filter by payment type
+        if ($request->has('payment_type') && $request->payment_type) {
+            $query->where('payment_type', $request->payment_type);
+        }
+        
+        // Filter by date range
+        if ($request->has('date_from') && $request->date_from) {
+            $query->whereDate('paid_at', '>=', $request->date_from);
+        }
+        
+        if ($request->has('date_to') && $request->date_to) {
+            $query->whereDate('paid_at', '<=', $request->date_to);
+        }
+        
+        $payments = $query->latest('paid_at')->paginate(20);
+        
+        // Statistics
+        $totalApproved = Payment::where('approval_status', 'approved')->count();
+        $totalAmount = Payment::where('approval_status', 'approved')->sum('amount');
+        $todayApproved = Payment::where('approval_status', 'approved')
+            ->whereDate('paid_at', today())
+            ->count();
+        $todayAmount = Payment::where('approval_status', 'approved')
+            ->whereDate('paid_at', today())
+            ->sum('amount');
+        
+        return view('admin.payments.history', compact(
+            'payments', 
+            'totalApproved', 
+            'totalAmount', 
+            'todayApproved', 
+            'todayAmount'
+        ));
+    }
 }

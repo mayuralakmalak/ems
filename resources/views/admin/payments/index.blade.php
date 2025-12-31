@@ -28,10 +28,15 @@
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Payment Approvals</h5>
-        <div class="btn-group">
-            <a href="{{ route('admin.payments.index', ['approval_status' => 'pending']) }}" class="btn btn-sm {{ request('approval_status') == 'pending' || !request('approval_status') ? 'btn-primary' : 'btn-outline-primary' }}">Pending</a>
-            <a href="{{ route('admin.payments.index', ['approval_status' => 'approved']) }}" class="btn btn-sm {{ request('approval_status') == 'approved' ? 'btn-primary' : 'btn-outline-primary' }}">Approved</a>
-            <a href="{{ route('admin.payments.index', ['approval_status' => 'rejected']) }}" class="btn btn-sm {{ request('approval_status') == 'rejected' ? 'btn-primary' : 'btn-outline-primary' }}">Rejected</a>
+        <div class="d-flex gap-2">
+            <div class="btn-group">
+                <a href="{{ route('admin.payments.index', ['approval_status' => 'pending']) }}" class="btn btn-sm {{ request('approval_status') == 'pending' || !request('approval_status') ? 'btn-primary' : 'btn-outline-primary' }}">Pending</a>
+                <a href="{{ route('admin.payments.index', ['approval_status' => 'approved']) }}" class="btn btn-sm {{ request('approval_status') == 'approved' ? 'btn-primary' : 'btn-outline-primary' }}">Approved</a>
+                <a href="{{ route('admin.payments.index', ['approval_status' => 'rejected']) }}" class="btn btn-sm {{ request('approval_status') == 'rejected' ? 'btn-primary' : 'btn-outline-primary' }}">Rejected</a>
+            </div>
+            <a href="{{ route('admin.payments.history') }}" class="btn btn-sm btn-success">
+                <i class="bi bi-clock-history"></i> Payment History
+            </a>
         </div>
     </div>
     <div class="card-body">

@@ -471,7 +471,7 @@
                 </a>
             </li>
             <li>
-                <a href="{{ route('admin.payments.index') }}" class="{{ request()->routeIs('admin.payments.*') ? 'active' : '' }}">
+                <a href="{{ route('admin.payments.index') }}" class="{{ request()->routeIs('admin.payments.index') || (request()->routeIs('admin.payments.*') && !request()->routeIs('admin.payments.history')) ? 'active' : '' }}">
                     <i class="bi bi-credit-card"></i>Payment Approvals
                     @php
                         $pendingPayments = \App\Models\Payment::where('approval_status', 'pending')->count();
@@ -479,6 +479,11 @@
                     @if($pendingPayments > 0)
                         <span class="badge bg-danger ms-2">{{ $pendingPayments }}</span>
                     @endif
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('admin.payments.history') }}" class="{{ request()->routeIs('admin.payments.history') ? 'active' : '' }}">
+                    <i class="bi bi-clock-history"></i>Payment History
                 </a>
             </li>
             <li>
