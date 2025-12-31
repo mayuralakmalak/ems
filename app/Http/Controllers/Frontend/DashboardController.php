@@ -15,6 +15,11 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
 
+        // Redirect admins to admin dashboard
+        if ($user->hasRole('Admin') || $user->hasRole('Sub Admin')) {
+            return redirect()->route('admin.dashboard');
+        }
+
         $bookings = Booking::with(['exhibition', 'booth'])
             ->where('user_id', $user->id)
             ->latest()

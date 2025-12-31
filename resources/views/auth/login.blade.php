@@ -45,7 +45,32 @@
         width: 100%;
         color: #e2e8f0;
         position: relative;
-        overflow: hidden;
+        overflow: visible;
+    }
+    
+    .error-alert-container {
+        position: absolute;
+        top: -70px;
+        right: 0;
+        left: 0;
+        width: 100%;
+        z-index: 10;
+    }
+    
+    .error-alert-container .alert {
+        width: 100%;
+        padding: 14px 18px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 0;
+    }
+    
+    .error-alert-container .alert > div {
+        flex: 1;
+        margin-right: 15px;
+        font-size: 0.95rem;
     }
     
     .login-form-container::before {
@@ -251,6 +276,15 @@
         border-color: rgba(252, 165, 165, 0.45);
     }
     
+    .alert .btn-close {
+        filter: invert(1) grayscale(100%) brightness(200%);
+        opacity: 0.8;
+    }
+    
+    .alert .btn-close:hover {
+        opacity: 1;
+    }
+    
     .register-links {
         margin-top: 20px;
         padding-top: 18px;
@@ -299,17 +333,51 @@
 @section('content')
 <div class="login-wrapper">
     <!-- Single Login Form Container -->
-    <div class="login-form-container">
+    <div class="login-form-container" style="position: relative;">
+        <!-- Error Alert Container - Above Form, Right Side -->
+        <div class="error-alert-container">
+            @php
+                $hasEmailErrors = $errors->has('email') || $errors->has('password');
+                $hasOtpErrors = $errors->has('mobile_number') || $errors->has('mobile_phone_code') || $errors->has('otp');
+                $showEmailForm = $hasEmailErrors && !$hasOtpErrors;
+            @endphp
+            @if($errors->has('mobile_number') || $errors->has('mobile_phone_code') || $errors->has('otp'))
+                <div class="alert alert-danger alert-dismissible fade show" role="alert" id="otpErrorAlert" style="display: {{ $showEmailForm ? 'none' : 'block' }};">
+                    @if($errors->has('mobile_number'))
+                        <div>{{ $errors->first('mobile_number') }}</div>
+                    @endif
+                    @if($errors->has('mobile_phone_code'))
+                        <div>{{ $errors->first('mobile_phone_code') }}</div>
+                    @endif
+                    @if($errors->has('otp'))
+                        <div>{{ $errors->first('otp') }}</div>
+                    @endif
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            @endif
+            
+            @if($errors->has('email') || $errors->has('password'))
+                <div class="alert alert-danger alert-dismissible fade show" role="alert" id="emailErrorAlert" style="display: {{ $showEmailForm ? 'block' : 'none' }};">
+                    @if($errors->has('email'))
+                        <div>{{ $errors->first('email') }}</div>
+                    @endif
+                    @if($errors->has('password'))
+                        <div>{{ $errors->first('password') }}</div>
+                    @endif
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            @endif
+        </div>
         <h2 class="login-title">Sign in</h2>
         <p class="login-subtitle">Access your dashboard with OTP or email.</p>
         
         <div class="login-toggle">
-            <button type="button" class="toggle-btn {{ $errors->has('email') || $errors->has('password') ? '' : 'active' }}" id="otpTab" onclick="showOtpForm()">Login with OTP</button>
-            <button type="button" class="toggle-btn {{ $errors->has('email') || $errors->has('password') ? 'active' : '' }}" id="emailTab" onclick="showEmailForm()">Login with Email</button>
+            <button type="button" class="toggle-btn {{ $showEmailForm ? '' : 'active' }}" id="otpTab" onclick="showOtpForm()">Login with OTP</button>
+            <button type="button" class="toggle-btn {{ $showEmailForm ? 'active' : '' }}" id="emailTab" onclick="showEmailForm()">Login with Email</button>
         </div>
         
         <!-- OTP Login Form -->
-        <div id="otpForm" class="login-form {{ $errors->has('email') || $errors->has('password') ? '' : 'active' }}">
+        <div id="otpForm" class="login-form {{ $showEmailForm ? '' : 'active' }}">
             @if(session('otp_sent'))
                 <div class="alert alert-success">
                     OTP sent! Check your phone. OTP: <strong>{{ session('otp') }}</strong> (Development only)
@@ -409,19 +477,11 @@
         </div>
         
         <!-- Email/Password Login Form -->
-        <div id="emailForm" class="login-form {{ $errors->has('email') || $errors->has('password') ? 'active' : '' }}">
+        <div id="emailForm" class="login-form {{ $showEmailForm ? 'active' : '' }}">
             @if (session('status'))
                 <div class="alert alert-success">
                     <i class="bi bi-check-circle-fill me-2"></i>
                     {{ session('status') }}
-                </div>
-            @endif
-            
-            @if ($errors->any())
-                <div class="alert alert-danger">
-                    @foreach ($errors->all() as $error)
-                        <div>{{ $error }}</div>
-                    @endforeach
                 </div>
             @endif
             
@@ -480,6 +540,15 @@
 
 @push('scripts')
 <script>
+    // Initialize form visibility on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        @if($showEmailForm)
+            showEmailForm();
+        @else
+            showOtpForm();
+        @endif
+    });
+    
     function showOtpForm() {
         // Hide email form, show OTP form
         document.getElementById('emailForm').classList.remove('active');
@@ -488,6 +557,12 @@
         // Update toggle buttons
         document.getElementById('otpTab').classList.add('active');
         document.getElementById('emailTab').classList.remove('active');
+        
+        // Show OTP error, hide email error
+        const otpError = document.getElementById('otpErrorAlert');
+        const emailError = document.getElementById('emailErrorAlert');
+        if (otpError) otpError.style.display = 'block';
+        if (emailError) emailError.style.display = 'none';
     }
     
     function showEmailForm() {
@@ -498,6 +573,12 @@
         // Update toggle buttons
         document.getElementById('otpTab').classList.remove('active');
         document.getElementById('emailTab').classList.add('active');
+        
+        // Show email error, hide OTP error
+        const otpError = document.getElementById('otpErrorAlert');
+        const emailError = document.getElementById('emailErrorAlert');
+        if (otpError) otpError.style.display = 'none';
+        if (emailError) emailError.style.display = 'block';
     }
 </script>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
