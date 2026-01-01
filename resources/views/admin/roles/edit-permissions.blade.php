@@ -45,11 +45,17 @@
             </div>
 
             <div class="mb-4">
-                <label class="form-label fw-bold">Permissions:</label>
-                <div class="border rounded p-3" style="max-height: 400px; overflow-y: auto;">
+                <label class="form-label fw-bold">Permissions ({{ $permissions->count() }} available):</label>
+                <div class="border rounded p-3" style="max-height: 500px; overflow-y: auto;">
+                    <div class="form-check mb-3 pb-2 border-bottom">
+                        <input class="form-check-input" type="checkbox" id="selectAllPermissions">
+                        <label class="form-check-label fw-bold" for="selectAllPermissions">
+                            Select All
+                        </label>
+                    </div>
                     @foreach($permissions as $permission)
                     <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" name="permissions[]" 
+                        <input class="form-check-input permission-checkbox" type="checkbox" name="permissions[]" 
                                value="{{ $permission->id }}" id="permission_{{ $permission->id }}"
                                {{ in_array($permission->id, $rolePermissions) ? 'checked' : '' }}>
                         <label class="form-check-label" for="permission_{{ $permission->id }}">
@@ -58,6 +64,7 @@
                     </div>
                     @endforeach
                 </div>
+                <small class="text-muted">Select the permissions you want to assign to this role.</small>
             </div>
 
             <div class="d-flex justify-content-end">
@@ -66,4 +73,36 @@
         </form>
     </div>
 </div>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAllCheckbox = document.getElementById('selectAllPermissions');
+    const permissionCheckboxes = document.querySelectorAll('.permission-checkbox');
+    
+    // Function to update select all checkbox state
+    function updateSelectAllState() {
+        const allChecked = Array.from(permissionCheckboxes).every(cb => cb.checked);
+        const someChecked = Array.from(permissionCheckboxes).some(cb => cb.checked);
+        selectAllCheckbox.checked = allChecked;
+        selectAllCheckbox.indeterminate = someChecked && !allChecked;
+    }
+    
+    // Select All checkbox click handler
+    selectAllCheckbox.addEventListener('change', function() {
+        permissionCheckboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+    });
+    
+    // Individual checkbox change handler
+    permissionCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateSelectAllState);
+    });
+    
+    // Initial state update
+    updateSelectAllState();
+});
+</script>
+@endpush
 @endsection

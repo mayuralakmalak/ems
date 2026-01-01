@@ -122,22 +122,44 @@ class RoleController extends Controller
     {
         $role = Role::findOrFail($id);
         
-        // Ensure default permissions exist
-        $defaultPermissions = [
+        // Ensure all permissions exist
+        $allPermissions = [
             'Admin Access',
             'Exhibition Management',
+            'Booking Management',
+            'Booth Management',
+            'Floorplan Management',
             'Payment Management',
+            'Financial Management',
             'User Management',
+            'Role & Permission Management',
+            'Document Management',
+            'Document Category Management',
+            'Badge Management',
+            'Sponsorship Management',
+            'Sponsorship Booking Management',
+            'Category Management',
+            'Settings Management',
+            'Booth Request Management',
+            'Discount Management',
+            'Checklist Management',
+            'Service Configuration Management',
+            'Analytics Management',
+            'Exhibitor Management',
+            'Communication Management',
+            'Email Management',
+            'Notification Management',
+            'Additional Service Request Management',
             'Report Generation'
         ];
         
-        foreach ($defaultPermissions as $permName) {
+        foreach ($allPermissions as $permName) {
             Permission::firstOrCreate(
                 ['name' => $permName, 'guard_name' => 'web']
             );
         }
         
-        $permissions = Permission::all();
+        $permissions = Permission::orderBy('name')->get();
         $rolePermissions = $role->permissions->pluck('id')->toArray();
 
         return view('admin.roles.edit-permissions', compact('role', 'permissions', 'rolePermissions'));
@@ -152,7 +174,11 @@ class RoleController extends Controller
             'permissions.*' => 'exists:permissions,id',
         ]);
 
-        $permissions = $request->permissions ?? [];
+        $permissionIds = $request->permissions ?? [];
+        
+        // Convert permission IDs to Permission models
+        $permissions = Permission::whereIn('id', $permissionIds)->get();
+        
         $role->syncPermissions($permissions);
 
         return redirect()->route('admin.roles.index')->with('success', 'Permissions updated successfully.');
