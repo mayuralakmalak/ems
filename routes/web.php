@@ -132,6 +132,7 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     Route::post('/settings/otp-dlt', [\App\Http\Controllers\Admin\SettingsController::class, 'saveOtpDlt'])->name('settings.save-otp-dlt');
     Route::post('/settings/default-pricing', [\App\Http\Controllers\Admin\SettingsController::class, 'saveDefaultPricing'])->name('settings.save-default-pricing');
     Route::post('/settings/cancellation-charges', [\App\Http\Controllers\Admin\SettingsController::class, 'saveCancellationCharges'])->name('settings.save-cancellation-charges');
+    Route::post('/settings/payment-methods', [\App\Http\Controllers\Admin\SettingsController::class, 'savePaymentMethods'])->name('settings.save-payment-methods');
     
     // Document Management
     Route::get('/documents', [\App\Http\Controllers\Admin\DocumentController::class, 'index'])->name('documents.index');

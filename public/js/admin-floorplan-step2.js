@@ -746,12 +746,16 @@ class AdminFloorplanManager {
         group.setAttribute('data-booth-id', booth.id);
         group.setAttribute('class', 'booth-group');
 
+        // Ensure status is set (default to 'available' if not set)
+        const status = booth.status || 'available';
+        booth.status = status; // Update the booth object to ensure consistency
+
         const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
         rect.setAttribute('x', booth.x);
         rect.setAttribute('y', booth.y);
         rect.setAttribute('width', booth.width);
         rect.setAttribute('height', booth.height);
-        rect.setAttribute('class', `booth-admin ${booth.status}`);
+        rect.setAttribute('class', `booth-admin ${status}`);
         rect.setAttribute('rx', '4');
 
         const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
@@ -772,11 +776,15 @@ class AdminFloorplanManager {
             const rect = group.querySelector('rect');
             const label = group.querySelector('text');
 
+            // Ensure status is set (default to 'available' if not set)
+            const status = booth.status || 'available';
+            booth.status = status; // Update the booth object to ensure consistency
+
             rect.setAttribute('x', booth.x);
             rect.setAttribute('y', booth.y);
             rect.setAttribute('width', booth.width);
             rect.setAttribute('height', booth.height);
-            rect.setAttribute('class', `booth-admin ${booth.status}`);
+            rect.setAttribute('class', `booth-admin ${status}`);
 
             label.setAttribute('x', booth.x + booth.width / 2);
             label.setAttribute('y', booth.y + booth.height / 2);
@@ -838,11 +846,20 @@ class AdminFloorplanManager {
             const group = this.getBoothElement(booth.id);
             if (group) {
                 const rect = group.querySelector('rect');
+                // Ensure status is set
+                const status = booth.status || 'available';
+                booth.status = status;
+                
+                // Update class to include both status and selected state
+                const baseClass = 'booth-admin';
+                const statusClass = status;
+                const classes = [baseClass, statusClass];
+                
                 if (this.selectedBooths.has(booth.id)) {
-                    rect.classList.add('selected');
-                } else {
-                    rect.classList.remove('selected');
+                    classes.push('selected');
                 }
+                
+                rect.setAttribute('class', classes.join(' '));
             }
         });
         this.updateBoothsList();

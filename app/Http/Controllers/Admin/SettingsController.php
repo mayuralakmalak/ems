@@ -155,5 +155,51 @@ class SettingsController extends Controller
         
         return back()->with('success', 'Cancellation charges settings saved successfully.');
     }
+    
+    public function savePaymentMethods(Request $request)
+    {
+        $request->validate([
+            'upi_id' => 'nullable|string|max:255',
+            'upi_qr_code' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'payment_bank_name' => 'nullable|string|max:255',
+            'payment_account_holder' => 'nullable|string|max:255',
+            'payment_account_number' => 'nullable|string|max:50',
+            'payment_ifsc_code' => 'nullable|string|max:20',
+            'payment_branch' => 'nullable|string|max:255',
+            'payment_branch_address' => 'nullable|string|max:500',
+        ]);
+        
+        // Handle UPI QR code upload
+        if ($request->hasFile('upi_qr_code')) {
+            // Delete old QR code if exists
+            $oldQrCode = Setting::get('upi_qr_code', '');
+            if ($oldQrCode && Storage::disk('public')->exists($oldQrCode)) {
+                Storage::disk('public')->delete($oldQrCode);
+            }
+            
+            // Store new QR code
+            $qrCodePath = $request->file('upi_qr_code')->store('payment-methods', 'public');
+            Setting::set('upi_qr_code', $qrCodePath, 'payment_methods');
+        }
+        
+        // Save all payment method settings
+        $fields = [
+            'upi_id',
+            'payment_bank_name',
+            'payment_account_holder',
+            'payment_account_number',
+            'payment_ifsc_code',
+            'payment_branch',
+            'payment_branch_address',
+        ];
+        
+        foreach ($fields as $field) {
+            if ($request->has($field)) {
+                Setting::set($field, $request->input($field), 'payment_methods');
+            }
+        }
+        
+        return back()->with('success', 'Payment method settings saved successfully.');
+    }
 }
 

@@ -66,12 +66,6 @@ class SponsorshipPaymentController extends Controller
                 $paymentProofPath = $request->file('payment_proof')->store('sponsorship-payment-proofs', 'public');
             }
             
-            // Calculate gateway charge for online payments (2.5%)
-            $gatewayCharge = 0;
-            if ($validated['payment_method'] === 'online') {
-                $gatewayCharge = ($validated['amount'] * 2.5) / 100;
-            }
-            
             // Create payment record
             $payment = SponsorshipPayment::create([
                 'sponsorship_booking_id' => $booking->id,
@@ -81,7 +75,7 @@ class SponsorshipPaymentController extends Controller
                 'status' => $validated['payment_method'] === 'wallet' ? 'completed' : 'pending',
                 'approval_status' => $validated['payment_method'] === 'online' ? 'pending' : 'pending',
                 'amount' => $validated['amount'],
-                'gateway_charge' => $gatewayCharge,
+                'gateway_charge' => 0,
                 'transaction_id' => $validated['transaction_id'] ?? null,
                 'payment_proof' => $request->input('payment_proof_text'),
                 'payment_proof_file' => $paymentProofPath,

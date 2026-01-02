@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\BoothRequest;
 use App\Models\Payment;
 use App\Models\Wallet;
+use App\Models\Setting;
 use App\Mail\PaymentReceiptMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -120,7 +121,34 @@ class PaymentController extends Controller
             ->orderBy('due_date', 'asc')
             ->get();
 
-        return view('frontend.payments.create', compact('booking', 'outstanding', 'initialPercent', 'initialAmount', 'walletBalance', 'specificPayment', 'storedPayments'));
+        // Load payment method settings
+        $paymentMethodSettings = Setting::getByGroup('payment_methods');
+        $upiId = $paymentMethodSettings['upi_id'] ?? '';
+        $upiQrCode = $paymentMethodSettings['upi_qr_code'] ?? '';
+        $bankName = $paymentMethodSettings['payment_bank_name'] ?? '';
+        $accountHolder = $paymentMethodSettings['payment_account_holder'] ?? '';
+        $accountNumber = $paymentMethodSettings['payment_account_number'] ?? '';
+        $ifscCode = $paymentMethodSettings['payment_ifsc_code'] ?? '';
+        $branch = $paymentMethodSettings['payment_branch'] ?? '';
+        $branchAddress = $paymentMethodSettings['payment_branch_address'] ?? '';
+
+        return view('frontend.payments.create', compact(
+            'booking', 
+            'outstanding', 
+            'initialPercent', 
+            'initialAmount', 
+            'walletBalance', 
+            'specificPayment', 
+            'storedPayments',
+            'upiId',
+            'upiQrCode',
+            'bankName',
+            'accountHolder',
+            'accountNumber',
+            'ifscCode',
+            'branch',
+            'branchAddress'
+        ));
     }
 
     public function pay(int $paymentId)
@@ -146,13 +174,32 @@ class PaymentController extends Controller
             ->where('status', 'completed')
             ->count();
 
+        // Load payment method settings
+        $paymentMethodSettings = Setting::getByGroup('payment_methods');
+        $upiId = $paymentMethodSettings['upi_id'] ?? '';
+        $upiQrCode = $paymentMethodSettings['upi_qr_code'] ?? '';
+        $bankName = $paymentMethodSettings['payment_bank_name'] ?? '';
+        $accountHolder = $paymentMethodSettings['payment_account_holder'] ?? '';
+        $accountNumber = $paymentMethodSettings['payment_account_number'] ?? '';
+        $ifscCode = $paymentMethodSettings['payment_ifsc_code'] ?? '';
+        $branch = $paymentMethodSettings['payment_branch'] ?? '';
+        $branchAddress = $paymentMethodSettings['payment_branch_address'] ?? '';
+
         return view('frontend.payments.pay', compact(
             'payment',
             'booking',
             'outstanding',
             'walletBalance',
             'allPendingPayments',
-            'completedPayments'
+            'completedPayments',
+            'upiId',
+            'upiQrCode',
+            'bankName',
+            'accountHolder',
+            'accountNumber',
+            'ifscCode',
+            'branch',
+            'branchAddress'
         ));
     }
 
@@ -163,6 +210,7 @@ class PaymentController extends Controller
             'payment_method' => 'required|in:online,offline,rtgs,neft,wallet',
             'amount' => 'required|numeric|min:1',
             'payment_id' => 'nullable|exists:payments,id',
+            'updated_payment_schedule' => 'nullable|string',
         ]);
 
         $booking = Booking::where('user_id', auth()->id())->findOrFail($request->booking_id);
@@ -181,6 +229,7 @@ class PaymentController extends Controller
         if (empty($boothIds)) {
             $boothIds = [$booking->booth_id];
         }
+
 
         // Handle wallet payment
         if ($request->payment_method === 'wallet') {
@@ -220,8 +269,7 @@ class PaymentController extends Controller
 
         if ($payment) {
             // Update existing pending payment
-            // Use the scheduled amount from the payment record, not the request amount
-            // This ensures we use the correct amount from the payment schedule
+            $payment->refresh();
             $scheduledAmount = $payment->amount;
             $isCompleted = $request->payment_method === 'wallet';
             
@@ -229,7 +277,7 @@ class PaymentController extends Controller
                 'payment_method' => $request->payment_method,
                 'status' => $isCompleted ? 'completed' : 'pending',
                 'approval_status' => $isCompleted ? 'approved' : 'pending',
-                'gateway_charge' => $request->payment_method === 'online' ? round($scheduledAmount * 0.025, 2) : 0,
+                'gateway_charge' => 0,
                 'paid_at' => $isCompleted ? now() : null,
                 'transaction_id' => $request->transaction_id ?? null,
             ]);
@@ -273,7 +321,7 @@ class PaymentController extends Controller
                 'status' => $isCompleted ? 'completed' : 'pending',
                 'approval_status' => $isCompleted ? 'approved' : 'pending',
                 'amount' => $amount,
-                'gateway_charge' => $request->payment_method === 'online' ? round($amount * 0.025, 2) : 0,
+                'gateway_charge' => 0,
                 'paid_at' => $isCompleted ? now() : null,
                 'transaction_id' => $request->transaction_id ?? null,
             ]);

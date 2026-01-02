@@ -154,9 +154,6 @@
                         </td>
                         <td>
                             <strong>₹{{ number_format($payment->amount, 2) }}</strong>
-                            @if($payment->gateway_charge > 0)
-                                <br><small class="text-muted">Fee: ₹{{ number_format($payment->gateway_charge, 2) }}</small>
-                            @endif
                         </td>
                         <td>
                             <span class="badge bg-secondary">{{ ucfirst($payment->payment_method) }}</span>

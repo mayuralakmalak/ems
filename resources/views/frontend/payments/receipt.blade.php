@@ -168,9 +168,8 @@
     $boothTotal = $boothDisplay->sum(fn($b) => $b['price'] ?? 0);
     $services = $booking->bookingServices()->with('service')->get();
     $servicesTotal = $services->sum('total_price');
-    $gateway = $payment->gateway_charge ?? 0;
-    $paidAmount = $payment->amount + $gateway;
-    $grandTotal = $boothTotal + $servicesTotal + $gateway;
+    $paidAmount = $payment->amount;
+    $grandTotal = $boothTotal + $servicesTotal;
 
     $statusBadge = match($payment->status) {
         'completed' => 'badge-success',
@@ -306,12 +305,6 @@
                 <td class="label">Services Total</td>
                 <td class="amount">₹{{ number_format($servicesTotal, 2) }}</td>
             </tr>
-            @if($gateway > 0)
-            <tr>
-                <td class="label">Gateway Charge</td>
-                <td class="amount">₹{{ number_format($gateway, 2) }}</td>
-            </tr>
-            @endif
             <tr>
                 <td class="label grand">Total Paid</td>
                 <td class="amount grand">₹{{ number_format($paidAmount, 2) }}</td>

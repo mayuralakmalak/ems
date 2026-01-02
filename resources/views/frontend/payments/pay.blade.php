@@ -288,11 +288,6 @@
                         <span class="breakdown-value">₹{{ number_format($payment->amount, 2) }}</span>
                     </div>
                     
-                    <div class="breakdown-item">
-                        <span class="breakdown-label">Payment Gateway Fee</span>
-                        <span class="breakdown-value" id="gatewayFee">₹0.00</span>
-                    </div>
-                    
                     <div class="total-due">
                         <span class="total-due-label">Total Amount to Pay</span>
                         <span class="total-due-value" id="totalDueAmount">₹{{ number_format($payment->amount, 2) }}</span>
@@ -357,61 +352,70 @@
                     <small class="text-muted mt-3 d-block">For offline transfers (NEFT/RTGS), submit now and upload proof after you transfer.</small>
                 </div>
 
-                <!-- Offline Transfer Instructions -->
-                @php
-                    $bankDetails = [
-                        'account_name' => env('BANK_ACCOUNT_NAME', 'Your Company Name'),
-                        'account_number' => env('BANK_ACCOUNT_NUMBER', '0000000000'),
-                        'ifsc' => env('BANK_IFSC', 'IFSC000000'),
-                        'bank_name' => env('BANK_NAME', 'Your Bank Name'),
-                        'branch' => env('BANK_BRANCH', 'Branch'),
-                    ];
-                @endphp
+                <!-- NEFT/RTGS Bank Transfer Instructions -->
                 <div class="section-card" id="offlineInstructions" style="display: none;">
                     <h5 class="section-title">Bank Transfer Instructions</h5>
                     <p class="section-description">Use these details for NEFT/RTGS transfer.</p>
                     
                     <div class="row">
+                        @if($accountHolder)
                         <div class="col-md-6">
                             <div class="summary-item">
-                                <div class="summary-label">Account Name</div>
-                                <div class="summary-value">{{ $bankDetails['account_name'] }}</div>
+                                <div class="summary-label">Account Holder Name</div>
+                                <div class="summary-value">{{ $accountHolder }}</div>
                             </div>
                         </div>
+                        @endif
+                        @if($accountNumber)
                         <div class="col-md-6">
                             <div class="summary-item">
                                 <div class="summary-label">Account Number</div>
-                                <div class="summary-value">{{ $bankDetails['account_number'] }}</div>
+                                <div class="summary-value">{{ $accountNumber }}</div>
                             </div>
                         </div>
+                        @endif
+                        @if($ifscCode)
                         <div class="col-md-6">
                             <div class="summary-item">
                                 <div class="summary-label">IFSC Code</div>
-                                <div class="summary-value">{{ $bankDetails['ifsc'] }}</div>
+                                <div class="summary-value">{{ $ifscCode }}</div>
                             </div>
                         </div>
+                        @endif
+                        @if($bankName)
                         <div class="col-md-6">
                             <div class="summary-item">
-                                <div class="summary-label">Bank</div>
-                                <div class="summary-value">{{ $bankDetails['bank_name'] }}</div>
+                                <div class="summary-label">Bank Name</div>
+                                <div class="summary-value">{{ $bankName }}</div>
                             </div>
                         </div>
+                        @endif
+                        @if($branch)
                         <div class="col-md-6">
                             <div class="summary-item">
                                 <div class="summary-label">Branch</div>
-                                <div class="summary-value">{{ $bankDetails['branch'] }}</div>
+                                <div class="summary-value">{{ $branch }}</div>
                             </div>
                         </div>
+                        @endif
+                        @if($branchAddress)
+                        <div class="col-md-6">
+                            <div class="summary-item">
+                                <div class="summary-label">Branch Address</div>
+                                <div class="summary-value">{{ $branchAddress }}</div>
+                            </div>
+                        </div>
+                        @endif
                     </div>
                     <div class="alert alert-warning mt-3" style="margin-bottom: 0;">
                         <i class="bi bi-info-circle me-2"></i>After you transfer via NEFT/RTGS, continue and upload payment proof on the confirmation screen for admin approval.
                     </div>
                 </div>
                 
-                <!-- Payment Details (online only) -->
-                <div class="section-card" id="paymentDetailsCard" style="display: none;">
-                    <h5 class="section-title">Payment Details</h5>
-                    <p class="section-description">Enter your chosen payment method details.</p>
+                <!-- Payment Details (Card) -->
+                <div class="section-card" id="cardPaymentDetails" style="display: none;">
+                    <h5 class="section-title">Card Payment Details</h5>
+                    <p class="section-description">Enter your card details.</p>
                     
                     <div class="payment-details-form">
                         <div class="row">
@@ -445,6 +449,102 @@
                         <div class="security-note">
                             All transactions are secure and encrypted.<br>
                             <a href="#">Terms & Conditions</a> | <a href="#">Privacy Policy</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- UPI Payment Details -->
+                <div class="section-card" id="upiPaymentDetails" style="display: none;">
+                    <h5 class="section-title">UPI Payment</h5>
+                    <p class="section-description">Pay using UPI ID or scan QR code.</p>
+                    
+                    <div class="payment-details-form">
+                        @if($upiQrCode && \Storage::disk('public')->exists($upiQrCode))
+                            <div class="mb-4 text-center">
+                                <label class="form-label d-block mb-3">Scan QR Code to Pay</label>
+                                <img src="{{ \Storage::url($upiQrCode) }}" alt="UPI QR Code" style="max-width: 300px; max-height: 300px; border: 2px solid #e2e8f0; border-radius: 8px; padding: 10px;">
+                            </div>
+                        @endif
+                        @if($upiId)
+                            <div class="mb-3">
+                                <label class="form-label">UPI ID</label>
+                                <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; border: 2px solid #0ea5e9;">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span style="font-size: 1.1rem; font-weight: 600; color: #0ea5e9;">{{ $upiId }}</span>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="copyUpiId('{{ $upiId }}')">
+                                            <i class="bi bi-copy"></i> Copy
+                                        </button>
+                                    </div>
+                                </div>
+                                <small class="text-muted">Use this UPI ID to make payment from your UPI app</small>
+                            </div>
+                        @endif
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>After making payment via UPI, your payment will be processed automatically.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Net Banking Payment Details -->
+                <div class="section-card" id="netbankingPaymentDetails" style="display: none;">
+                    <h5 class="section-title">Net Banking Details</h5>
+                    <p class="section-description">Bank account details for net banking payment.</p>
+                    
+                    <div class="payment-details-form">
+                        @if($bankName || $accountNumber || $ifscCode)
+                            <div class="row">
+                                @if($bankName)
+                                <div class="col-md-6 mb-3">
+                                    <div class="summary-item">
+                                        <div class="summary-label">Bank Name</div>
+                                        <div class="summary-value">{{ $bankName }}</div>
+                                    </div>
+                                </div>
+                                @endif
+                                @if($accountHolder)
+                                <div class="col-md-6 mb-3">
+                                    <div class="summary-item">
+                                        <div class="summary-label">Account Holder</div>
+                                        <div class="summary-value">{{ $accountHolder }}</div>
+                                    </div>
+                                </div>
+                                @endif
+                                @if($accountNumber)
+                                <div class="col-md-6 mb-3">
+                                    <div class="summary-item">
+                                        <div class="summary-label">Account Number</div>
+                                        <div class="summary-value">{{ $accountNumber }}</div>
+                                    </div>
+                                </div>
+                                @endif
+                                @if($ifscCode)
+                                <div class="col-md-6 mb-3">
+                                    <div class="summary-item">
+                                        <div class="summary-label">IFSC Code</div>
+                                        <div class="summary-value">{{ $ifscCode }}</div>
+                                    </div>
+                                </div>
+                                @endif
+                                @if($branch)
+                                <div class="col-md-6 mb-3">
+                                    <div class="summary-item">
+                                        <div class="summary-label">Branch</div>
+                                        <div class="summary-value">{{ $branch }}</div>
+                                    </div>
+                                </div>
+                                @endif
+                                @if($branchAddress)
+                                <div class="col-md-6 mb-3">
+                                    <div class="summary-item">
+                                        <div class="summary-label">Branch Address</div>
+                                        <div class="summary-value">{{ $branchAddress }}</div>
+                                    </div>
+                                </div>
+                                @endif
+                            </div>
+                        @endif
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>Use these bank details to complete your net banking payment.
                         </div>
                     </div>
                 </div>
@@ -513,7 +613,9 @@
                                         <span style="color: #6366f1;">(Current)</span>
                                     @endif
                                 </td>
-                                <td>₹{{ number_format($p->amount, 2) }}</td>
+                                <td>
+                                    ₹{{ number_format($p->amount, 2) }}
+                                </td>
                                 <td>
                                     @if($p->status === 'completed')
                                         <span style="color: #10b981;">✓ Paid</span>
@@ -536,9 +638,19 @@
 @push('scripts')
 <script>
 let selectedMethod = '';
-let gatewayFee = 0;
-let totalAmount = {{ $payment->amount }};
-let paymentAmount = {{ $payment->amount }};
+@php
+    $paymentAmount = $payment->amount;
+@endphp
+let paymentAmount = parseFloat({{ number_format($paymentAmount, 2, '.', '') }});
+let paymentSchedule = @json($payment->booking->payments->map(function($p) {
+    return [
+        'id' => $p->id,
+        'type' => $p->payment_type,
+        'amount' => $p->amount,
+        'status' => $p->status,
+        'due_date' => $p->due_date ? $p->due_date->format('Y-m-d') : null,
+    ];
+}));
 
 // Payment method selection
 document.querySelectorAll('.payment-method-card').forEach(card => {
@@ -553,19 +665,21 @@ document.querySelectorAll('.payment-method-card').forEach(card => {
         selectedMethod = this.getAttribute('data-method');
         document.getElementById('selectedPaymentMethod').value = selectedMethod;
         
-        // Show payment details for card/upi/netbanking
-        if (['card', 'upi', 'netbanking'].includes(selectedMethod)) {
-            document.getElementById('paymentDetailsCard').style.display = 'block';
-            gatewayFee = paymentAmount * 0.025; // 2.5% gateway fee
-        } else {
-            document.getElementById('paymentDetailsCard').style.display = 'none';
-            gatewayFee = 0;
-        }
-
-        // Offline instructions for NEFT/RTGS
-        const offlineBlock = document.getElementById('offlineInstructions');
-        if (offlineBlock) {
-            offlineBlock.style.display = ['neft', 'rtgs'].includes(selectedMethod) ? 'block' : 'none';
+        // Hide all payment detail sections
+        document.getElementById('cardPaymentDetails').style.display = 'none';
+        document.getElementById('upiPaymentDetails').style.display = 'none';
+        document.getElementById('netbankingPaymentDetails').style.display = 'none';
+        document.getElementById('offlineInstructions').style.display = 'none';
+        
+        // Show appropriate payment details based on method
+        if (selectedMethod === 'card') {
+            document.getElementById('cardPaymentDetails').style.display = 'block';
+        } else if (selectedMethod === 'upi') {
+            document.getElementById('upiPaymentDetails').style.display = 'block';
+        } else if (selectedMethod === 'netbanking') {
+            document.getElementById('netbankingPaymentDetails').style.display = 'block';
+        } else if (['neft', 'rtgs'].includes(selectedMethod)) {
+            document.getElementById('offlineInstructions').style.display = 'block';
         }
 
         // Button label text
@@ -578,15 +692,23 @@ document.querySelectorAll('.payment-method-card').forEach(card => {
             }
         }
         
-        updateGatewayFee();
+        updatePaymentAmount();
     });
 });
 
-function updateGatewayFee() {
-    document.getElementById('gatewayFee').textContent = '₹' + gatewayFee.toFixed(2);
-    let totalDue = paymentAmount + gatewayFee;
-    document.getElementById('totalDueAmount').textContent = '₹' + totalDue.toFixed(2);
-    document.getElementById('paymentButtonAmount').textContent = totalDue.toFixed(2);
+function updatePaymentAmount() {
+    // Update total due amount display
+    document.getElementById('totalDueAmount').textContent = '₹' + paymentAmount.toFixed(2);
+    document.getElementById('paymentButtonAmount').textContent = paymentAmount.toFixed(2);
+}
+
+// Copy UPI ID function
+function copyUpiId(upiId) {
+    navigator.clipboard.writeText(upiId).then(function() {
+        alert('UPI ID copied to clipboard!');
+    }, function(err) {
+        console.error('Failed to copy UPI ID:', err);
+    });
 }
 
 // Form submission
@@ -608,7 +730,7 @@ document.getElementById('paymentForm').addEventListener('submit', function(e) {
     };
     
     document.getElementById('selectedPaymentMethod').value = methodMap[selectedMethod] || selectedMethod;
-    document.getElementById('paymentAmount').value = paymentAmount;
+    document.getElementById('paymentAmount').value = paymentAmount.toFixed(2);
 });
 
 // Card number formatting

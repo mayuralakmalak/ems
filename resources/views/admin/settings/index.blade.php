@@ -562,6 +562,89 @@
     </form>
 </div>
 
+<!-- Payment Method Settings -->
+<div class="settings-section">
+    <h4 class="section-title">Payment Method Settings</h4>
+    <p class="section-subtitle">Configure payment method details for UPI, Net Banking, NEFT, and RTGS.</p>
+    
+    <form action="{{ route('admin.settings.save-payment-methods') }}" method="POST" enctype="multipart/form-data">
+        @csrf
+        
+        <!-- UPI Payment Settings -->
+        <div class="mb-4 p-3 border rounded">
+            <h5 class="mb-3">UPI Payment</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">UPI ID</label>
+                        <input type="text" name="upi_id" class="form-control" value="{{ \App\Models\Setting::get('upi_id', '') }}" placeholder="yourname@upi">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">UPI QR Code</label>
+                        <input type="file" name="upi_qr_code" class="form-control" accept="image/*">
+                        @php
+                            $existingQrCode = \App\Models\Setting::get('upi_qr_code', '');
+                        @endphp
+                        @if($existingQrCode && \Illuminate\Support\Facades\Storage::disk('public')->exists($existingQrCode))
+                            <div class="mt-2">
+                                <img src="{{ \Illuminate\Support\Facades\Storage::url($existingQrCode) }}" alt="UPI QR Code" style="max-width: 200px; max-height: 200px;" class="img-thumbnail">
+                                <p class="text-muted small mt-1">Current QR Code</p>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Net Banking & NEFT/RTGS Bank Details (Shared) -->
+        <div class="mb-4 p-3 border rounded">
+            <h5 class="mb-3">Net Banking, NEFT & RTGS Bank Details</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Bank Name</label>
+                        <input type="text" name="payment_bank_name" class="form-control" value="{{ \App\Models\Setting::get('payment_bank_name', '') }}" placeholder="Bank Name">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Account Holder Name</label>
+                        <input type="text" name="payment_account_holder" class="form-control" value="{{ \App\Models\Setting::get('payment_account_holder', '') }}" placeholder="Account Holder Name">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Account Number</label>
+                        <input type="text" name="payment_account_number" class="form-control" value="{{ \App\Models\Setting::get('payment_account_number', '') }}" placeholder="Account Number">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">IFSC Code</label>
+                        <input type="text" name="payment_ifsc_code" class="form-control" value="{{ \App\Models\Setting::get('payment_ifsc_code', '') }}" placeholder="IFSC Code">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Branch</label>
+                        <input type="text" name="payment_branch" class="form-control" value="{{ \App\Models\Setting::get('payment_branch', '') }}" placeholder="Branch Name">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Branch Address</label>
+                        <input type="text" name="payment_branch_address" class="form-control" value="{{ \App\Models\Setting::get('payment_branch_address', '') }}" placeholder="Branch Address">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <button type="submit" class="btn-save">Save Payment Method Settings</button>
+    </form>
+</div>
+
 <!-- Cancellation Charges -->
 <div class="settings-section">
     <h4 class="section-title">Cancellation Charges</h4>

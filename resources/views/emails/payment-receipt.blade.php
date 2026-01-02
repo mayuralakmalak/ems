@@ -155,15 +155,9 @@
                     <span class="detail-label">Amount:</span>
                     <span class="detail-value"><strong>₹{{ number_format($payment->amount, 2) }}</strong></span>
                 </div>
-                @if($payment->gateway_charge > 0)
-                <div class="detail-row">
-                    <span class="detail-label">Gateway Charge:</span>
-                    <span class="detail-value">₹{{ number_format($payment->gateway_charge, 2) }}</span>
-                </div>
-                @endif
                 <div class="detail-row">
                     <span class="detail-label">Total Paid:</span>
-                    <span class="detail-value"><strong>₹{{ number_format($payment->amount + ($payment->gateway_charge ?? 0), 2) }}</strong></span>
+                    <span class="detail-value"><strong>₹{{ number_format($payment->amount, 2) }}</strong></span>
                 </div>
                 @if($payment->transaction_id)
                 <div class="detail-row">
@@ -210,7 +204,6 @@
                 $boothTotal = $boothDisplay->sum(fn($b) => $b['price'] ?? 0);
                 $services = $booking->bookingServices()->with('service')->get();
                 $servicesTotal = $services->sum('total_price');
-                $gateway = $payment->gateway_charge ?? 0;
             @endphp
 
             @if($boothDisplay->isNotEmpty())
@@ -271,15 +264,9 @@
                     <td>Services Total</td>
                     <td style="text-align: right;">₹{{ number_format($servicesTotal, 2) }}</td>
                 </tr>
-                @if($gateway > 0)
-                <tr>
-                    <td>Gateway Charge</td>
-                    <td style="text-align: right;">₹{{ number_format($gateway, 2) }}</td>
-                </tr>
-                @endif
                 <tr class="total-row grand-total">
                     <td><strong>Total Paid</strong></td>
-                    <td style="text-align: right;"><strong>₹{{ number_format($payment->amount + $gateway, 2) }}</strong></td>
+                    <td style="text-align: right;"><strong>₹{{ number_format($payment->amount, 2) }}</strong></td>
                 </tr>
             </table>
 
