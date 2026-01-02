@@ -398,6 +398,11 @@
                     </div>
                     @endif
                     
+                    <div class="breakdown-item" id="gatewayFeeItem" style="display: none;">
+                        <span class="breakdown-label">Payment Gateway Fee (2.5%) <small class="text-muted">(Card/UPI/Net Banking only)</small></span>
+                        <span class="breakdown-value" id="gatewayFeeAmount">₹{{ number_format($totalGatewayFee ?? 0, 2) }}</span>
+                    </div>
+                    
                     <div class="total-due">
                         <span class="total-due-label">Total Due Amount</span>
                         <span class="total-due-value" id="totalDueAmount">₹{{ number_format($baseTotal, 2) }}</span>
@@ -723,35 +728,65 @@
                             
                             @if($hasStoredPayments)
                                 {{-- Display stored payments from database --}}
+                                @php
+                                    $installmentNumber = 0;
+                                @endphp
                                 @foreach($storedPayments as $payment)
                                 @php
-                                    // Determine payment label
-                                    $paymentLabel = 'Initial Payment';
+                                    $installmentNumber++;
                                     $isInitial = $payment->payment_type === 'initial';
+                                    $percentage = $paymentPercentages[$payment->id] ?? 0;
                                     
-                                    if (!$isInitial) {
-                                        // Count installment payments to determine which installment this is
-                                        $installmentNumber = $storedPayments
-                                            ->where('payment_type', 'installment')
-                                            ->where('id', '<=', $payment->id)
-                                            ->count();
-                                        
-                                        $ordinal = 'th';
-                                        if ($installmentNumber == 1) $ordinal = 'st';
-                                        elseif ($installmentNumber == 2) $ordinal = 'nd';
-                                        elseif ($installmentNumber == 3) $ordinal = 'rd';
-                                        
-                                        $paymentLabel = $installmentNumber . $ordinal . ' Installment Payment';
+                                    // Determine payment label - All payments are numbered sequentially
+                                    // Initial payment is always 1st installment
+                                    $ordinal = 'th';
+                                    if ($installmentNumber == 1) $ordinal = 'st';
+                                    elseif ($installmentNumber == 2) $ordinal = 'nd';
+                                    elseif ($installmentNumber == 3) $ordinal = 'rd';
+                                    elseif ($installmentNumber == 4) $ordinal = 'th';
+                                    elseif ($installmentNumber >= 5) $ordinal = 'th';
+                                    
+                                    if ($isInitial) {
+                                        $paymentLabel = $installmentNumber . $ordinal . ' Installment (Initial Payment)';
+                                    } else {
+                                        $paymentLabel = $installmentNumber . $ordinal . ' Installment';
                                     }
+                                    
+                                    // Get gateway fee for this payment
+                                    $paymentGatewayFee = $gatewayFeePerPayment[$payment->id] ?? ($payment->gateway_charge ?? 0);
+                                    
+                                    // Use correct amount from schedule if available, otherwise use stored amount
+                                    $displayAmount = $paymentCorrectAmounts[$payment->id] ?? $payment->amount;
+                                    $paymentAmountWithFee = $displayAmount + $paymentGatewayFee;
+                                    
+                                    // Use correct due date from schedule if available
+                                    $displayDueDate = $paymentCorrectDueDates[$payment->id] ?? $payment->due_date;
                                 @endphp
-                                <tr class="{{ $isInitial ? 'due-today' : '' }}">
-                                    <td>{{ $paymentLabel }}</td>
-                                    <td>₹{{ number_format($payment->amount, 2) }}</td>
+                                <tr class="{{ $isInitial ? 'due-today' : '' }}" data-payment-id="{{ $payment->id }}" data-base-amount="{{ $displayAmount }}" data-gateway-fee="{{ $paymentGatewayFee }}">
+                                    <td>
+                                        <div>{{ $paymentLabel }}</div>
+                                        <small class="text-muted">({{ number_format($percentage, 2) }}%)</small>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <span class="payment-amount-base">₹{{ number_format($displayAmount, 2) }}</span>
+                                            <span class="payment-gateway-fee" style="display: none;"> + ₹<span class="gateway-fee-value">{{ number_format($paymentGatewayFee, 2) }}</span></span>
+                                        </div>
+                                        <small class="payment-total-with-fee" style="display: none; color: #6366f1; font-weight: 600;">Total: ₹<span class="total-amount-value">{{ number_format($paymentAmountWithFee, 2) }}</span></small>
+                                    </td>
                                     <td>
                                         @if($isInitial)
                                             Today
                                         @else
-                                            {{ $payment->due_date ? $payment->due_date->format('Y.m.d') : 'N/A' }}
+                                            @if($displayDueDate)
+                                                @if($displayDueDate instanceof \Carbon\Carbon || $displayDueDate instanceof \DateTime)
+                                                    {{ $displayDueDate->format('Y.m.d') }}
+                                                @else
+                                                    {{ \Carbon\Carbon::parse($displayDueDate)->format('Y.m.d') }}
+                                                @endif
+                                            @else
+                                                N/A
+                                            @endif
                                         @endif
                                     </td>
                                 </tr>
@@ -760,7 +795,12 @@
                                 {{-- Fallback: If no stored payments exist yet, show initial payment only --}}
                                 <tr class="due-today">
                                     <td>Initial Payment</td>
-                                    <td>₹{{ number_format($initialAmount, 2) }}</td>
+                                    <td>
+                                        <span class="payment-amount-base">₹{{ number_format($initialAmount, 2) }}</span>
+                                        <span class="payment-gateway-fee" style="display: none;"> + ₹<span class="gateway-fee-value">{{ number_format($gatewayCharge ?? 0, 2) }}</span></span>
+                                        <br>
+                                        <small class="payment-total-with-fee" style="display: none; color: #6366f1; font-weight: 600;">Total: ₹<span class="total-amount-value">{{ number_format($initialAmount + ($gatewayCharge ?? 0), 2) }}</span></small>
+                                    </td>
                                     <td>Today</td>
                                 </tr>
                             @endif
@@ -778,6 +818,8 @@ let selectedMethod = '';
 // Base total = Booth Rental + Services
 let baseTotal = {{ $baseTotal }};
 let initialAmount = {{ $initialAmount }};
+let gatewayCharge = {{ number_format($gatewayCharge ?? 0, 2, '.', '') }}; // Gateway fee for current payment
+let totalGatewayFee = {{ number_format($totalGatewayFee ?? 0, 2, '.', '') }}; // Total gateway fee for all payments
 
 // Payment method selection
 document.querySelectorAll('.payment-method-card').forEach(card => {
@@ -837,9 +879,73 @@ document.querySelectorAll('.payment-method-card').forEach(card => {
 });
 
 function updatePaymentAmount() {
-    // Update total due amount display
-    document.getElementById('totalDueAmount').textContent = '₹' + baseTotal.toFixed(2);
-    document.getElementById('paymentButtonAmount').textContent = initialAmount.toFixed(2);
+    // Gateway fee (2.5%) ONLY applies to: Credit/Debit Card, UPI, and Net Banking
+    // Wallet, NEFT, and RTGS do NOT have gateway fees
+    const isOnlineMethod = ['card', 'upi', 'netbanking'].includes(selectedMethod);
+    const gatewayFeeItem = document.getElementById('gatewayFeeItem');
+    const gatewayFeeAmount = document.getElementById('gatewayFeeAmount');
+    const totalDueAmount = document.getElementById('totalDueAmount');
+    const paymentButtonAmount = document.getElementById('paymentButtonAmount');
+    
+    // Show/hide gateway fee based on payment method
+    if (isOnlineMethod && totalGatewayFee > 0) {
+        // Show total gateway fee in breakdown
+        gatewayFeeItem.style.display = 'flex';
+        gatewayFeeAmount.textContent = '₹' + totalGatewayFee.toFixed(2);
+        
+        // Update total due amount to include gateway fee (baseTotal + totalGatewayFee)
+        const totalWithGatewayFee = baseTotal + totalGatewayFee;
+        totalDueAmount.textContent = '₹' + totalWithGatewayFee.toFixed(2);
+        
+        // Update payment button with current payment + gateway fee for this specific payment
+        const paymentWithFee = initialAmount + gatewayCharge;
+        paymentButtonAmount.textContent = paymentWithFee.toFixed(2);
+        
+        // Update payment schedule to show gateway fees
+        document.querySelectorAll('[data-payment-id]').forEach(row => {
+            const baseAmount = parseFloat(row.dataset.baseAmount);
+            const fee = parseFloat(row.dataset.gatewayFee);
+            const gatewayFeeSpan = row.querySelector('.payment-gateway-fee');
+            const totalWithFeeSpan = row.querySelector('.payment-total-with-fee');
+            const gatewayFeeValue = row.querySelector('.gateway-fee-value');
+            const totalAmountValue = row.querySelector('.total-amount-value');
+            
+            if (gatewayFeeSpan && totalWithFeeSpan && gatewayFeeValue && totalAmountValue) {
+                gatewayFeeSpan.style.display = 'inline';
+                totalWithFeeSpan.style.display = 'block';
+                gatewayFeeValue.textContent = fee.toFixed(2);
+                totalAmountValue.textContent = (baseAmount + fee).toFixed(2);
+            }
+        });
+        
+        // Update fallback payment row if exists
+        const fallbackRow = document.querySelector('.due-today:not([data-payment-id])');
+        if (fallbackRow) {
+            const gatewayFeeSpan = fallbackRow.querySelector('.payment-gateway-fee');
+            const totalWithFeeSpan = fallbackRow.querySelector('.payment-total-with-fee');
+            const gatewayFeeValue = fallbackRow.querySelector('.gateway-fee-value');
+            const totalAmountValue = fallbackRow.querySelector('.total-amount-value');
+            
+            if (gatewayFeeSpan && totalWithFeeSpan && gatewayFeeValue && totalAmountValue) {
+                gatewayFeeSpan.style.display = 'inline';
+                totalWithFeeSpan.style.display = 'block';
+                gatewayFeeValue.textContent = gatewayCharge.toFixed(2);
+                totalAmountValue.textContent = (initialAmount + gatewayCharge).toFixed(2);
+            }
+        }
+    } else {
+        // Hide gateway fee
+        gatewayFeeItem.style.display = 'none';
+        
+        // Show base total without gateway fee
+        totalDueAmount.textContent = '₹' + baseTotal.toFixed(2);
+        paymentButtonAmount.textContent = initialAmount.toFixed(2);
+        
+        // Hide gateway fees in payment schedule
+        document.querySelectorAll('.payment-gateway-fee, .payment-total-with-fee').forEach(el => {
+            el.style.display = 'none';
+        });
+    }
 }
 
 // Form submission
@@ -861,7 +967,15 @@ document.getElementById('paymentForm').addEventListener('submit', function(e) {
     };
     
     document.getElementById('selectedPaymentMethod').value = methodMap[selectedMethod] || selectedMethod;
-    document.getElementById('paymentAmount').value = initialAmount.toFixed(2);
+    
+    // Calculate final payment amount (include gateway fee ONLY for card/upi/netbanking)
+    // Gateway fee does NOT apply to wallet, neft, or rtgs
+    const isOnlineMethod = ['card', 'upi', 'netbanking'].includes(selectedMethod);
+    const finalAmount = isOnlineMethod && gatewayCharge > 0 
+        ? (parseFloat(initialAmount) + parseFloat(gatewayCharge))
+        : parseFloat(initialAmount);
+    
+    document.getElementById('paymentAmount').value = finalAmount.toFixed(2);
 });
 
 // Card number formatting
@@ -888,6 +1002,11 @@ function copyUpiId(upiId) {
         console.error('Failed to copy UPI ID:', err);
     });
 }
+
+// Initialize payment amount display on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updatePaymentAmount();
+});
 </script>
 @endpush
 @endsection

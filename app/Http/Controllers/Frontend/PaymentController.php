@@ -120,6 +120,47 @@ class PaymentController extends Controller
             ->orderByRaw("CASE WHEN payment_type = 'initial' THEN 1 ELSE 2 END")
             ->orderBy('due_date', 'asc')
             ->get();
+        
+        // Calculate percentage and correct amount for each payment
+        // Try to get from payment schedule first (original percentage), otherwise calculate from amount
+        $paymentPercentages = [];
+        $paymentCorrectAmounts = []; // Store correct amounts based on schedule
+        $paymentCorrectDueDates = []; // Store correct due dates from schedule
+        $exhibitionPaymentSchedules = $booking->exhibition->paymentSchedules()->orderBy('part_number', 'asc')->get();
+        
+        $paymentIndex = 0;
+        foreach ($storedPayments as $payment) {
+            $paymentIndex++;
+            
+            // Try to get percentage and due date from payment schedule (original values used when booking was created)
+            $schedulePercentage = null;
+            $scheduleDueDate = null;
+            if ($exhibitionPaymentSchedules->count() > 0 && isset($exhibitionPaymentSchedules[$paymentIndex - 1])) {
+                $schedule = $exhibitionPaymentSchedules[$paymentIndex - 1];
+                $schedulePercentage = $schedule->percentage;
+                $scheduleDueDate = $schedule->due_date;
+            }
+            
+            // Use schedule percentage if available, otherwise calculate from stored amount
+            if ($schedulePercentage !== null) {
+                $paymentPercentages[$payment->id] = round($schedulePercentage, 2);
+                // Calculate correct amount based on schedule percentage
+                $paymentCorrectAmounts[$payment->id] = round(($booking->total_amount * $schedulePercentage) / 100, 2);
+            } elseif ($booking->total_amount > 0) {
+                $paymentPercentages[$payment->id] = round(($payment->amount / $booking->total_amount) * 100, 2);
+                $paymentCorrectAmounts[$payment->id] = $payment->amount; // Use stored amount if no schedule
+            } else {
+                $paymentPercentages[$payment->id] = 0;
+                $paymentCorrectAmounts[$payment->id] = 0;
+            }
+            
+            // Store correct due date from schedule if available
+            if ($scheduleDueDate) {
+                $paymentCorrectDueDates[$payment->id] = $scheduleDueDate;
+            } else {
+                $paymentCorrectDueDates[$payment->id] = $payment->due_date; // Use stored due date if no schedule
+            }
+        }
 
         // Load payment method settings
         $paymentMethodSettings = Setting::getByGroup('payment_methods');
@@ -131,6 +172,61 @@ class PaymentController extends Controller
         $ifscCode = $paymentMethodSettings['payment_ifsc_code'] ?? '';
         $branch = $paymentMethodSettings['payment_branch'] ?? '';
         $branchAddress = $paymentMethodSettings['payment_branch_address'] ?? '';
+
+        // Get gateway charge for the current payment (if specific payment) or first pending payment
+        $currentPayment = $specificPayment ?? $booking->payments()
+            ->where('status', 'pending')
+            ->orderByRaw("CASE WHEN payment_type = 'initial' THEN 1 ELSE 2 END")
+            ->orderBy('due_date', 'asc')
+            ->first();
+        
+        // Get all payments to calculate total gateway fee from stored values
+        $allPayments = $booking->payments()
+            ->orderByRaw("CASE WHEN payment_type = 'initial' THEN 1 ELSE 2 END")
+            ->orderBy('due_date', 'asc')
+            ->get();
+        
+        // Calculate total gateway fee from stored payment gateway charges (if they exist)
+        // This ensures we use the exact values stored during booking creation - NO DOUBLE CALCULATION
+        $totalGatewayFee = $allPayments->sum(function($payment) {
+            return $payment->gateway_charge ?? 0;
+        });
+        
+        // If total gateway fee is 0 (old bookings or not set), calculate it ONCE
+        if ($totalGatewayFee == 0) {
+            // Calculate 2.5% of total booking amount (ONLY ONCE)
+            $totalGatewayFee = ($booking->total_amount * 2.5) / 100;
+            
+            // Distribute across all payments
+            $totalPayments = $allPayments->count();
+            if ($totalPayments > 0 && $totalGatewayFee > 0) {
+                $baseFeePerPayment = floor($totalGatewayFee * 100 / $totalPayments) / 100;
+                $remainingFee = $totalGatewayFee - ($baseFeePerPayment * $totalPayments);
+                $remainingFeeCents = round($remainingFee * 100);
+                
+                foreach ($allPayments as $index => $payment) {
+                    $paymentGatewayFee = $baseFeePerPayment;
+                    if ($remainingFeeCents > 0 && $index < $remainingFeeCents) {
+                        $paymentGatewayFee += 0.01;
+                    }
+                    // Store calculated fee for display (but don't update database)
+                    $payment->calculated_gateway_charge = round($paymentGatewayFee, 2);
+                }
+            }
+        }
+        
+        // Get gateway charge for current payment (use stored value, not recalculated)
+        $gatewayCharge = 0;
+        if ($currentPayment) {
+            // Use stored gateway charge, or calculated one if stored is 0
+            $gatewayCharge = $currentPayment->gateway_charge ?? ($currentPayment->calculated_gateway_charge ?? 0);
+        }
+        
+        // Build gateway fee per payment array from stored or calculated values
+        $gatewayFeePerPayment = [];
+        foreach ($allPayments as $payment) {
+            $gatewayFeePerPayment[$payment->id] = $payment->gateway_charge ?? ($payment->calculated_gateway_charge ?? 0);
+        }
 
         return view('frontend.payments.create', compact(
             'booking', 
@@ -147,7 +243,13 @@ class PaymentController extends Controller
             'accountNumber',
             'ifscCode',
             'branch',
-            'branchAddress'
+            'branchAddress',
+            'gatewayCharge',
+            'totalGatewayFee',
+            'gatewayFeePerPayment',
+            'paymentPercentages',
+            'paymentCorrectAmounts',
+            'paymentCorrectDueDates'
         ));
     }
 
@@ -185,6 +287,89 @@ class PaymentController extends Controller
         $branch = $paymentMethodSettings['payment_branch'] ?? '';
         $branchAddress = $paymentMethodSettings['payment_branch_address'] ?? '';
 
+        // Get all payments to calculate total gateway fee from stored values
+        $allPayments = $booking->payments()
+            ->orderByRaw("CASE WHEN payment_type = 'initial' THEN 1 ELSE 2 END")
+            ->orderBy('due_date', 'asc')
+            ->get();
+        
+        // Get payment schedule to calculate correct amounts and due dates
+        $exhibitionPaymentSchedules = $booking->exhibition->paymentSchedules()->orderBy('part_number', 'asc')->get();
+        $paymentCorrectAmounts = [];
+        $paymentCorrectDueDates = [];
+        $paymentPercentages = [];
+        
+        $paymentIndex = 0;
+        foreach ($allPayments as $p) {
+            $paymentIndex++;
+            
+            // Get schedule data for this payment
+            $schedulePercentage = null;
+            $scheduleDueDate = null;
+            if ($exhibitionPaymentSchedules->count() > 0 && isset($exhibitionPaymentSchedules[$paymentIndex - 1])) {
+                $schedule = $exhibitionPaymentSchedules[$paymentIndex - 1];
+                $schedulePercentage = $schedule->percentage;
+                $scheduleDueDate = $schedule->due_date;
+            }
+            
+            // Store correct amount and percentage
+            if ($schedulePercentage !== null) {
+                $paymentPercentages[$p->id] = round($schedulePercentage, 2);
+                $paymentCorrectAmounts[$p->id] = round(($booking->total_amount * $schedulePercentage) / 100, 2);
+            } elseif ($booking->total_amount > 0) {
+                $paymentPercentages[$p->id] = round(($p->amount / $booking->total_amount) * 100, 2);
+                $paymentCorrectAmounts[$p->id] = $p->amount;
+            } else {
+                $paymentPercentages[$p->id] = 0;
+                $paymentCorrectAmounts[$p->id] = 0;
+            }
+            
+            // Store correct due date
+            if ($scheduleDueDate) {
+                $paymentCorrectDueDates[$p->id] = $scheduleDueDate;
+            } else {
+                $paymentCorrectDueDates[$p->id] = $p->due_date;
+            }
+        }
+        
+        // Calculate total gateway fee from stored payment gateway charges (if they exist)
+        // This ensures we use the exact values stored during booking creation
+        $totalGatewayFee = $allPayments->sum(function($p) {
+            return $p->gateway_charge ?? 0;
+        });
+        
+        // If total gateway fee is 0 (old bookings or not set), calculate it
+        if ($totalGatewayFee == 0) {
+            // Calculate 2.5% of total booking amount
+            $totalGatewayFee = ($booking->total_amount * 2.5) / 100;
+            
+            // Distribute across all payments
+            $totalPayments = $allPayments->count();
+            if ($totalPayments > 0 && $totalGatewayFee > 0) {
+                $baseFeePerPayment = floor($totalGatewayFee * 100 / $totalPayments) / 100;
+                $remainingFee = $totalGatewayFee - ($baseFeePerPayment * $totalPayments);
+                $remainingFeeCents = round($remainingFee * 100);
+                
+                foreach ($allPayments as $index => $p) {
+                    $paymentGatewayFee = $baseFeePerPayment;
+                    if ($remainingFeeCents > 0 && $index < $remainingFeeCents) {
+                        $paymentGatewayFee += 0.01;
+                    }
+                    // Store calculated fee for display (but don't update database)
+                    $p->calculated_gateway_charge = round($paymentGatewayFee, 2);
+                }
+            }
+        }
+        
+        // Get gateway charge for this payment
+        $gatewayCharge = $payment->gateway_charge ?? ($payment->calculated_gateway_charge ?? 0);
+        
+        // Build gateway fee per payment array from stored or calculated values
+        $gatewayFeePerPayment = [];
+        foreach ($allPayments as $p) {
+            $gatewayFeePerPayment[$p->id] = $p->gateway_charge ?? ($p->calculated_gateway_charge ?? 0);
+        }
+
         return view('frontend.payments.pay', compact(
             'payment',
             'booking',
@@ -199,7 +384,13 @@ class PaymentController extends Controller
             'accountNumber',
             'ifscCode',
             'branch',
-            'branchAddress'
+            'branchAddress',
+            'gatewayCharge',
+            'totalGatewayFee',
+            'gatewayFeePerPayment',
+            'paymentCorrectAmounts',
+            'paymentCorrectDueDates',
+            'paymentPercentages'
         ));
     }
 
@@ -273,16 +464,28 @@ class PaymentController extends Controller
             $scheduledAmount = $payment->amount;
             $isCompleted = $request->payment_method === 'wallet';
             
+            // Determine gateway charge based on payment method
+            // Gateway fee (2.5%) ONLY applies to: Credit/Debit Card, UPI, and Net Banking
+            // These methods are mapped to 'online' in the frontend
+            // Wallet, NEFT, and RTGS do NOT have gateway fees
+            $gatewayCharge = 0;
+            if ($request->payment_method === 'online' && $payment->gateway_charge > 0) {
+                // Use the stored gateway charge for online payments (card/upi/netbanking only)
+                $gatewayCharge = $payment->gateway_charge;
+            }
+            // For wallet, neft, rtgs - no gateway charge (gatewayCharge remains 0)
+            
             $payment->update([
                 'payment_method' => $request->payment_method,
                 'status' => $isCompleted ? 'completed' : 'pending',
                 'approval_status' => $isCompleted ? 'approved' : 'pending',
-                'gateway_charge' => 0,
+                'gateway_charge' => $gatewayCharge, // Preserve gateway charge for online, 0 for others
                 'paid_at' => $isCompleted ? now() : null,
                 'transaction_id' => $request->transaction_id ?? null,
             ]);
             
             // Only update booking paid_amount if payment is completed (wallet payment)
+            // Use base amount (without gateway fee) for booking paid_amount
             if ($isCompleted) {
                 $booking->paid_amount += $scheduledAmount;
                 
@@ -312,6 +515,17 @@ class PaymentController extends Controller
             // Fallback: Create new payment if no existing pending payment found (backward compatibility)
             $isCompleted = $request->payment_method === 'wallet';
             
+            // Determine gateway charge based on payment method
+            // Gateway fee (2.5%) ONLY applies to: Credit/Debit Card, UPI, and Net Banking
+            // These methods are mapped to 'online' in the frontend
+            // Wallet, NEFT, and RTGS do NOT have gateway fees
+            $gatewayCharge = 0;
+            if ($request->payment_method === 'online') {
+                // Calculate gateway fee: 2.5% of the amount
+                // Note: This fallback case should rarely occur as payments are created during booking
+                $gatewayCharge = ($amount * 2.5) / 100;
+            }
+            
             $payment = Payment::create([
                 'booking_id' => $booking->id,
                 'user_id' => $user->id,
@@ -321,12 +535,13 @@ class PaymentController extends Controller
                 'status' => $isCompleted ? 'completed' : 'pending',
                 'approval_status' => $isCompleted ? 'approved' : 'pending',
                 'amount' => $amount,
-                'gateway_charge' => 0,
+                'gateway_charge' => $gatewayCharge,
                 'paid_at' => $isCompleted ? now() : null,
                 'transaction_id' => $request->transaction_id ?? null,
             ]);
             
             // Only update booking paid_amount if payment is completed (wallet payment)
+            // Use base amount (without gateway fee) for booking paid_amount
             if ($isCompleted) {
                 $booking->paid_amount += $amount;
                 

@@ -288,6 +288,11 @@
                         <span class="breakdown-value">₹{{ number_format($payment->amount, 2) }}</span>
                     </div>
                     
+                    <div class="breakdown-item" id="gatewayFeeItem" style="display: none;">
+                        <span class="breakdown-label">Payment Gateway Fee (2.5%) <small class="text-muted">(Card/UPI/Net Banking only)</small></span>
+                        <span class="breakdown-value" id="gatewayFeeAmount">₹{{ number_format($totalGatewayFee ?? 0, 2) }}</span>
+                    </div>
+                    
                     <div class="total-due">
                         <span class="total-due-label">Total Amount to Pay</span>
                         <span class="total-due-value" id="totalDueAmount">₹{{ number_format($payment->amount, 2) }}</span>
@@ -603,18 +608,61 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($payment->booking->payments->sortBy(function($p) {
-                                return $p->payment_type === 'initial' ? 1 : 2;
-                            })->sortBy('due_date') as $p)
-                            <tr class="{{ $p->id === $payment->id ? 'current-payment-row' : '' }}">
+                            @php
+                                // Get all payments and sort properly: initial first, then by due_date
+                                $allPayments = $payment->booking->payments;
+                                
+                                // Separate initial and installment payments
+                                $initialPayments = $allPayments->where('payment_type', 'initial')->sortBy('due_date');
+                                $installmentPayments = $allPayments->where('payment_type', 'installment')->sortBy('due_date');
+                                
+                                // Combine: initial first, then installments
+                                $sortedPayments = $initialPayments->concat($installmentPayments);
+                                
+                                $installmentNumber = 0;
+                            @endphp
+                            @foreach($sortedPayments as $p)
+                            @php
+                                $installmentNumber++; // This MUST increment for each payment
+                                $isInitial = $p->payment_type === 'initial';
+                                
+                                // Get percentage, correct amount, and due date from arrays passed from controller
+                                $percentage = $paymentPercentages[$p->id] ?? ($booking->total_amount > 0 ? round(($p->amount / $booking->total_amount) * 100, 2) : 0);
+                                $displayAmount = $paymentCorrectAmounts[$p->id] ?? $p->amount;
+                                $displayDueDate = $paymentCorrectDueDates[$p->id] ?? $p->due_date;
+                                
+                                // Determine payment label - All payments are numbered sequentially
+                                // Initial payment is always 1st installment
+                                $ordinal = 'th';
+                                if ($installmentNumber == 1) $ordinal = 'st';
+                                elseif ($installmentNumber == 2) $ordinal = 'nd';
+                                elseif ($installmentNumber == 3) $ordinal = 'rd';
+                                elseif ($installmentNumber == 4) $ordinal = 'th';
+                                elseif ($installmentNumber >= 5) $ordinal = 'th';
+                                
+                                if ($isInitial) {
+                                    $paymentLabel = $installmentNumber . $ordinal . ' Installment (Initial)';
+                                } else {
+                                    $paymentLabel = $installmentNumber . $ordinal . ' Installment';
+                                }
+                                
+                                $paymentGatewayFee = $gatewayFeePerPayment[$p->id] ?? ($p->gateway_charge ?? 0);
+                                $paymentAmountWithFee = $displayAmount + $paymentGatewayFee;
+                            @endphp
+                            <tr class="{{ $p->id === $payment->id ? 'current-payment-row' : '' }}" data-payment-id="{{ $p->id }}" data-base-amount="{{ $displayAmount }}" data-gateway-fee="{{ $paymentGatewayFee }}">
                                 <td>
-                                    {{ ucfirst($p->payment_type) }}
+                                    <div>{{ $paymentLabel }}</div>
+                                    <small class="text-muted">({{ number_format($percentage, 2) }}%)</small>
                                     @if($p->id === $payment->id)
-                                        <span style="color: #6366f1;">(Current)</span>
+                                        <span style="color: #6366f1; display: block; margin-top: 4px;">(Current)</span>
                                     @endif
                                 </td>
                                 <td>
-                                    ₹{{ number_format($p->amount, 2) }}
+                                    <div>
+                                        <span class="payment-amount-base">₹{{ number_format($displayAmount, 2) }}</span>
+                                        <span class="payment-gateway-fee" style="display: none;"> + ₹<span class="gateway-fee-value">{{ number_format($paymentGatewayFee, 2) }}</span></span>
+                                    </div>
+                                    <small class="payment-total-with-fee" style="display: none; color: #6366f1; font-weight: 600;">Total: ₹<span class="total-amount-value">{{ number_format($paymentAmountWithFee, 2) }}</span></small>
                                 </td>
                                 <td>
                                     @if($p->status === 'completed')
@@ -642,6 +690,8 @@ let selectedMethod = '';
     $paymentAmount = $payment->amount;
 @endphp
 let paymentAmount = parseFloat({{ number_format($paymentAmount, 2, '.', '') }});
+let gatewayCharge = parseFloat({{ number_format($gatewayCharge ?? 0, 2, '.', '') }}); // Gateway fee for current payment
+let totalGatewayFee = parseFloat({{ number_format($totalGatewayFee ?? 0, 2, '.', '') }}); // Total gateway fee for all payments
 let paymentSchedule = @json($payment->booking->payments->map(function($p) {
     return [
         'id' => $p->id,
@@ -697,9 +747,56 @@ document.querySelectorAll('.payment-method-card').forEach(card => {
 });
 
 function updatePaymentAmount() {
-    // Update total due amount display
-    document.getElementById('totalDueAmount').textContent = '₹' + paymentAmount.toFixed(2);
-    document.getElementById('paymentButtonAmount').textContent = paymentAmount.toFixed(2);
+    // Gateway fee (2.5%) ONLY applies to: Credit/Debit Card, UPI, and Net Banking
+    // Wallet, NEFT, and RTGS do NOT have gateway fees
+    const isOnlineMethod = ['card', 'upi', 'netbanking'].includes(selectedMethod);
+    const gatewayFeeItem = document.getElementById('gatewayFeeItem');
+    const gatewayFeeAmount = document.getElementById('gatewayFeeAmount');
+    const totalDueAmount = document.getElementById('totalDueAmount');
+    const paymentButtonAmount = document.getElementById('paymentButtonAmount');
+    
+    // Show/hide gateway fee based on payment method
+    if (isOnlineMethod && totalGatewayFee > 0) {
+        // Show total gateway fee in breakdown
+        gatewayFeeItem.style.display = 'flex';
+        gatewayFeeAmount.textContent = '₹' + totalGatewayFee.toFixed(2);
+        
+        // Update total due amount to include gateway fee (paymentAmount + gatewayCharge for this payment)
+        const totalWithGatewayFee = paymentAmount + gatewayCharge;
+        totalDueAmount.textContent = '₹' + totalWithGatewayFee.toFixed(2);
+        
+        // Update payment button with current payment + gateway fee
+        const paymentWithFee = paymentAmount + gatewayCharge;
+        paymentButtonAmount.textContent = paymentWithFee.toFixed(2);
+        
+        // Update payment schedule to show gateway fees
+        document.querySelectorAll('[data-payment-id]').forEach(row => {
+            const baseAmount = parseFloat(row.dataset.baseAmount);
+            const fee = parseFloat(row.dataset.gatewayFee);
+            const gatewayFeeSpan = row.querySelector('.payment-gateway-fee');
+            const totalWithFeeSpan = row.querySelector('.payment-total-with-fee');
+            const gatewayFeeValue = row.querySelector('.gateway-fee-value');
+            const totalAmountValue = row.querySelector('.total-amount-value');
+            
+            if (gatewayFeeSpan && totalWithFeeSpan && gatewayFeeValue && totalAmountValue) {
+                gatewayFeeSpan.style.display = 'inline';
+                totalWithFeeSpan.style.display = 'block';
+                gatewayFeeValue.textContent = fee.toFixed(2);
+                totalAmountValue.textContent = (baseAmount + fee).toFixed(2);
+            }
+        });
+    } else {
+        gatewayFeeItem.style.display = 'none';
+        
+        // Show base amount without gateway fee
+        totalDueAmount.textContent = '₹' + paymentAmount.toFixed(2);
+        paymentButtonAmount.textContent = paymentAmount.toFixed(2);
+        
+        // Hide gateway fees in payment schedule
+        document.querySelectorAll('.payment-gateway-fee, .payment-total-with-fee').forEach(el => {
+            el.style.display = 'none';
+        });
+    }
 }
 
 // Copy UPI ID function
@@ -730,7 +827,15 @@ document.getElementById('paymentForm').addEventListener('submit', function(e) {
     };
     
     document.getElementById('selectedPaymentMethod').value = methodMap[selectedMethod] || selectedMethod;
-    document.getElementById('paymentAmount').value = paymentAmount.toFixed(2);
+    
+    // Calculate final payment amount (include gateway fee ONLY for card/upi/netbanking)
+    // Gateway fee does NOT apply to wallet, neft, or rtgs
+    const isOnlineMethod = ['card', 'upi', 'netbanking'].includes(selectedMethod);
+    const finalAmount = isOnlineMethod && gatewayCharge > 0 
+        ? (paymentAmount + gatewayCharge)
+        : paymentAmount;
+    
+    document.getElementById('paymentAmount').value = finalAmount.toFixed(2);
 });
 
 // Card number formatting
@@ -747,6 +852,11 @@ document.querySelector('input[placeholder="MM/YY"]')?.addEventListener('input', 
         value = value.substring(0, 2) + '/' + value.substring(2, 4);
     }
     e.target.value = value;
+});
+
+// Initialize payment amount display on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updatePaymentAmount();
 });
 </script>
 @endpush

@@ -767,43 +767,83 @@ class BookingController extends Controller
             // use the updated payment schedule percentages.
             $paymentSchedules = $exhibition->paymentSchedules()->orderBy('part_number', 'asc')->get();
             
+            // Calculate gateway fee: 2.5% of total amount
+            $gatewayFeePercent = 2.5;
+            $totalGatewayFee = ($totalAmount * $gatewayFeePercent) / 100;
+            
+            // Prepare payment records first to calculate distribution
+            $paymentRecords = [];
+            
             if ($paymentSchedules->isEmpty()) {
                 // Fallback: If no payment schedule exists, create a single initial payment
                 // using the initial_payment_percent from exhibition
                 $initialPercent = $exhibition->initial_payment_percent ?? 10;
                 $initialAmount = ($totalAmount * $initialPercent) / 100;
                 
-                Payment::create([
-                    'booking_id' => $booking->id,
-                    'user_id' => $user->id,
-                    'payment_number' => 'PM' . now()->format('YmdHis') . str_pad($booking->id, 6, '0', STR_PAD_LEFT) . rand(10, 99),
+                $paymentRecords[] = [
                     'payment_type' => 'initial',
-                    'payment_method' => 'online', // Default, will be updated when user makes payment
-                    'status' => 'pending',
-                    'approval_status' => 'pending',
                     'amount' => round($initialAmount, 2),
-                    'gateway_charge' => 0,
                     'due_date' => now()->addDays(7), // Default 7 days for initial payment
-                ]);
+                ];
             } else {
                 // Create payment records for all parts based on payment schedule
                 foreach ($paymentSchedules as $schedule) {
                     $paymentAmount = ($totalAmount * $schedule->percentage) / 100;
                     $paymentType = $schedule->part_number == 1 ? 'initial' : 'installment';
                     
-                    Payment::create([
-                        'booking_id' => $booking->id,
-                        'user_id' => $user->id,
-                        'payment_number' => 'PM' . now()->format('YmdHis') . str_pad($booking->id, 6, '0', STR_PAD_LEFT) . str_pad($schedule->part_number, 2, '0', STR_PAD_LEFT) . rand(10, 99),
+                    $paymentRecords[] = [
                         'payment_type' => $paymentType,
-                        'payment_method' => 'online', // Default, will be updated when user makes payment
-                        'status' => 'pending',
-                        'approval_status' => 'pending',
                         'amount' => round($paymentAmount, 2),
-                        'gateway_charge' => 0,
                         'due_date' => $schedule->due_date,
-                    ]);
+                    ];
                 }
+            }
+            
+            // Distribute gateway fee across all payments
+            $paymentCount = count($paymentRecords);
+            if ($paymentCount > 0 && $totalGatewayFee > 0) {
+                // Calculate base fee per payment (rounded down)
+                $baseFeePerPayment = floor($totalGatewayFee * 100 / $paymentCount) / 100;
+                $remainingFee = $totalGatewayFee - ($baseFeePerPayment * $paymentCount);
+                
+                // Distribute remaining fee (due to rounding) to first payments
+                $remainingFeeCents = round($remainingFee * 100);
+                
+                foreach ($paymentRecords as $index => &$record) {
+                    $gatewayCharge = $baseFeePerPayment;
+                    
+                    // Add 1 cent (0.01) to first payments if there's remaining fee
+                    if ($remainingFeeCents > 0) {
+                        $gatewayCharge += 0.01;
+                        $remainingFeeCents--;
+                    }
+                    
+                    $record['gateway_charge'] = round($gatewayCharge, 2);
+                }
+            } else {
+                // No payments or no gateway fee
+                foreach ($paymentRecords as &$record) {
+                    $record['gateway_charge'] = 0;
+                }
+            }
+            
+            // Create payment records in database
+            foreach ($paymentRecords as $index => $record) {
+                $paymentType = $record['payment_type'];
+                $partNumber = $paymentSchedules->isEmpty() ? 1 : ($index + 1);
+                
+                Payment::create([
+                    'booking_id' => $booking->id,
+                    'user_id' => $user->id,
+                    'payment_number' => 'PM' . now()->format('YmdHis') . str_pad($booking->id, 6, '0', STR_PAD_LEFT) . str_pad($partNumber, 2, '0', STR_PAD_LEFT) . rand(10, 99),
+                    'payment_type' => $paymentType,
+                    'payment_method' => 'online', // Default, will be updated when user makes payment
+                    'status' => 'pending',
+                    'approval_status' => 'pending',
+                    'amount' => $record['amount'],
+                    'gateway_charge' => $record['gateway_charge'],
+                    'due_date' => $record['due_date'],
+                ]);
             }
 
             DB::commit();
