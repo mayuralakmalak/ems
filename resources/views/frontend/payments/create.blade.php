@@ -762,7 +762,7 @@
                                     // Use correct due date from schedule if available
                                     $displayDueDate = $paymentCorrectDueDates[$payment->id] ?? $payment->due_date;
                                 @endphp
-                                <tr class="{{ $isInitial ? 'due-today' : '' }}" data-payment-id="{{ $payment->id }}" data-base-amount="{{ $displayAmount }}" data-gateway-fee="{{ $paymentGatewayFee }}">
+                                <tr class="{{ $isInitial ? 'due-today' : '' }}" data-payment-id="{{ $payment->id }}" data-base-amount="{{ $displayAmount }}" data-gateway-fee="{{ $paymentGatewayFee }}" data-percentage="{{ $percentage }}">
                                     <td>
                                         <div>{{ $paymentLabel }}</div>
                                         <small class="text-muted">({{ number_format($percentage, 2) }}%)</small>
@@ -820,6 +820,10 @@ let baseTotal = {{ $baseTotal }};
 let initialAmount = {{ $initialAmount }};
 let gatewayCharge = {{ number_format($gatewayCharge ?? 0, 2, '.', '') }}; // Gateway fee for current payment
 let totalGatewayFee = {{ number_format($totalGatewayFee ?? 0, 2, '.', '') }}; // Total gateway fee for all payments
+
+// Store payment percentages for recalculation
+let paymentPercentages = @json($paymentPercentages ?? []);
+let bookingTotalAmount = {{ $booking->total_amount }};
 
 // Payment method selection
 document.querySelectorAll('.payment-method-card').forEach(card => {
@@ -889,48 +893,79 @@ function updatePaymentAmount() {
     
     // Show/hide gateway fee based on payment method
     if (isOnlineMethod && totalGatewayFee > 0) {
+        // Calculate new total with gateway fee FIRST
+        const totalWithGatewayFee = baseTotal + totalGatewayFee;
+        
         // Show total gateway fee in breakdown
         gatewayFeeItem.style.display = 'flex';
         gatewayFeeAmount.textContent = '₹' + totalGatewayFee.toFixed(2);
         
-        // Update total due amount to include gateway fee (baseTotal + totalGatewayFee)
-        const totalWithGatewayFee = baseTotal + totalGatewayFee;
+        // Update total due amount to include gateway fee
         totalDueAmount.textContent = '₹' + totalWithGatewayFee.toFixed(2);
         
-        // Update payment button with current payment + gateway fee for this specific payment
-        const paymentWithFee = initialAmount + gatewayCharge;
-        paymentButtonAmount.textContent = paymentWithFee.toFixed(2);
-        
-        // Update payment schedule to show gateway fees
+        // Recalculate installments as percentages of the NEW total (with gateway fee)
         document.querySelectorAll('[data-payment-id]').forEach(row => {
-            const baseAmount = parseFloat(row.dataset.baseAmount);
-            const fee = parseFloat(row.dataset.gatewayFee);
+            // Get percentage from data attribute or fallback to paymentPercentages object
+            const paymentId = row.getAttribute('data-payment-id');
+            const percentageFromData = parseFloat(row.getAttribute('data-percentage')) || 0;
+            const percentageFromObject = paymentPercentages[paymentId] || 0;
+            const percentage = percentageFromData > 0 ? percentageFromData : percentageFromObject;
+            
+            // Calculate new installment amount as percentage of totalWithGatewayFee
+            const newInstallmentAmount = (totalWithGatewayFee * percentage) / 100;
+            
+            const baseAmountSpan = row.querySelector('.payment-amount-base');
             const gatewayFeeSpan = row.querySelector('.payment-gateway-fee');
             const totalWithFeeSpan = row.querySelector('.payment-total-with-fee');
-            const gatewayFeeValue = row.querySelector('.gateway-fee-value');
             const totalAmountValue = row.querySelector('.total-amount-value');
             
-            if (gatewayFeeSpan && totalWithFeeSpan && gatewayFeeValue && totalAmountValue) {
-                gatewayFeeSpan.style.display = 'inline';
-                totalWithFeeSpan.style.display = 'block';
-                gatewayFeeValue.textContent = fee.toFixed(2);
-                totalAmountValue.textContent = (baseAmount + fee).toFixed(2);
+            if (baseAmountSpan) {
+                // Update to show the new calculated amount directly (gateway fee already included)
+                baseAmountSpan.textContent = '₹' + newInstallmentAmount.toFixed(2);
+            }
+            
+            // Hide the separate gateway fee display since it's already included
+            if (gatewayFeeSpan) {
+                gatewayFeeSpan.style.display = 'none';
+            }
+            if (totalWithFeeSpan) {
+                totalWithFeeSpan.style.display = 'none';
             }
         });
         
         // Update fallback payment row if exists
         const fallbackRow = document.querySelector('.due-today:not([data-payment-id])');
         if (fallbackRow) {
+            // For fallback, use initial percentage (10% typically)
+            const initialPercentage = (initialAmount / bookingTotalAmount) * 100;
+            const newInitialAmount = (totalWithGatewayFee * initialPercentage) / 100;
+            
+            const baseAmountSpan = fallbackRow.querySelector('.payment-amount-base');
             const gatewayFeeSpan = fallbackRow.querySelector('.payment-gateway-fee');
             const totalWithFeeSpan = fallbackRow.querySelector('.payment-total-with-fee');
-            const gatewayFeeValue = fallbackRow.querySelector('.gateway-fee-value');
-            const totalAmountValue = fallbackRow.querySelector('.total-amount-value');
             
-            if (gatewayFeeSpan && totalWithFeeSpan && gatewayFeeValue && totalAmountValue) {
-                gatewayFeeSpan.style.display = 'inline';
-                totalWithFeeSpan.style.display = 'block';
-                gatewayFeeValue.textContent = gatewayCharge.toFixed(2);
-                totalAmountValue.textContent = (initialAmount + gatewayCharge).toFixed(2);
+            if (baseAmountSpan) {
+                baseAmountSpan.textContent = '₹' + newInitialAmount.toFixed(2);
+            }
+            if (gatewayFeeSpan) {
+                gatewayFeeSpan.style.display = 'none';
+            }
+            if (totalWithFeeSpan) {
+                totalWithFeeSpan.style.display = 'none';
+            }
+            
+            // Update payment button with new initial amount
+            paymentButtonAmount.textContent = newInitialAmount.toFixed(2);
+        } else {
+            // Update payment button with new initial amount (first payment)
+            const firstPaymentRow = document.querySelector('[data-payment-id]');
+            if (firstPaymentRow) {
+                const firstPaymentId = firstPaymentRow.getAttribute('data-payment-id');
+                const percentageFromData = parseFloat(firstPaymentRow.getAttribute('data-percentage')) || 0;
+                const percentageFromObject = paymentPercentages[firstPaymentId] || 0;
+                const firstPercentage = percentageFromData > 0 ? percentageFromData : percentageFromObject;
+                const newFirstAmount = (totalWithGatewayFee * firstPercentage) / 100;
+                paymentButtonAmount.textContent = newFirstAmount.toFixed(2);
             }
         }
     } else {
@@ -940,6 +975,15 @@ function updatePaymentAmount() {
         // Show base total without gateway fee
         totalDueAmount.textContent = '₹' + baseTotal.toFixed(2);
         paymentButtonAmount.textContent = initialAmount.toFixed(2);
+        
+        // Reset payment schedule to show original amounts
+        document.querySelectorAll('[data-payment-id]').forEach(row => {
+            const baseAmount = parseFloat(row.dataset.baseAmount);
+            const baseAmountSpan = row.querySelector('.payment-amount-base');
+            if (baseAmountSpan && baseAmount > 0) {
+                baseAmountSpan.textContent = '₹' + baseAmount.toFixed(2);
+            }
+        });
         
         // Hide gateway fees in payment schedule
         document.querySelectorAll('.payment-gateway-fee, .payment-total-with-fee').forEach(el => {
@@ -968,12 +1012,21 @@ document.getElementById('paymentForm').addEventListener('submit', function(e) {
     
     document.getElementById('selectedPaymentMethod').value = methodMap[selectedMethod] || selectedMethod;
     
-    // Calculate final payment amount (include gateway fee ONLY for card/upi/netbanking)
-    // Gateway fee does NOT apply to wallet, neft, or rtgs
+    // Calculate final payment amount
+    // For online methods: gateway fee is already included in the recalculated amount
+    // For wallet/neft/rtgs: use original amount without gateway fee
     const isOnlineMethod = ['card', 'upi', 'netbanking'].includes(selectedMethod);
-    const finalAmount = isOnlineMethod && gatewayCharge > 0 
-        ? (parseFloat(initialAmount) + parseFloat(gatewayCharge))
-        : parseFloat(initialAmount);
+    let finalAmount;
+    
+    if (isOnlineMethod && totalGatewayFee > 0) {
+        // Gateway fee is already included in the recalculated amount shown on button
+        // Get the amount from the payment button (which shows the recalculated amount)
+        const buttonAmountText = document.getElementById('paymentButtonAmount').textContent;
+        finalAmount = parseFloat(buttonAmountText.replace(/[₹,]/g, '')) || initialAmount;
+    } else {
+        // For wallet, neft, rtgs: use original amount without gateway fee
+        finalAmount = parseFloat(initialAmount);
+    }
     
     document.getElementById('paymentAmount').value = finalAmount.toFixed(2);
 });
