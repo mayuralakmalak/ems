@@ -254,6 +254,28 @@
             </table>
             @endif
 
+            @php
+                // Calculate base total before discount
+                $extrasTotal = 0;
+                $extrasRaw = $booking->included_item_extras ?? [];
+                if (is_array($extrasRaw)) {
+                    foreach ($extrasRaw as $extra) {
+                        $lineTotal = $extra['total_price'] ?? (
+                            (isset($extra['quantity'], $extra['unit_price']))
+                                ? ((float) $extra['quantity'] * (float) $extra['unit_price'])
+                                : 0
+                        );
+                        $extrasTotal += $lineTotal;
+                    }
+                }
+                $baseTotal = $boothTotal + $servicesTotal + $extrasTotal;
+                
+                // Calculate discount from discount_percent (applied to base total)
+                $discountAmount = 0;
+                if ($booking->discount_percent > 0 && $baseTotal > 0) {
+                    $discountAmount = ($baseTotal * $booking->discount_percent) / 100;
+                }
+            @endphp
             <h3 style="color: #1e293b; margin-top: 25px;">Payment Summary</h3>
             <table>
                 <tr>
@@ -264,6 +286,12 @@
                     <td>Services Total</td>
                     <td style="text-align: right;">₹{{ number_format($servicesTotal, 2) }}</td>
                 </tr>
+                @if($discountAmount > 0)
+                <tr>
+                    <td>Special Discount ({{ number_format($booking->discount_percent, 2) }}%)</td>
+                    <td style="text-align: right; color:#16a34a;">-₹{{ number_format($discountAmount, 2) }}</td>
+                </tr>
+                @endif
                 <tr class="total-row grand-total">
                     <td><strong>Total Paid</strong></td>
                     <td style="text-align: right;"><strong>₹{{ number_format($payment->amount, 2) }}</strong></td>

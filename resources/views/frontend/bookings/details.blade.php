@@ -292,9 +292,23 @@
                     <span class="summary-value">
                         @if(!empty($boothSelections))
                             @foreach($boothSelections as $selection)
+                                @php
+                                    $original = $selection['original_price'] ?? $selection['price'];
+                                    $discount = $selection['discount_amount'] ?? 0;
+                                @endphp
                                 <div style="font-size: 0.95rem; margin-bottom:4px;">
                                     {{ $selection['name'] }} — {{ $selection['type'] }} / {{ $selection['sides'] }} sides
-                                    <span style="color:#6366f1; font-weight:600;">₹{{ number_format($selection['price'], 2) }}</span>
+                                    @if($discount > 0)
+                                        <span class="text-muted" style="text-decoration: line-through; margin-left:6px;">
+                                            ₹{{ number_format($original, 2) }}
+                                        </span>
+                                        <span style="color:#16a34a; font-weight:600; margin-left:4px;">
+                                            -₹{{ number_format($discount, 2) }}
+                                        </span>
+                                    @endif
+                                    <span style="color:#6366f1; font-weight:600; margin-left:4px;">
+                                        ₹{{ number_format($selection['price'], 2) }}
+                                    </span>
                                 </div>
                             @endforeach
                         @else
@@ -306,12 +320,21 @@
                     $boothTotal = $boothTotal ?? (!empty($boothSelections)
                         ? collect($boothSelections)->sum('price')
                         : $booths->sum('price'));
+                    $discountTotal = !empty($boothSelections)
+                        ? collect($boothSelections)->sum('discount_amount')
+                        : 0;
                     $extrasTotal = $extrasTotal ?? 0;
                     $servicesTotal = $servicesTotal ?? 0;
                     $grandTotal = $totalAmount ?? ($boothTotal + $servicesTotal + $extrasTotal);
                     // Normalize for view
                     $selectedServices = $selectedServices ?? [];
                 @endphp
+                @if($discountTotal > 0)
+                <div class="summary-row">
+                    <span class="summary-label">Special Discount</span>
+                    <span class="summary-value text-success">-₹{{ number_format($discountTotal, 2) }}</span>
+                </div>
+                @endif
                 @if(!empty($selectedServices))
                 <div class="summary-row">
                     <span class="summary-label">Additional Services</span>

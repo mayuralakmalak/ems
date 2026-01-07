@@ -152,10 +152,65 @@
                     <span class="detail-label">Exhibitor:</span>
                     <span class="detail-value">{{ $booking->user->name }} ({{ $booking->user->email }})</span>
                 </div>
+                @php
+                    $totalAmount = $booking->total_amount ?? 0;
+                    $paidAmount = $booking->paid_amount ?? 0;
+                    
+                    // Calculate booth total and services total to get base total
+                    $boothEntries = collect($booking->selected_booth_ids ?? []);
+                    if ($boothEntries->isEmpty() && $booking->booth_id) {
+                        $boothEntries = collect([['id' => $booking->booth_id]]);
+                    }
+                    $boothIds = $boothEntries->map(fn($entry) => is_array($entry) ? ($entry['id'] ?? null) : $entry)
+                        ->filter()
+                        ->values();
+                    $booths = \App\Models\Booth::whereIn('id', $boothIds)->get()->keyBy('id');
+                    $boothTotal = $boothEntries->sum(function($entry) use ($booths) {
+                        if (is_array($entry)) {
+                            return (float) ($entry['price'] ?? 0);
+                        }
+                        return 0;
+                    });
+                    if ($boothTotal == 0 && $booking->booth) {
+                        $boothTotal = $booking->booth->price ?? 0;
+                    }
+                    
+                    $servicesTotal = $booking->bookingServices->sum(function($bs) {
+                        return $bs->quantity * $bs->unit_price;
+                    });
+                    
+                    $extrasTotal = 0;
+                    $extrasRaw = $booking->included_item_extras ?? [];
+                    if (is_array($extrasRaw)) {
+                        foreach ($extrasRaw as $extra) {
+                            $lineTotal = $extra['total_price'] ?? (
+                                (isset($extra['quantity'], $extra['unit_price']))
+                                    ? ((float) $extra['quantity'] * (float) $extra['unit_price'])
+                                    : 0
+                            );
+                            $extrasTotal += $lineTotal;
+                        }
+                    }
+                    
+                    // Calculate base total before discount
+                    $baseTotal = $boothTotal + $servicesTotal + $extrasTotal;
+                    
+                    // Calculate discount from discount_percent (applied to base total)
+                    $discountAmount = 0;
+                    if ($booking->discount_percent > 0 && $baseTotal > 0) {
+                        $discountAmount = ($baseTotal * $booking->discount_percent) / 100;
+                    }
+                @endphp
                 <div class="detail-row">
                     <span class="detail-label">Total Amount:</span>
-                    <span class="detail-value"><strong>₹{{ number_format($booking->total_amount, 2) }}</strong></span>
+                    <span class="detail-value"><strong>₹{{ number_format($totalAmount, 2) }}</strong></span>
                 </div>
+                @if($discountAmount > 0)
+                <div class="detail-row">
+                    <span class="detail-label">Special Discount ({{ number_format($booking->discount_percent, 2) }}%)</span>
+                    <span class="detail-value" style="color:#16a34a;">-₹{{ number_format($discountAmount, 2) }}</span>
+                </div>
+                @endif
                 <div class="detail-row">
                     <span class="detail-label">Paid Amount:</span>
                     <span class="detail-value">₹{{ number_format($booking->paid_amount, 2) }}</span>

@@ -325,6 +325,10 @@ class BookingController extends Controller
             $sizeId = $boothData['sizeId'] ?? null;
             $booth->exhibition_booth_size_id = ($sizeId && in_array($sizeId, $validSizeIds)) ? $sizeId : null;
 
+            // Optional discount fields from floorplan JSON
+            $booth->discount_id = $boothData['discount_id'] ?? $boothData['discountId'] ?? $booth->discount_id;
+            $booth->discount_user_id = $boothData['discount_user_id'] ?? $boothData['discountUserId'] ?? $booth->discount_user_id;
+
             $booth->save();
         }
     }
@@ -340,7 +344,8 @@ class BookingController extends Controller
                 ->with('error', 'Please select at least one booth to continue.');
         }
 
-        $booths = Booth::whereIn('id', $boothIds)
+        $booths = Booth::with(['discount'])
+            ->whereIn('id', $boothIds)
             ->where('exhibition_id', $exhibition->id)
             ->get();
 
@@ -358,7 +363,11 @@ class BookingController extends Controller
             $meta = $selectionMeta[$booth->id] ?? [];
             $type = $meta['type'] ?? 'Raw';
             $sides = isset($meta['sides']) ? (int) $meta['sides'] : ($booth->sides_open ?? 1);
-            $price = $this->calculateBoothPrice($booth, $exhibition, $type, $sides);
+
+            // Price without discount (for display) and with discount (for totals)
+            $originalPrice = $this->calculateBoothPrice($booth, $exhibition, $type, $sides, null);
+            $price = $this->calculateBoothPrice($booth, $exhibition, $type, $sides, auth()->id());
+            $discountAmount = max(0, $originalPrice - $price);
 
             $boothSelections[] = [
                 'id' => $booth->id,
@@ -366,6 +375,8 @@ class BookingController extends Controller
                 'type' => $type,
                 'sides' => $sides,
                 'price' => $price,
+                'original_price' => $originalPrice,
+                'discount_amount' => $discountAmount,
                 'size_sqft' => $booth->size_sqft,
                 'category' => $booth->category,
             ];
@@ -553,7 +564,8 @@ class BookingController extends Controller
              */
 
             // Lock booths first to avoid race conditions
-            $booths = Booth::whereIn('id', $boothIds)
+        $booths = Booth::with(['discount'])
+                ->whereIn('id', $boothIds)
                 ->where('exhibition_id', $exhibition->id)
                 ->lockForUpdate()
                 ->get();
@@ -612,7 +624,7 @@ class BookingController extends Controller
                     $selection = $request->input("booth_selections.{$booth->id}", []);
                     $type = $selection['type'] ?? 'Raw';
                     $sides = isset($selection['sides']) ? (int) $selection['sides'] : ($booth->sides_open ?? 1);
-                    $price = $this->calculateBoothPrice($booth, $exhibition, $type, $sides);
+                    $price = $this->calculateBoothPrice($booth, $exhibition, $type, $sides, $user->id);
 
                     $boothSelections[] = [
                         'id' => $booth->id,
@@ -968,12 +980,29 @@ class BookingController extends Controller
         return $mergedBooth;
     }
 
-    private function calculateBoothPrice(Booth $booth, Exhibition $exhibition, string $type, int $sides): float
+    private function calculateBoothPrice(Booth $booth, Exhibition $exhibition, string $type, int $sides, ?int $userId = null): float
     {
-        // Booth price comes strictly from selected size (row/orphan), no base price involved
-        $boothPrice = $this->getSizePriceForType($exhibition, $booth, $type);
+        // If userId is null, always ignore booth-level discount (used when we need the undiscounted price)
+        // Booth price comes strictly from selected size (row/orphan)
+        $basePrice = $this->getSizePriceForType($exhibition, $booth, $type);
 
-        // Side-open surcharge is a percentage of booth price
+        // Apply per‑booth discount (only on base price) when configured for this user
+        $discountedBase = $basePrice;
+        if ($userId !== null && $basePrice > 0 && $booth->discount_id && $booth->discount && $booth->discount->status === 'active') {
+            // If a specific user is configured, only apply when it matches
+            if ($booth->discount_user_id === null || ($userId !== null && (int) $booth->discount_user_id === (int) $userId)) {
+                $discountAmount = 0;
+                if ($booth->discount->type === 'percentage') {
+                    $discountAmount = $basePrice * ((float) $booth->discount->amount / 100);
+                } else {
+                    $discountAmount = (float) $booth->discount->amount;
+                }
+                $discountAmount = min($discountAmount, $basePrice);
+                $discountedBase = max(0, $basePrice - $discountAmount);
+            }
+        }
+
+        // Side-open surcharge is always calculated from the original base price
         $sidePercent = match ($sides) {
             1 => $exhibition->side_1_open_percent ?? 0,
             2 => $exhibition->side_2_open_percent ?? 0,
@@ -982,9 +1011,9 @@ class BookingController extends Controller
             default => 0,
         };
 
-        $extra = $boothPrice * ($sidePercent / 100);
+        $sideExtra = $basePrice * ($sidePercent / 100);
 
-        return max(0, round($boothPrice + $extra, 2));
+        return max(0, round($discountedBase + $sideExtra, 2));
     }
 
     /**

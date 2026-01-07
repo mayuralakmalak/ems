@@ -188,6 +188,29 @@
                                 @endforeach
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label>Discount (optional):</label>
+                            <select id="boothDiscount">
+                                <option value="">No Discount</option>
+                                @foreach(($activeDiscounts ?? collect()) as $discount)
+                                    <option value="{{ $discount->id }}"
+                                            data-type="{{ $discount->type }}"
+                                            data-amount="{{ $discount->amount }}">
+                                        {{ $discount->title }} ({{ $discount->type === 'percentage' ? $discount->amount . '%' : '₹' . number_format($discount->amount, 2) }})
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Special Price For User (optional):</label>
+                            <select id="boothDiscountUser">
+                                <option value="">All Users</option>
+                                @foreach(($exhibitors ?? collect()) as $user)
+                                    <option value="{{ $user->id }}">{{ $user->name }} ({{ $user->email }})</option>
+                                @endforeach
+                            </select>
+                            <small class="text-muted d-block mt-1">If selected, the discount will apply only when this exhibitor books the booth.</small>
+                        </div>
                         <div class="button-group">
                         <button type="button" id="saveBooth" class="btn-primary">Save Booth</button>
                         <button type="button" id="deleteBooth" class="btn-danger">Delete Booth</button>

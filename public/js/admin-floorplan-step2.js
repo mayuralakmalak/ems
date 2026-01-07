@@ -299,7 +299,7 @@ class AdminFloorplanManager {
 
         // Property inputs - update booth on change
         ['boothWidth', 'boothHeight', 'boothX', 'boothY', 'boothStatus', 'boothSize',
-            'boothArea', 'boothSizeSqft'
+            'boothArea', 'boothSizeSqft', 'boothDiscount', 'boothDiscountUser'
         ].forEach(id => {
             const input = document.getElementById(id);
             if (input) {
@@ -915,6 +915,18 @@ class AdminFloorplanManager {
             }
         }
         // Category fixed to default; no UI control.
+
+        // Sync discount dropdowns
+        const discountSelect = document.getElementById('boothDiscount');
+        if (discountSelect) {
+            const value = booth.discount_id || booth.discountId || '';
+            discountSelect.value = value || '';
+        }
+        const userSelect = document.getElementById('boothDiscountUser');
+        if (userSelect) {
+            const value = booth.discount_user_id || booth.discountUserId || '';
+            userSelect.value = value || '';
+        }
     }
 
     // Update booth from properties
@@ -968,6 +980,21 @@ class AdminFloorplanManager {
                 booth.sizeId = null;
             }
             booth.category = booth.category || 'Standard';
+
+            // Persist discount metadata (optional)
+            const discountSelect = document.getElementById('boothDiscount');
+            if (discountSelect) {
+                const discountValue = discountSelect.value || '';
+                booth.discount_id = discountValue ? parseInt(discountValue) : null;
+                booth.discountId = booth.discount_id; // keep camelCase copy in payload for compatibility
+            }
+
+            const userSelect = document.getElementById('boothDiscountUser');
+            if (userSelect) {
+                const userValue = userSelect.value || '';
+                booth.discount_user_id = userValue ? parseInt(userValue) : null;
+                booth.discountUserId = booth.discount_user_id;
+            }
 
             // Update size category based on dimensions
             booth.size = this.getSizeCategory(booth.width, booth.height);

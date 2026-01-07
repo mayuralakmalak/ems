@@ -369,7 +369,7 @@
                         // Calculate base total from breakdown items (Booth Rental + Services + Extras)
                         $baseTotal = $boothTotal + $servicesTotal + $extrasTotal;
                         
-                        // Apply discount if any
+                        // Apply legacy booking-level discount percent if present
                         $discountAmount = 0;
                         if ($booking->discount_percent > 0) {
                             $discountAmount = ($baseTotal * $booking->discount_percent) / 100;
@@ -393,7 +393,7 @@
                     
                     @if($discountAmount > 0)
                     <div class="breakdown-item">
-                        <span class="breakdown-label">Discount</span>
+                        <span class="breakdown-label">Special Discount</span>
                         <span class="breakdown-value" style="color: #10b981;">-₹{{ number_format($discountAmount, 2) }}</span>
                     </div>
                     @endif

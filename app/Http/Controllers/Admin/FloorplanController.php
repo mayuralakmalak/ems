@@ -334,6 +334,10 @@ class FloorplanController extends Controller
                 $booth->position_y = $boothData['y'] ?? $booth->position_y;
                 $booth->width = $boothData['width'] ?? $booth->width;
                 $booth->height = $boothData['height'] ?? $booth->height;
+
+                // Optional per-booth discount configuration synced from floorplan editor
+                $booth->discount_id = $boothData['discount_id'] ?? $boothData['discountId'] ?? $booth->discount_id;
+                $booth->discount_user_id = $boothData['discount_user_id'] ?? $boothData['discountUserId'] ?? $booth->discount_user_id;
                 
                 // Set floor_id if provided
                 if ($floorId) {
@@ -659,6 +663,14 @@ class FloorplanController extends Controller
                 $dbBooth = $dbBooths[$name];
                 if (!empty($dbBooth->exhibition_booth_size_id)) {
                     $boothData['sizeId'] = $dbBooth->exhibition_booth_size_id;
+                }
+
+                // Ensure discount configuration from DB is reflected in payload so admin UI can show it
+                if (!empty($dbBooth->discount_id)) {
+                    $boothData['discount_id'] = $dbBooth->discount_id;
+                }
+                if (!empty($dbBooth->discount_user_id)) {
+                    $boothData['discount_user_id'] = $dbBooth->discount_user_id;
                 }
                 
                 // Update status based on actual booking status from database

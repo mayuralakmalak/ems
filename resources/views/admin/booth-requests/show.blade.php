@@ -518,15 +518,56 @@
                 <h5 class="section-header">Booking Summary</h5>
                 @php
                     $servicesTotal = $booking->bookingServices->sum(fn($bs) => $bs->quantity * $bs->unit_price);
+                    
+                    // Calculate booth total from selected_booth_ids
+                    $boothEntries = collect($booking->selected_booth_ids ?? []);
+                    if ($boothEntries->isEmpty() && $booking->booth_id) {
+                        $boothEntries = collect([[
+                            'id' => $booking->booth_id,
+                            'price' => $booking->booth->price ?? 0,
+                        ]]);
+                    }
+                    $boothTotal = $boothEntries->sum(function($entry) {
+                        if (is_array($entry)) {
+                            return (float) ($entry['price'] ?? 0);
+                        }
+                        return 0;
+                    });
+                    if ($boothTotal == 0 && $booking->booth) {
+                        $boothTotal = $booking->booth->price ?? 0;
+                    }
+                    
+                    // Calculate extras total
+                    $extrasTotal = 0;
+                    $extrasRaw = $booking->included_item_extras ?? [];
+                    if (is_array($extrasRaw)) {
+                        foreach ($extrasRaw as $extra) {
+                            $lineTotal = $extra['total_price'] ?? (
+                                (isset($extra['quantity'], $extra['unit_price']))
+                                    ? ((float) $extra['quantity'] * (float) $extra['unit_price'])
+                                    : 0
+                            );
+                            $extrasTotal += $lineTotal;
+                        }
+                    }
+                    
+                    // Calculate base total before discount (booth + services + extras)
+                    $baseTotal = $boothTotal + $servicesTotal + $extrasTotal;
+                    
+                    // Calculate discount from discount_percent (applied to base total)
+                    $discount = 0;
+                    if ($booking->discount_percent > 0 && $baseTotal > 0) {
+                        $discount = ($baseTotal * $booking->discount_percent) / 100;
+                    }
+                    
                     $taxes = ($booking->total_amount - $servicesTotal) * 0.1;
-                    $discount = ($booking->total_amount * ($booking->discount_percent ?? 0)) / 100;
                     $totalAmount = $booking->total_amount;
                     $paidAmount = $booking->paid_amount;
                     $balanceDue = $totalAmount - $paidAmount;
                 @endphp
                 <div class="summary-item">
                     <span class="summary-label">Booth/Fee</span>
-                    <span class="summary-value">₹{{ number_format($booking->booth->price ?? 0, 2) }}</span>
+                    <span class="summary-value">₹{{ number_format($boothTotal, 2) }}</span>
                 </div>
                 @if($servicesTotal > 0)
                 <div class="summary-item">
@@ -540,7 +581,7 @@
                 </div>
                 @if($discount > 0)
                 <div class="summary-item">
-                    <span class="summary-label">Discount</span>
+                    <span class="summary-label">Special Discount ({{ number_format($booking->discount_percent, 2) }}%)</span>
                     <span class="summary-value" style="color: #10b981;">-₹{{ number_format($discount, 2) }}</span>
                 </div>
                 @endif

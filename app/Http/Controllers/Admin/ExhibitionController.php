@@ -388,7 +388,18 @@ class ExhibitionController extends Controller
     public function step3($id)
     {
         $exhibition = Exhibition::with(['paymentSchedules', 'boothSizes', 'floors'])->findOrFail($id);
-        return view('admin.exhibitions.step3', compact('exhibition'));
+
+        // Only active discounts are available for selection on floorplan
+        $activeDiscounts = \App\Models\Discount::where('status', 'active')
+            ->orderBy('title')
+            ->get();
+
+        // Limit users list to exhibitors to keep dropdown manageable
+        $exhibitors = \App\Models\User::role('Exhibitor')
+            ->orderBy('name')
+            ->get();
+
+        return view('admin.exhibitions.step3', compact('exhibition', 'activeDiscounts', 'exhibitors'));
     }
 
     public function storeStep3(Request $request, $id)

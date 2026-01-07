@@ -13,7 +13,8 @@ class Booth extends Model
         'exhibition_id', 'floor_id', 'name', 'category', 'booth_type', 'size_sqft',
         'sides_open', 'price', 'is_free', 'is_available', 'is_booked',
         'logo', 'coordinates', 'merged_booths', 'is_merged', 'is_split', 'parent_booth_id',
-        'exhibition_booth_size_id', 'position_x', 'position_y', 'width', 'height'
+        'exhibition_booth_size_id', 'discount_id', 'discount_user_id',
+        'position_x', 'position_y', 'width', 'height'
     ];
 
     protected $casts = [
@@ -54,5 +55,15 @@ class Booth extends Model
     public function exhibitionBoothSize()
     {
         return $this->belongsTo(ExhibitionBoothSize::class, 'exhibition_booth_size_id');
+    }
+
+    public function discount()
+    {
+        return $this->belongsTo(Discount::class);
+    }
+
+    public function discountUser()
+    {
+        return $this->belongsTo(User::class, 'discount_user_id');
     }
 }
