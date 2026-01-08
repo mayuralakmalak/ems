@@ -5,6 +5,8 @@ class AdminFloorplanManager {
         this.hallGroup = document.getElementById('adminHallGroup');
         this.boothsGroup = document.getElementById('adminBoothsGroup');
         this.gridBg = document.getElementById('gridBg');
+        this.gridBgOverlay = document.getElementById('gridBgOverlay');
+        this.canvasWrapper = document.getElementById('canvasWrapper');
 
         this.booths = [];
         this.selectedBooths = new Set();
@@ -50,10 +52,20 @@ class AdminFloorplanManager {
         this.init();
     }
 
+    updateCanvasDimensions() {
+        if (!this.svg) return;
+        // Keep the canvas at its real pixel size so the wrapper can scroll when it exceeds the viewport
+        this.svg.style.width = `${this.hallConfig.width}px`;
+        this.svg.style.height = `${this.hallConfig.height}px`;
+        this.svg.setAttribute('width', this.hallConfig.width);
+        this.svg.setAttribute('height', this.hallConfig.height);
+    }
+
     async init() {
         // Initialize grid first
         this.updateGrid();
         this.drawHall();
+        this.updateCanvasDimensions();
         this.setupEventListeners();
         this.updateBoothsList();
         this.updateCounts();
@@ -138,6 +150,23 @@ class AdminFloorplanManager {
         };
     }
 
+    // Load and display floor background image
+    loadBackgroundImage(backgroundImagePath) {
+        if (!this.canvasWrapper) return;
+
+        if (backgroundImagePath) {
+            // Construct the full URL to the image
+            const imageUrl = `/storage/${backgroundImagePath.replace(/^\/+/, '')}`;
+            this.canvasWrapper.style.backgroundImage = `url('${imageUrl}')`;
+            this.canvasWrapper.style.backgroundSize = 'cover';
+            this.canvasWrapper.style.backgroundPosition = 'center';
+            this.canvasWrapper.style.backgroundRepeat = 'no-repeat';
+        } else {
+            // Remove the background image if no path is provided
+            this.canvasWrapper.style.backgroundImage = 'none';
+        }
+    }
+
     // Update grid pattern
     updateGrid() {
         let pattern = document.getElementById('gridPattern');
@@ -174,6 +203,11 @@ class AdminFloorplanManager {
         if (this.gridBg) {
             this.gridBg.style.display = this.gridConfig.show ? 'block' : 'none';
             this.gridBg.setAttribute('fill', this.gridConfig.show ? 'url(#gridPattern)' : 'none');
+        }
+
+        // Keep overlay visible to show background image through
+        if (this.gridBgOverlay) {
+            this.gridBgOverlay.style.display = 'block';
         }
     }
 
@@ -238,6 +272,7 @@ class AdminFloorplanManager {
                 this.hallConfig.height = heightGrid * this.gridConfig.size;
 
                 this.svg.setAttribute('viewBox', `0 0 ${this.hallConfig.width} ${this.hallConfig.height}`);
+                this.updateCanvasDimensions();
                 this.drawHall();
 
                 // Snap all booths to new grid
@@ -849,16 +884,16 @@ class AdminFloorplanManager {
                 // Ensure status is set
                 const status = booth.status || 'available';
                 booth.status = status;
-                
+
                 // Update class to include both status and selected state
                 const baseClass = 'booth-admin';
                 const statusClass = status;
                 const classes = [baseClass, statusClass];
-                
+
                 if (this.selectedBooths.has(booth.id)) {
                     classes.push('selected');
                 }
-                
+
                 rect.setAttribute('class', classes.join(' '));
             }
         });
@@ -1211,6 +1246,7 @@ class AdminFloorplanManager {
         document.getElementById('gridSize').value = gridSize;
 
         this.svg.setAttribute('viewBox', `0 0 ${this.hallConfig.width} ${this.hallConfig.height}`);
+        this.updateCanvasDimensions();
         this.drawHall();
 
         // Snap all booths to new grid
@@ -1566,6 +1602,7 @@ class AdminFloorplanManager {
         // apply to canvas
         this.updateGrid();
         this.svg.setAttribute('viewBox', `0 0 ${this.hallConfig.width} ${this.hallConfig.height}`);
+        this.updateCanvasDimensions();
         this.drawHall();
 
         // clear booths
@@ -1659,6 +1696,7 @@ class AdminFloorplanManager {
 
             // Update UI
             this.svg.setAttribute('viewBox', `0 0 ${this.hallConfig.width} ${this.hallConfig.height}`);
+            this.updateCanvasDimensions();
             this.updateGrid();
             this.drawHall();
 

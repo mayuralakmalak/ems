@@ -46,27 +46,65 @@
                                 </button>
                             </div>
                             <div class="row g-3">
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label class="form-label">Floor Name <span class="text-danger">*</span></label>
                                     <input type="text" name="floors[{{ $floorIndex }}][name]" class="form-control floor-name-input" 
                                            value="{{ $floor->name }}" required>
                                     <input type="hidden" name="floors[{{ $floorIndex }}][id]" value="{{ $floor->id }}">
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <label class="form-label">Floor Number <span class="text-danger">*</span></label>
                                     <input type="number" name="floors[{{ $floorIndex }}][floor_number]" class="form-control" 
                                            value="{{ $floor->floor_number }}" min="0" required>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label class="form-label">Description</label>
                                     <input type="text" name="floors[{{ $floorIndex }}][description]" class="form-control" 
                                            value="{{ $floor->description }}" placeholder="Optional description">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Width (meters)</label>
+                                    <input type="number" step="0.01" name="floors[{{ $floorIndex }}][width_meters]" class="form-control" 
+                                           value="{{ $floor->width_meters }}" placeholder="e.g. 50.00" min="0">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Height (meters)</label>
+                                    <input type="number" step="0.01" name="floors[{{ $floorIndex }}][height_meters]" class="form-control" 
+                                           value="{{ $floor->height_meters }}" placeholder="e.g. 30.00" min="0">
                                 </div>
                                 <div class="col-md-1">
                                     <label class="form-label">Active</label>
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" name="floors[{{ $floorIndex }}][is_active]" 
                                                value="1" {{ $floor->is_active ? 'checked' : '' }}>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-12">
+                                    <label class="form-label">Floor Background Image</label>
+                                    <input type="file" name="floors[{{ $floorIndex }}][background_image]" 
+                                           class="form-control floor-background-image-input" 
+                                           accept="image/*" 
+                                           data-floor-index="{{ $floorIndex }}">
+                                    <div class="floor-background-preview mt-2" data-floor-index="{{ $floorIndex }}">
+                                        @if($floor->background_image)
+                                            <div class="existing-image-preview">
+                                                <small class="text-muted d-block mb-1">Current image:</small>
+                                                <img src="{{ asset('storage/' . ltrim($floor->background_image, '/')) }}" 
+                                                     alt="Floor background" 
+                                                     style="max-width: 200px; max-height: 150px; object-fit: cover; border-radius: 4px; border: 1px solid #dee2e6;">
+                                                <div class="form-check mt-2">
+                                                    <input class="form-check-input" type="checkbox" 
+                                                           name="floors[{{ $floorIndex }}][remove_background_image]" 
+                                                           value="1" 
+                                                           id="remove_bg_{{ $floorIndex }}">
+                                                    <label class="form-check-label" for="remove_bg_{{ $floorIndex }}">
+                                                        Remove background image
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
                             </div>
@@ -80,20 +118,30 @@
                                 </button>
                             </div>
                             <div class="row g-3">
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label class="form-label">Floor Name <span class="text-danger">*</span></label>
                                     <input type="text" name="floors[0][name]" class="form-control floor-name-input" 
                                            value="Ground Floor" required>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <label class="form-label">Floor Number <span class="text-danger">*</span></label>
                                     <input type="number" name="floors[0][floor_number]" class="form-control" 
                                            value="0" min="0" required>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label class="form-label">Description</label>
                                     <input type="text" name="floors[0][description]" class="form-control" 
                                            placeholder="Optional description">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Width (meters)</label>
+                                    <input type="number" step="0.01" name="floors[0][width_meters]" class="form-control" 
+                                           placeholder="e.g. 50.00" min="0">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Height (meters)</label>
+                                    <input type="number" step="0.01" name="floors[0][height_meters]" class="form-control" 
+                                           placeholder="e.g. 30.00" min="0">
                                 </div>
                                 <div class="col-md-1">
                                     <label class="form-label">Active</label>
@@ -101,6 +149,16 @@
                                         <input class="form-check-input" type="checkbox" name="floors[0][is_active]" 
                                                value="1" checked>
                                     </div>
+                                </div>
+                            </div>
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-12">
+                                    <label class="form-label">Floor Background Image</label>
+                                    <input type="file" name="floors[0][background_image]" 
+                                           class="form-control floor-background-image-input" 
+                                           accept="image/*" 
+                                           data-floor-index="0">
+                                    <div class="floor-background-preview mt-2" data-floor-index="0"></div>
                                 </div>
                             </div>
                         </div>
@@ -121,8 +179,29 @@
                     <button type="button" class="btn btn-sm btn-outline-primary add-size-btn">Add size</button>
                 </div>
                 <div class="card-body">
+                    <!-- Base prices per meter (raw & shell) -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label">Base Price Raw (per meter)</label>
+                            <input type="number"
+                                   name="raw_price_per_sqft"
+                                   class="form-control"
+                                   step="0.01"
+                                   placeholder="e.g. 100"
+                                   value="{{ $exhibition->raw_price_per_sqft ?? '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Base Price Shell (per meter)</label>
+                            <input type="number"
+                                   name="orphand_price_per_sqft"
+                                   class="form-control"
+                                   step="0.01"
+                                   placeholder="e.g. 120"
+                                   value="{{ $exhibition->orphand_price_per_sqft ?? '' }}">
+                        </div>
+                    </div>
                     <div class="mb-4">
-                        <p class="text-muted mb-2">Size (sq ft) with row price, orphan price, category, and multiple items. Use Add size to manage multiple entries.</p>
+                        <p class="text-muted mb-2">Size (sq meter) with Raw Price, Shell Price, category, and multiple items. Use Add size to manage multiple entries.</p>
                         <div id="boothSizesContainer">
                             @forelse($exhibition->boothSizes as $sizeIndex => $boothSize)
                             <div class="border rounded p-3 mb-3 booth-size-card" data-size-index="{{ $sizeIndex }}">
@@ -132,23 +211,23 @@
                                 </div>
                                 <div class="row g-3">
                                     <div class="col-md-3">
-                                        <label class="form-label">Size (sq ft)</label>
-                                        <input type="number" step="0.01" name="booth_sizes[{{ $sizeIndex }}][size_sqft]" class="form-control" value="{{ $boothSize->size_sqft }}">
+                                        <label class="form-label">Size (sq meter)</label>
+                                        <input type="number" step="0.01" name="booth_sizes[{{ $sizeIndex }}][size_sqft]" class="form-control size-input" data-size-index="{{ $sizeIndex }}" value="{{ $boothSize->size_sqft }}">
                                     </div>
                                     <div class="col-md-3">
-                                        <label class="form-label">Row price</label>
-                                        <input type="number" step="0.01" name="booth_sizes[{{ $sizeIndex }}][row_price]" class="form-control" value="{{ $boothSize->row_price }}">
+                                        <label class="form-label">Raw Price</label>
+                                        <input type="number" step="0.01" name="booth_sizes[{{ $sizeIndex }}][row_price]" class="form-control raw-price-input" data-size-index="{{ $sizeIndex }}" value="{{ $boothSize->row_price }}">
                                     </div>
                                     <div class="col-md-3">
-                                        <label class="form-label">Orphan price</label>
-                                        <input type="number" step="0.01" name="booth_sizes[{{ $sizeIndex }}][orphan_price]" class="form-control" value="{{ $boothSize->orphan_price }}">
+                                        <label class="form-label">Shell Price</label>
+                                        <input type="number" step="0.01" name="booth_sizes[{{ $sizeIndex }}][orphan_price]" class="form-control shell-price-input" data-size-index="{{ $sizeIndex }}" value="{{ $boothSize->orphan_price }}">
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Category</label>
-                                        <select name="booth_sizes[{{ $sizeIndex }}][category]" class="form-select">
+                                        <select name="booth_sizes[{{ $sizeIndex }}][category]" class="form-select category-select" data-size-index="{{ $sizeIndex }}">
                                             <option value="">Select</option>
                                             <option value="1" @selected($boothSize->category === '1' || $boothSize->category === 'Premium')>Premium</option>
-                                            <option value="2" @selected($boothSize->category === '2' || $boothSize->category === 'Standard')>Standard</option>
+                                            <option value="2" @selected($boothSize->category === '2' || $boothSize->category === 'Standard' || empty($boothSize->category))>Standard</option>
                                             <option value="3" @selected($boothSize->category === '3' || $boothSize->category === 'Economy')>Economy</option>
                                         </select>
                                     </div>
@@ -284,23 +363,23 @@
                                 </div>
                                 <div class="row g-3">
                                     <div class="col-md-3">
-                                        <label class="form-label">Size (sq ft)</label>
-                                        <input type="number" step="0.01" name="booth_sizes[0][size_sqft]" class="form-control" placeholder="e.g. 100">
+                                        <label class="form-label">Size (sq meter)</label>
+                                        <input type="number" step="0.01" name="booth_sizes[0][size_sqft]" class="form-control size-input" data-size-index="0" placeholder="e.g. 100">
                                     </div>
                                     <div class="col-md-3">
-                                        <label class="form-label">Row price</label>
-                                        <input type="number" step="0.01" name="booth_sizes[0][row_price]" class="form-control" placeholder="e.g. 5000">
+                                        <label class="form-label">Raw Price</label>
+                                        <input type="number" step="0.01" name="booth_sizes[0][row_price]" class="form-control raw-price-input" data-size-index="0" placeholder="e.g. 5000">
                                     </div>
                                     <div class="col-md-3">
-                                        <label class="form-label">Orphan price</label>
-                                        <input type="number" step="0.01" name="booth_sizes[0][orphan_price]" class="form-control" placeholder="e.g. 4000">
+                                        <label class="form-label">Shell Price</label>
+                                        <input type="number" step="0.01" name="booth_sizes[0][orphan_price]" class="form-control shell-price-input" data-size-index="0" placeholder="e.g. 4000">
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Category</label>
-                                        <select name="booth_sizes[0][category]" class="form-select">
+                                        <select name="booth_sizes[0][category]" class="form-select category-select" data-size-index="0">
                                             <option value="">Select</option>
                                             <option value="1">Premium</option>
-                                            <option value="2">Standard</option>
+                                            <option value="2" selected>Standard</option>
                                             <option value="3">Economy</option>
                                         </select>
                                     </div>
@@ -484,20 +563,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 </button>
             </div>
             <div class="row g-3">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Floor Name <span class="text-danger">*</span></label>
                     <input type="text" name="floors[${floorIndex}][name]" class="form-control floor-name-input" 
                            value="Floor ${floorIndex + 1}" required>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">Floor Number <span class="text-danger">*</span></label>
                     <input type="number" name="floors[${floorIndex}][floor_number]" class="form-control" 
                            value="${floorIndex}" min="0" required>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Description</label>
                     <input type="text" name="floors[${floorIndex}][description]" class="form-control" 
                            placeholder="Optional description">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Width (meters)</label>
+                    <input type="number" step="0.01" name="floors[${floorIndex}][width_meters]" class="form-control" 
+                           placeholder="e.g. 50.00" min="0">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Height (meters)</label>
+                    <input type="number" step="0.01" name="floors[${floorIndex}][height_meters]" class="form-control" 
+                           placeholder="e.g. 30.00" min="0">
                 </div>
                 <div class="col-md-1">
                     <label class="form-label">Active</label>
@@ -507,13 +596,86 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
             </div>
+            <div class="row g-3 mt-2">
+                <div class="col-md-12">
+                    <label class="form-label">Floor Background Image</label>
+                    <input type="file" name="floors[${floorIndex}][background_image]" 
+                           class="form-control floor-background-image-input" 
+                           accept="image/*" 
+                           data-floor-index="${floorIndex}">
+                    <div class="floor-background-preview mt-2" data-floor-index="${floorIndex}"></div>
+                </div>
+            </div>
         </div>
     `;
+
+    // Handle floor background image preview
+    const handleFloorBackgroundPreview = (input) => {
+        const floorIndex = input.getAttribute('data-floor-index');
+        const previewContainer = document.querySelector(`.floor-background-preview[data-floor-index="${floorIndex}"]`);
+        
+        if (!previewContainer) return;
+        
+        // Clear previous new image preview (keep existing image preview if it exists)
+        const newImagePreview = previewContainer.querySelector('.new-image-preview');
+        if (newImagePreview) {
+            newImagePreview.remove();
+        }
+        
+        if (input.files && input.files.length > 0) {
+            const file = input.files[0];
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const previewWrapper = document.createElement('div');
+                    previewWrapper.className = 'new-image-preview';
+                    previewWrapper.innerHTML = `
+                        <small class="text-muted d-block mb-1">New image preview:</small>
+                        <img src="${e.target.result}" 
+                             alt="Preview" 
+                             style="max-width: 200px; max-height: 150px; object-fit: cover; border-radius: 4px; border: 1px solid #dee2e6;">
+                    `;
+                    previewContainer.appendChild(previewWrapper);
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+    };
+
+    // Attach preview handlers to existing floor background image inputs
+    document.querySelectorAll('.floor-background-image-input').forEach(input => {
+        input.addEventListener('change', function() {
+            handleFloorBackgroundPreview(this);
+        });
+    });
+
+    // Handle remove background image checkbox
+    document.querySelectorAll('input[name*="[remove_background_image]"]').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const floorItem = this.closest('.floor-item');
+            if (floorItem) {
+                const existingPreview = floorItem.querySelector('.existing-image-preview');
+                if (existingPreview) {
+                    existingPreview.style.display = this.checked ? 'none' : 'block';
+                }
+            }
+        });
+    });
 
     const addFloor = () => {
         const wrapper = document.createElement('div');
         wrapper.innerHTML = floorTemplate(floorCounter).trim();
-        floorsContainer.appendChild(wrapper.firstElementChild);
+        const newFloorItem = wrapper.firstElementChild;
+        floorsContainer.appendChild(newFloorItem);
+        
+        // Attach preview handler to newly added floor background image input
+        const newBackgroundInput = newFloorItem.querySelector('.floor-background-image-input');
+        if (newBackgroundInput) {
+            newBackgroundInput.addEventListener('change', function() {
+                handleFloorBackgroundPreview(this);
+            });
+        }
+        
         floorCounter += 1;
     };
 
@@ -578,23 +740,23 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div class="row g-3">
                 <div class="col-md-3">
-                    <label class="form-label">Size (sq ft)</label>
-                    <input type="number" step="0.01" name="booth_sizes[${sizeIndex}][size_sqft]" class="form-control" placeholder="e.g. 100">
+                    <label class="form-label">Size (sq meter)</label>
+                    <input type="number" step="0.01" name="booth_sizes[${sizeIndex}][size_sqft]" class="form-control size-input" data-size-index="${sizeIndex}" placeholder="e.g. 100">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Row price</label>
-                    <input type="number" step="0.01" name="booth_sizes[${sizeIndex}][row_price]" class="form-control" placeholder="e.g. 5000">
+                    <label class="form-label">Raw Price</label>
+                    <input type="number" step="0.01" name="booth_sizes[${sizeIndex}][row_price]" class="form-control raw-price-input" data-size-index="${sizeIndex}" placeholder="e.g. 5000">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Orphan price</label>
-                    <input type="number" step="0.01" name="booth_sizes[${sizeIndex}][orphan_price]" class="form-control" placeholder="e.g. 4000">
+                    <label class="form-label">Shell Price</label>
+                    <input type="number" step="0.01" name="booth_sizes[${sizeIndex}][orphan_price]" class="form-control shell-price-input" data-size-index="${sizeIndex}" placeholder="e.g. 4000">
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Category</label>
-                    <select name="booth_sizes[${sizeIndex}][category]" class="form-select">
+                    <select name="booth_sizes[${sizeIndex}][category]" class="form-select category-select" data-size-index="${sizeIndex}">
                         <option value="">Select</option>
                         <option value="1">Premium</option>
-                        <option value="2">Standard</option>
+                        <option value="2" selected>Standard</option>
                         <option value="3">Economy</option>
                     </select>
                 </div>
@@ -662,6 +824,83 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // Auto-calculation functions for size prices
+    const getBasePrices = () => {
+        const baseRawPrice = parseFloat(document.querySelector('input[name="raw_price_per_sqft"]')?.value) || 0;
+        const baseShellPrice = parseFloat(document.querySelector('input[name="orphand_price_per_sqft"]')?.value) || 0;
+        return { baseRawPrice, baseShellPrice };
+    };
+
+    const calculateSizePrices = (sizeIndex) => {
+        const { baseRawPrice, baseShellPrice } = getBasePrices();
+        
+        // Check if base prices exist
+        if (baseRawPrice === 0 && baseShellPrice === 0) {
+            return; // Don't calculate if base prices don't exist
+        }
+
+        const sizeCard = document.querySelector(`.booth-size-card[data-size-index="${sizeIndex}"]`);
+        if (!sizeCard) return;
+
+        const categorySelect = sizeCard.querySelector('.category-select');
+        const sizeInput = sizeCard.querySelector('.size-input');
+        const rawPriceInput = sizeCard.querySelector('.raw-price-input');
+        const shellPriceInput = sizeCard.querySelector('.shell-price-input');
+
+        if (!categorySelect || !sizeInput || !rawPriceInput || !shellPriceInput) return;
+
+        const category = categorySelect.value;
+        const size = parseFloat(sizeInput.value) || 0;
+
+        // Only auto-calculate if category is "Standard" (value "2")
+        if (category === '2' && size > 0) {
+            const calculatedRawPrice = baseRawPrice * size;
+            const calculatedShellPrice = baseShellPrice * size;
+            
+            rawPriceInput.value = calculatedRawPrice.toFixed(2);
+            shellPriceInput.value = calculatedShellPrice.toFixed(2);
+        }
+    };
+
+    const handleCategoryChange = (sizeIndex) => {
+        const sizeCard = document.querySelector(`.booth-size-card[data-size-index="${sizeIndex}"]`);
+        if (!sizeCard) return;
+
+        const categorySelect = sizeCard.querySelector('.category-select');
+        if (!categorySelect) return;
+
+        const category = categorySelect.value;
+
+        // If changed to Standard, recalculate prices
+        if (category === '2') {
+            calculateSizePrices(sizeIndex);
+        }
+        // If changed to Premium/Economy, prices remain editable (no action needed)
+    };
+
+    const setupSizeEventListeners = (sizeCard) => {
+        const sizeIndex = sizeCard.getAttribute('data-size-index');
+        if (!sizeIndex) return;
+
+        const sizeInput = sizeCard.querySelector('.size-input');
+        const categorySelect = sizeCard.querySelector('.category-select');
+
+        if (sizeInput) {
+            sizeInput.addEventListener('input', () => {
+                const category = categorySelect?.value;
+                if (category === '2') {
+                    calculateSizePrices(sizeIndex);
+                }
+            });
+        }
+
+        if (categorySelect) {
+            categorySelect.addEventListener('change', () => {
+                handleCategoryChange(sizeIndex);
+            });
+        }
+    };
+
     const addSizeCard = () => {
         const wrapper = document.createElement('div');
         wrapper.innerHTML = sizeTemplate(sizeCounter).trim();
@@ -674,6 +913,15 @@ document.addEventListener('DOMContentLoaded', () => {
             newInput.addEventListener('change', function() {
                 handleImagePreview(this);
             });
+        }
+        
+        // Setup auto-calculation event listeners
+        setupSizeEventListeners(newCard);
+        
+        // Auto-calculate for new size if base prices exist and category is Standard
+        const categorySelect = newCard.querySelector('.category-select');
+        if (categorySelect && categorySelect.value === '2') {
+            calculateSizePrices(sizeCounter);
         }
         
         sizeCounter += 1;
@@ -694,6 +942,39 @@ document.addEventListener('DOMContentLoaded', () => {
             handleImagePreview(this);
         });
     });
+
+    // Setup auto-calculation event listeners for existing size cards
+    document.querySelectorAll('.booth-size-card').forEach(sizeCard => {
+        setupSizeEventListeners(sizeCard);
+    });
+
+    // Recalculate all Standard category sizes when base prices change
+    const baseRawPriceInput = document.querySelector('input[name="raw_price_per_sqft"]');
+    const baseShellPriceInput = document.querySelector('input[name="orphand_price_per_sqft"]');
+    
+    if (baseRawPriceInput) {
+        baseRawPriceInput.addEventListener('input', () => {
+            document.querySelectorAll('.booth-size-card').forEach(sizeCard => {
+                const sizeIndex = sizeCard.getAttribute('data-size-index');
+                const categorySelect = sizeCard.querySelector('.category-select');
+                if (categorySelect && categorySelect.value === '2' && sizeIndex !== null) {
+                    calculateSizePrices(sizeIndex);
+                }
+            });
+        });
+    }
+    
+    if (baseShellPriceInput) {
+        baseShellPriceInput.addEventListener('input', () => {
+            document.querySelectorAll('.booth-size-card').forEach(sizeCard => {
+                const sizeIndex = sizeCard.getAttribute('data-size-index');
+                const categorySelect = sizeCard.querySelector('.category-select');
+                if (categorySelect && categorySelect.value === '2' && sizeIndex !== null) {
+                    calculateSizePrices(sizeIndex);
+                }
+            });
+        });
+    }
 
     if (addSizeButtons && addSizeButtons.length && sizesContainer) {
         addSizeButtons.forEach((btn) => btn.addEventListener('click', () => addSizeCard()));

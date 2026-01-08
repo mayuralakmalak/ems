@@ -280,6 +280,8 @@
                                     <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#e0e0e0" stroke-width="1"/>
                                 </pattern>
                             </defs>
+                            <!-- Semi-transparent white background to show div background image through -->
+                            <rect id="gridBgOverlay" width="100%" height="100%" fill="rgba(250, 250, 250, 0.5)"/>
                             <!-- Grid background -->
                             <rect id="gridBg" width="100%" height="100%" fill="url(#gridPattern)"/>
                             <!-- Hall outline -->
@@ -490,6 +492,11 @@ document.addEventListener('DOMContentLoaded', function () {
         // Update floorplan editor's currentFloorId
         if (window.floorplanEditor) {
             window.floorplanEditor.currentFloorId = floorId;
+        }
+        
+        // Load background image for this floor
+        if (window.floorplanEditor && typeof window.floorplanEditor.loadBackgroundImage === 'function') {
+            window.floorplanEditor.loadBackgroundImage(floor.background_image || null);
         }
         
         // Load existing images for this floor

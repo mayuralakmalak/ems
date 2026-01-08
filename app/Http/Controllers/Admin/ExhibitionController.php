@@ -101,6 +101,10 @@ class ExhibitionController extends Controller
             'floors.*.name' => 'required_with:floors|string|max:255',
             'floors.*.floor_number' => 'required_with:floors|integer|min:0',
             'floors.*.description' => 'nullable|string',
+            'floors.*.width_meters' => 'nullable|numeric|min:0',
+            'floors.*.height_meters' => 'nullable|numeric|min:0',
+            'floors.*.background_image' => 'nullable|image|max:10240',
+            'floors.*.remove_background_image' => 'nullable|boolean',
             'floors.*.is_active' => 'nullable|boolean',
             'booth_sizes' => 'nullable|array',
             'booth_sizes.*.size_sqft' => 'nullable|numeric|min:0',
@@ -306,6 +310,51 @@ class ExhibitionController extends Controller
             $existingFloorIds = [];
             
             foreach ($request->floors as $floorData) {
+                $updateData = [
+                    'name' => $floorData['name'],
+                    'floor_number' => $floorData['floor_number'],
+                    'description' => $floorData['description'] ?? null,
+                    'width_meters' => isset($floorData['width_meters']) && $floorData['width_meters'] !== '' ? $floorData['width_meters'] : null,
+                    'height_meters' => isset($floorData['height_meters']) && $floorData['height_meters'] !== '' ? $floorData['height_meters'] : null,
+                    'is_active' => isset($floorData['is_active']) ? (bool)$floorData['is_active'] : true,
+                ];
+
+                // Handle background image upload
+                if (isset($floorData['background_image']) && $floorData['background_image']->isValid()) {
+                    // Delete old background image if exists
+                    $oldBackgroundImage = null;
+                    if (isset($floorData['id']) && $floorData['id']) {
+                        $oldFloor = Floor::find($floorData['id']);
+                        if ($oldFloor && $oldFloor->background_image) {
+                            $oldBackgroundImage = $oldFloor->background_image;
+                        }
+                    }
+                    
+                    // Store new background image
+                    $backgroundImagePath = $floorData['background_image']->store('floors/backgrounds', 'public');
+                    $updateData['background_image'] = $backgroundImagePath;
+                    
+                    // Delete old image from storage
+                    if ($oldBackgroundImage && \Storage::disk('public')->exists($oldBackgroundImage)) {
+                        \Storage::disk('public')->delete($oldBackgroundImage);
+                    }
+                } elseif (isset($floorData['remove_background_image']) && $floorData['remove_background_image']) {
+                    // Remove background image if checkbox is checked
+                    $oldBackgroundImage = null;
+                    if (isset($floorData['id']) && $floorData['id']) {
+                        $oldFloor = Floor::find($floorData['id']);
+                        if ($oldFloor && $oldFloor->background_image) {
+                            $oldBackgroundImage = $oldFloor->background_image;
+                        }
+                    }
+                    $updateData['background_image'] = null;
+                    
+                    // Delete old image from storage
+                    if ($oldBackgroundImage && \Storage::disk('public')->exists($oldBackgroundImage)) {
+                        \Storage::disk('public')->delete($oldBackgroundImage);
+                    }
+                }
+
                 if (isset($floorData['id']) && $floorData['id']) {
                     // Update existing floor
                     $floor = Floor::where('id', $floorData['id'])
@@ -313,23 +362,13 @@ class ExhibitionController extends Controller
                         ->first();
                     
                     if ($floor) {
-                        $floor->update([
-                            'name' => $floorData['name'],
-                            'floor_number' => $floorData['floor_number'],
-                            'description' => $floorData['description'] ?? null,
-                            'is_active' => isset($floorData['is_active']) ? (bool)$floorData['is_active'] : true,
-                        ]);
+                        $floor->update($updateData);
                         $existingFloorIds[] = $floor->id;
                     }
                 } else {
                     // Create new floor
-                    $floor = Floor::create([
-                        'exhibition_id' => $exhibition->id,
-                        'name' => $floorData['name'],
-                        'floor_number' => $floorData['floor_number'],
-                        'description' => $floorData['description'] ?? null,
-                        'is_active' => isset($floorData['is_active']) ? (bool)$floorData['is_active'] : true,
-                    ]);
+                    $updateData['exhibition_id'] = $exhibition->id;
+                    $floor = Floor::create($updateData);
                     $existingFloorIds[] = $floor->id;
                 }
             }

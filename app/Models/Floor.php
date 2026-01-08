@@ -11,6 +11,7 @@ class Floor extends Model
 
     protected $fillable = [
         'exhibition_id', 'name', 'floor_number', 'description',
+        'width_meters', 'height_meters', 'background_image',
         'floorplan_image', 'floorplan_images', 'is_active', 'sort_order'
     ];
 
