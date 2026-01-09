@@ -275,15 +275,22 @@ body {
     overflow: auto;
     position: relative;
     background: #fafafa;
+    /* Ensure scrolling works for large floorplans */
+    min-width: 0;
+    min-height: 0;
 }
 
 .admin-svg {
-    width: 100%;
-    height: 100%;
-    min-width: 1200px;
-    min-height: 800px;
+    /* SVG dimensions will be set dynamically via viewBox and canvas wrapper size */
+    display: block;
     cursor: crosshair;
-    background: transparent;
+    background: #fafafa;
+    /* Remove fixed min dimensions to allow dynamic sizing */
+    /* Ensure SVG maintains aspect ratio and proper rendering */
+    max-width: none;
+    max-height: none;
+    /* Enable smooth zoom transitions */
+    transition: transform 0.2s ease;
 }
 
 .admin-svg.select-mode {

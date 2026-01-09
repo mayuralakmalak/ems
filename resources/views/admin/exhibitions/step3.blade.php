@@ -110,7 +110,7 @@
                         <div class="form-group">
                             <label>Hall Width (grid units):</label>
                             <input type="number" id="hallWidthGrid" value="24" min="10" max="60">
-                            <small>Current: <span id="hallWidthPx">1200</span> px</small>
+                            <small>Current: <span id="hallWidthPx">2000</span> px</small>
                         </div>
                         <div class="form-group">
                             <label>Hall Height (grid units):</label>
@@ -259,7 +259,7 @@
                 </aside>
 
                 <!-- Center - Canvas Area -->
-                <div class="canvas-area">
+                <div class="canvas-area" style="overflow: scroll">
                     <div class="canvas-header">
                         <div class="canvas-info">
                             <span>Mode: <strong id="currentMode">Select</strong></span>
@@ -273,15 +273,17 @@
                             <button type="button" id="fitToScreen" class="control-btn">Fit</button>
                         </div>
                     </div>
-                    <div class="canvas-wrapper" id="canvasWrapper">
-                        <svg id="adminSvg" class="admin-svg" viewBox="0 0 1200 800">
+                    <div class="canvas-wrapper" id="canvasWrapper" style="overflow: auto; min-width: 100%; min-height: 100%;">
+                        <!-- SVG viewBox will be set dynamically based on floor dimensions -->
+                        <svg id="adminSvg" class="admin-svg" style="display: block;">
                             <defs>
                                 <pattern id="gridPattern" width="50" height="50" patternUnits="userSpaceOnUse">
                                     <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#e0e0e0" stroke-width="1"/>
                                 </pattern>
                             </defs>
-                            <!-- Semi-transparent white background to show div background image through -->
-                            <rect id="gridBgOverlay" width="100%" height="100%" fill="rgba(250, 250, 250, 0.5)"/>
+                            <!-- Background image will be inserted here dynamically -->
+                            <!-- Semi-transparent white overlay to show grid over background -->
+                            <rect id="gridBgOverlay" width="100%" height="100%" fill="rgba(250, 250, 250, 0.3)"/>
                             <!-- Grid background -->
                             <rect id="gridBg" width="100%" height="100%" fill="url(#gridPattern)"/>
                             <!-- Hall outline -->
@@ -470,7 +472,16 @@ document.addEventListener('DOMContentLoaded', function () {
     // Initialize floor selector
     if (floorSelector && floorsData.length > 0) {
         const initialFloorId = floorSelector.value;
-        loadFloorData(initialFloorId);
+        
+        // Wait for floorplan editor to be initialized before loading floor data
+        if (window.floorplanEditor) {
+            loadFloorData(initialFloorId);
+        } else {
+            // Wait a bit for the editor to initialize
+            setTimeout(() => {
+                loadFloorData(initialFloorId);
+            }, 100);
+        }
         
         floorSelector.addEventListener('change', function() {
             const selectedFloorId = this.value;
@@ -492,17 +503,31 @@ document.addEventListener('DOMContentLoaded', function () {
         // Update floorplan editor's currentFloorId
         if (window.floorplanEditor) {
             window.floorplanEditor.currentFloorId = floorId;
+            
+            // Update hall dimensions from floor meters (1 meter = 50px)
+            // If floor dimensions are provided, calculate dynamic dimensions
+            if (floor.width_meters && floor.height_meters) {
+                if (typeof window.floorplanEditor.updateHallDimensionsFromFloor === 'function') {
+                    window.floorplanEditor.updateHallDimensionsFromFloor(
+                        parseFloat(floor.width_meters),
+                        parseFloat(floor.height_meters)
+                    );
+                }
+            }
         }
         
-        // Load background image for this floor
+        // Load background image for this floor (after dimensions are set)
         if (window.floorplanEditor && typeof window.floorplanEditor.loadBackgroundImage === 'function') {
-            window.floorplanEditor.loadBackgroundImage(floor.background_image || null);
+            // Small delay to ensure dimensions are set first
+            setTimeout(() => {
+                window.floorplanEditor.loadBackgroundImage(floor.background_image || null);
+            }, 100);
         }
         
         // Load existing images for this floor
         loadFloorImages(floorId, floor);
         
-        // Update floorplan editor to load this floor's config
+        // Update floorplan editor to load this floor's config (after dimensions are set)
         loadFloorplanConfig(floorId);
     }
     
