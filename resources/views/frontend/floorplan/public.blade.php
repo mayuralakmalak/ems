@@ -1,6 +1,6 @@
 @extends('layouts.frontend')
 
-@section('title', 'Floorplan - ' . $exhibition->name)
+@section('title', 'Hall Plan - ' . $exhibition->name)
 
 @section('content')
 <div class="container my-5">
@@ -22,9 +22,9 @@
                         <label class="form-label small">Booth Size</label>
                         <select class="form-select form-select-sm" id="filterSize">
                             <option value="">All Sizes</option>
-                            <option value="small">Small (< 15 sq ft)</option>
-                            <option value="medium">Medium (15-25 sq ft)</option>
-                            <option value="large">Large (> 25 sq ft)</option>
+                            <option value="small">Small (< 15 sq meter)</option>
+                            <option value="medium">Medium (15-25 sq meter)</option>
+                            <option value="large">Large (> 25 sq meter)</option>
                         </select>
                     </div>
                     
@@ -86,7 +86,7 @@
         <div class="col-lg-9">
             <div class="card">
                 <div class="card-header bg-info text-white">
-                    <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Exhibition Hall Floorplan - {{ $exhibition->name }}</h5>
+                    <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Exhibition Hall Plan - {{ $exhibition->name }}</h5>
                 </div>
                 <div class="card-body p-0" style="position: relative; overflow: auto; height: 600px; background: #f8f9fa;">
                     @php
@@ -159,7 +159,7 @@
                                     box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
                             <div class="text-center">
                                 <div>{{ $booth->name }}</div>
-                                <div style="font-size: 10px;">{{ $booth->size_sqft }} sq ft</div>
+                                <div style="font-size: 10px;">{{ $booth->size_sqft }} sq meter</div>
                             </div>
                         </div>
                         @endforeach
@@ -185,7 +185,7 @@ document.querySelectorAll('.booth-item').forEach(booth => {
         const price = this.getAttribute('data-booth-price');
         const status = this.getAttribute('data-booth-status');
         
-        this.title = `${name}\nSize: ${size} sq ft\nPrice: ₹${parseFloat(price).toLocaleString()}\nStatus: ${status}`;
+        this.title = `${name}\nSize: ${size} sq meter\nPrice: ₹${parseFloat(price).toLocaleString()}\nStatus: ${status}`;
     });
 });
 </script>

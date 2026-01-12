@@ -219,7 +219,7 @@
     <div class="col-lg-6">
         <div class="card h-100">
             <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-bar-chart-line me-2"></i>Most Booked Booth Sizes (sqft)</h5>
+                <h5 class="mb-0"><i class="bi bi-bar-chart-line me-2"></i>Most Booked Booth Sizes (sq meter)</h5>
             </div>
             <div class="card-body">
                 @if($popularSizes->isEmpty())
@@ -252,7 +252,7 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const sizeLabels = @json($popularSizes->pluck('size_sqft')->map(function ($v) {
-            return $v . ' sqft';
+            return $v . ' sq meter';
         }));
         const sizeData = @json($popularSizes->pluck('bookings_count'));
 

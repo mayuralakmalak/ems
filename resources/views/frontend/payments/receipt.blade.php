@@ -246,7 +246,7 @@
             <thead>
                 <tr>
                     <th>Booth</th>
-                    <th>Size (sq ft)</th>
+                    <th>Size (sq meter)</th>
                     <th>Sides Open</th>
                     <th>Type</th>
                     <th>Price (₹)</th>

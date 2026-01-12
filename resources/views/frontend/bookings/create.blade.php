@@ -259,11 +259,11 @@
                         @foreach($availableBooths as $booth)
                             <option value="{{ $booth->id }}" 
                                 @if(request()->has('booths') && in_array($booth->id, explode(',', request()->get('booths')))) selected @endif>
-                                {{ $booth->name }} - {{ $booth->category ?? 'Standard' }} ({{ $booth->size_sqft ?? 'N/A' }} sq ft) - ₹{{ number_format($booth->price ?? 0, 0) }}
+                                {{ $booth->name }} - {{ $booth->category ?? 'Standard' }} ({{ $booth->size_sqft ?? 'N/A' }} sq meter) - ₹{{ number_format($booth->price ?? 0, 0) }}
                             </option>
                         @endforeach
                     </select>
-                    <small class="text-muted d-block mt-2">Hold Ctrl/Cmd (Windows/Mac) to select multiple booths. You can also select booths from the floorplan.</small>
+                    <small class="text-muted d-block mt-2">Hold Ctrl/Cmd (Windows/Mac) to select multiple booths. You can also select booths from the hall plan.</small>
                 </div>
             </div>
         @else

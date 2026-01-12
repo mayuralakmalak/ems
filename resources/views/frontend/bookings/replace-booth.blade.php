@@ -304,8 +304,8 @@
     <!-- Info Banner -->
     <div class="info-banner">
         <h5><i class="bi bi-info-circle me-2"></i>Booth Replacement Information</h5>
-        <p><strong>Current Booth:</strong> {{ $currentBooth->name }} ({{ $currentBooth->category }}, {{ $currentBooth->size_sqft }} sq ft)</p>
-        <p><strong>Replacement Criteria:</strong> You can only replace with booths that have the same category (<strong>{{ $currentBooth->category }}</strong>) and same size (<strong>{{ $currentBooth->size_sqft }} sq ft</strong>).</p>
+        <p><strong>Current Booth:</strong> {{ $currentBooth->name }} ({{ $currentBooth->category }}, {{ $currentBooth->size_sqft }} sq meter)</p>
+        <p><strong>Replacement Criteria:</strong> You can only replace with booths that have the same category (<strong>{{ $currentBooth->category }}</strong>) and same size (<strong>{{ $currentBooth->size_sqft }} sq meter</strong>).</p>
         <p><strong>Note:</strong> All your additional services, items, payments, and badges will be preserved with the new booth.</p>
     </div>
     
@@ -323,7 +323,7 @@
             </div>
             <div class="booth-detail-item">
                 <div class="booth-detail-label">Size</div>
-                <div class="booth-detail-value">{{ $currentBooth->size_sqft }} sq ft</div>
+                <div class="booth-detail-value">{{ $currentBooth->size_sqft }} sq meter</div>
             </div>
             <div class="booth-detail-item">
                 <div class="booth-detail-label">Type</div>
@@ -332,14 +332,14 @@
         </div>
     </div>
     
-    <!-- Floor Plan Section -->
+    <!-- Hall Plan Section -->
     <div class="floorplan-section">
         <div class="floorplan-header">
             <div>
                 <h4 class="floorplan-title">Select Replacement Booth</h4>
                 @if(isset($exhibition->floors) && $exhibition->floors && $exhibition->floors->count() > 1)
                 <div class="floor-selection">
-                    <label for="floorSelect">Select Floor:</label>
+                    <label for="floorSelect">Select Hall:</label>
                     <select id="floorSelect" class="form-select">
                         @foreach($exhibition->floors as $floor)
                             <option value="{{ $floor->id }}" {{ (isset($selectedFloorId) && $selectedFloorId == $floor->id) ? 'selected' : '' }}>
@@ -368,7 +368,7 @@
             <div class="no-booths-message">
                 <i class="bi bi-inbox"></i>
                 <h5>No Replacement Booths Available</h5>
-                <p>There are no available booths matching your current booth's category ({{ $currentBooth->category }}) and size ({{ $currentBooth->size_sqft }} sq ft).</p>
+                <p>There are no available booths matching your current booth's category ({{ $currentBooth->category }}) and size ({{ $currentBooth->size_sqft }} sq meter).</p>
                 <p>Please check back later or contact support for assistance.</p>
             </div>
             @else
@@ -410,7 +410,7 @@
                             height: {{ $booth->height ?? 80 }}px;">
                     <div class="text-center">
                         <div>{{ $booth->name }}</div>
-                        <div style="font-size: 10px;">{{ $booth->size_sqft }} sq ft</div>
+                        <div style="font-size: 10px;">{{ $booth->size_sqft }} sq meter</div>
                         @if($isCurrentBooth)
                         <div style="font-size: 9px; margin-top: 2px;">(Current)</div>
                         @endif
@@ -533,7 +533,7 @@ document.querySelectorAll('.booth-item').forEach(booth => {
                 <strong>Category:</strong> ${boothCategory}
             </div>
             <div class="selected-booth-detail">
-                <strong>Size:</strong> ${boothSize} sq ft
+                <strong>Size:</strong> ${boothSize} sq meter
             </div>
         `;
         

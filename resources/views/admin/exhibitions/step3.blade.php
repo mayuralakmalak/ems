@@ -30,7 +30,7 @@
     <!-- Floor Selection Section -->
     <div class="card mb-4">
         <div class="card-header">
-            <h5 class="mb-0"><i class="bi bi-layers me-2"></i>Select Floor for Floor Plan Management</h5>
+            <h5 class="mb-0"><i class="bi bi-layers me-2"></i>Select Hall for Hall Plan Management</h5>
         </div>
         <div class="card-body">
             @php
@@ -40,23 +40,23 @@
             
             @if($floors->count() > 0)
                 <div class="mb-3">
-                    <label class="form-label fw-bold">Select Floor:</label>
+                    <label class="form-label fw-bold">Select Hall:</label>
                     <select id="floorSelector" class="form-select" style="max-width: 400px;">
                         @foreach($floors as $floor)
                             <option value="{{ $floor->id }}" {{ $selectedFloorId == $floor->id ? 'selected' : '' }}>
-                                {{ $floor->name }} (Floor #{{ $floor->floor_number }})
+                                {{ $floor->name }} (Hall #{{ $floor->floor_number }})
                                 @if(!$floor->is_active)
                                     - Inactive
                                 @endif
                             </option>
                         @endforeach
                     </select>
-                    <small class="text-muted d-block mt-2">Select a floor to manage its floor plan and booths. Each floor has its own independent floor plan.</small>
+                    <small class="text-muted d-block mt-2">Select a hall to manage its hall plan and booths. Each hall has its own independent hall plan.</small>
                 </div>
             @else
                 <div class="alert alert-warning">
                     <i class="bi bi-exclamation-triangle me-2"></i>
-                    No floors configured. Please go back to <a href="{{ route('admin.exhibitions.step2', $exhibition->id) }}">Step 2</a> to add floors first.
+                    No halls configured. Please go back to <a href="{{ route('admin.exhibitions.step2', $exhibition->id) }}">Step 2</a> to add halls first.
                 </div>
             @endif
         </div>
@@ -66,13 +66,13 @@
     <div class="card mb-4" id="floorplanCard">
         <div class="card-header">
             <h5 class="mb-0">
-                <span id="floorplanTitle">Floor Plan Management</span>
+                <span id="floorplanTitle">Hall Plan Management</span>
                 <span id="selectedFloorName" class="badge bg-primary ms-2"></span>
             </h5>
         </div>
         <div class="card-body" style="padding: 0;">
             <div class="p-3" id="floorplanImagesSection">
-                <label class="form-label mb-2">Upload Floorplan Background Images for <span id="currentFloorName">Selected Floor</span> (Optional)</label>
+                <label class="form-label mb-2">Upload Hall Plan Background Images for <span id="currentFloorName">Selected Hall</span> (Optional)</label>
                 <input type="file" name="floorplan_images[]" class="form-control" accept="image/*" multiple id="floorplanImagesInput">
                 <input type="hidden" id="currentFloorIdForm" name="current_floor_id" value="{{ $selectedFloorId }}">
                 <div id="floorplanNewPreview" class="d-flex flex-wrap gap-3 mt-2"></div>
@@ -164,11 +164,11 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Area (sq ft):</label>
+                            <label>Area (sq meter):</label>
                             <input type="number" id="boothArea" value="100" min="10" max="1000">
                         </div>
                         <div class="form-group">
-                            <label>Size (sq ft):</label>
+                            <label>Size (sq meter):</label>
                             <select id="boothSizeSqft">
                                 <option value="">Select size</option>
                                 @foreach(($exhibition->boothSizes ?? collect()) as $size)
@@ -183,7 +183,7 @@
                                     <option value="{{ $size->id }}" 
                                             data-size="{{ $size->size_sqft }}"
                                             data-category="{{ $size->category }}">
-                                        {{ $size->size_sqft }} sq ft - {{ $categoryLabel }}
+                                        {{ $size->size_sqft }} sq meter - {{ $categoryLabel }}
                                     </option>
                                 @endforeach
                             </select>
@@ -226,7 +226,7 @@
                             <button type="button" id="duplicateBooth" class="btn-secondary">Duplicate Booth</button>
                             <button type="button" id="mergeBooths" class="btn-secondary">Merge Selected (0/2)</button>
                             <button type="button" id="generateBooths" class="btn-secondary">Generate Grid</button>
-                            <button type="button" id="resetFloorplan" class="btn-danger">Reset Floorplan</button>
+                            <button type="button" id="resetFloorplan" class="btn-danger">Reset Hall Plan</button>
                         </div>
                     </div>
 
@@ -311,34 +311,34 @@
             <div class="modal-body">
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <label class="form-label">Rows</label>
+                        <label class="form-label">No of Rows</label>
                         <input type="number" id="gridRows" class="form-control" value="3" min="1">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Columns</label>
+                        <label class="form-label">No of Columns</label>
                         <input type="number" id="gridCols" class="form-control" value="3" min="1">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Booth Width (grid units)</label>
+                        <label class="form-label">Booth Rows (grid units)</label>
                         <input type="number" id="gridBoothWidth" class="form-control" value="2" min="1">
                         <small class="text-muted">Width px: <span id="gridBoothWidthPx">100</span></small>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Booth Height (grid units)</label>
+                        <label class="form-label">Booth Columns (grid units)</label>
                         <input type="number" id="gridBoothHeight" class="form-control" value="2" min="1">
                         <small class="text-muted">Height px: <span id="gridBoothHeightPx">100</span></small>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Spacing (grid units)</label>
+                        <label class="form-label">Spacing Between Booths (grid units)</label>
                         <input type="number" id="gridSpacing" class="form-control" value="0" min="0">
                         <small class="text-muted">Spacing px: <span id="gridSpacingPx">0</span></small>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-6" style="display: none;">
                         <label class="form-label">Start X (grid units)</label>
                         <input type="number" id="gridStartX" class="form-control" value="2" min="0">
                         <small class="text-muted">Start X px: <span id="gridStartXPx">100</span></small>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-6" style="display: none;">
                         <label class="form-label">Start Y (grid units)</label>
                         <input type="number" id="gridStartY" class="form-control" value="3" min="0">
                         <small class="text-muted">Start Y px: <span id="gridStartYPx">150</span></small>
@@ -355,7 +355,7 @@
                                 <option value="{{ $size->id }}" 
                                         data-category="{{ $size->category }}"
                                         data-size-sqft="{{ $size->size_sqft }}">
-                                    {{ $size->size_sqft }} sq ft - 
+                                    {{ $size->size_sqft }} sq meter - 
                                     @if($size->category == '1' || $size->category == 'Premium')
                                         Premium
                                     @elseif($size->category == '2' || $size->category == 'Standard')
@@ -549,7 +549,7 @@ document.addEventListener('DOMContentLoaded', function () {
             allImages.forEach((imgPath, index) => {
                 html += `
                     <div class="border rounded p-2 text-center" style="width: 120px;">
-                        <img src="{{ asset('storage/') }}/${imgPath.replace(/^\/+/, '')}" alt="Floorplan" 
+                        <img src="{{ asset('storage/') }}/${imgPath.replace(/^\/+/, '')}" alt="Hall Plan" 
                              style="width: 100%; height: 80px; object-fit: cover; border-radius: 4px;">
                         <div class="form-check mt-1">
                             <input class="form-check-input" type="checkbox" 

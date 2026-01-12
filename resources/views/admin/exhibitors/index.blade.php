@@ -22,7 +22,7 @@
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <input type="number" name="booth_area" class="form-control" placeholder="Min Booth Area (sqft)" value="{{ request('booth_area') }}">
+                    <input type="number" name="booth_area" class="form-control" placeholder="Min Booth Area (sq meter)" value="{{ request('booth_area') }}">
                 </div>
                 <div class="col-md-12">
                     <button type="submit" class="btn btn-primary">Filter</button>

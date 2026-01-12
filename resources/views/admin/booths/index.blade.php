@@ -28,7 +28,7 @@
                             <th>Booth Name</th>
                             <th>Category</th>
                             <th>Type</th>
-                            <th>Size (sq ft)</th>
+                            <th>Size (sq meter)</th>
                             <th>Sides Open</th>
                             <th>Price</th>
                             <th>Status</th>

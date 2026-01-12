@@ -42,7 +42,7 @@
                     </div>
                     <div class="col-md-6 mb-3">
                         <strong>Size:</strong><br>
-                        {{ $booth->size_sqft }} sq ft
+                        {{ $booth->size_sqft }} sq meter
                     </div>
                     <div class="col-md-6 mb-3">
                         <strong>Sides Open:</strong><br>

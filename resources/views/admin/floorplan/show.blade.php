@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 
-@section('title', 'Admin Panel: Floor Plan')
-@section('page-title', 'Admin Panel: Floor Plan')
+@section('title', 'Admin Panel: Hall Plan')
+@section('page-title', 'Admin Panel: Hall Plan')
 
 @push('styles')
 <style>
@@ -219,7 +219,7 @@
     <!-- Center Content -->
     <div class="center-content">
         <div class="section-card">
-            <h4 class="mb-3">Interactive Floor Plan</h4>
+            <h4 class="mb-3">Interactive Hall Plan</h4>
             <p class="text-muted mb-3">Click on a stall to view/edit details</p>
             
             <!-- Stall Quick Access Buttons -->
@@ -233,7 +233,7 @@
                 @endforeach
             </div>
             
-            <!-- Floor Plan Canvas -->
+            <!-- Hall Plan Canvas -->
                 <div class="floorplan-canvas">
                     <div class="floorplan-grid" id="floorplanGrid" style="position: relative; min-height: 600px; width: 100%;">
                     @php
@@ -250,7 +250,7 @@
                     @if($exhibition->booths->isEmpty())
                     <div class="empty-state">
                         <i class="bi bi-grid-3x3-gap"></i>
-                        <p>Interactive Floor Plan Coming Soon</p>
+                        <p>Interactive Hall Plan Coming Soon</p>
                     </div>
                     @else
                         @foreach($exhibition->booths as $booth)
@@ -277,7 +277,7 @@
         <div class="section-card">
             <h5 class="section-title">Stall Details & Actions</h5>
             <p class="section-description">Manage selected stall properties</p>
-            <p class="text-muted small">Select a stall on the floor plan to edit its details.</p>
+            <p class="text-muted small">Select a stall on the hall plan to edit its details.</p>
             
             <div id="stallDetailsForm" class="stall-details-form" style="display: none;">
                 <div class="form-group">
@@ -289,7 +289,7 @@
                     <input type="text" class="form-control" id="stallCategory" readonly>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Size (sq ft)</label>
+                    <label class="form-label">Size (sq meter)</label>
                     <input type="text" class="form-control" id="stallSize" readonly>
                 </div>
                 <div class="form-group">
@@ -303,9 +303,9 @@
             </div>
         </div>
         
-        <!-- Floor Plan Management -->
+        <!-- Hall Plan Management -->
         <div class="section-card">
-            <h5 class="section-title">Floor Plan Management</h5>
+            <h5 class="section-title">Hall Plan Management</h5>
             <p class="section-description">Combine, split, or add new stalls.</p>
             
             <button class="btn-action" id="combineStallsBtn" onclick="showCombineModal()">
@@ -407,7 +407,7 @@
                         <input type="text" class="form-control" name="category" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Size (sq ft)</label>
+                        <label class="form-label">Size (sq meter)</label>
                         <input type="number" class="form-control" name="size_sqft" step="0.01" required>
                     </div>
                     <div class="mb-3">

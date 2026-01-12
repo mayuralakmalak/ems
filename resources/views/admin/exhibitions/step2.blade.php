@@ -24,13 +24,13 @@
               <!-- Floor Management Section -->
               <div class="card mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0"><i class="bi bi-building me-2"></i>Floor Management</h6>
+                    <h6 class="mb-0"><i class="bi bi-building me-2"></i>Hall Management</h6>
                     <button type="button" class="btn btn-sm btn-outline-primary" id="addFloorBtn">
-                        <i class="bi bi-plus-circle me-1"></i>Add Floor
+                        <i class="bi bi-plus-circle me-1"></i>Add Hall
                     </button>
                 </div>
                 <div class="card-body">
-                    <p class="text-muted mb-3">Manage multiple floors for this exhibition. Each floor can have its own floor plan and booth configuration.</p>
+                    <p class="text-muted mb-3">Manage multiple halls for this exhibition. Each hall can have its own hall plan and booth configuration.</p>
                     <div id="floorsContainer">
                         @forelse($exhibition->floors as $floorIndex => $floor)
                         <div class="border rounded p-3 mb-3 floor-item" data-floor-id="{{ $floor->id }}">
@@ -47,13 +47,13 @@
                             </div>
                             <div class="row g-3">
                                 <div class="col-md-3">
-                                    <label class="form-label">Floor Name <span class="text-danger">*</span></label>
+                                    <label class="form-label">Hall Name <span class="text-danger">*</span></label>
                                     <input type="text" name="floors[{{ $floorIndex }}][name]" class="form-control floor-name-input" 
                                            value="{{ $floor->name }}" required>
                                     <input type="hidden" name="floors[{{ $floorIndex }}][id]" value="{{ $floor->id }}">
                                 </div>
                                 <div class="col-md-2">
-                                    <label class="form-label">Floor Number <span class="text-danger">*</span></label>
+                                    <label class="form-label">Hall Number <span class="text-danger">*</span></label>
                                     <input type="number" name="floors[{{ $floorIndex }}][floor_number]" class="form-control" 
                                            value="{{ $floor->floor_number }}" min="0" required>
                                 </div>
@@ -82,7 +82,7 @@
                             </div>
                             <div class="row g-3 mt-2">
                                 <div class="col-md-12">
-                                    <label class="form-label">Floor Background Image</label>
+                                    <label class="form-label">Hall Background Image</label>
                                     <input type="file" name="floors[{{ $floorIndex }}][background_image]" 
                                            class="form-control floor-background-image-input" 
                                            accept="image/*" 
@@ -112,19 +112,19 @@
                         @empty
                         <div class="border rounded p-3 mb-3 floor-item" data-floor-id="new-0">
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <h6 class="mb-0"><i class="bi bi-layers me-2"></i>Floor #1</h6>
+                                <h6 class="mb-0"><i class="bi bi-layers me-2"></i>Hall #1</h6>
                                 <button type="button" class="btn btn-sm btn-link text-danger remove-floor-btn">
                                     <i class="bi bi-trash"></i> Remove
                                 </button>
                             </div>
                             <div class="row g-3">
                                 <div class="col-md-3">
-                                    <label class="form-label">Floor Name <span class="text-danger">*</span></label>
+                                    <label class="form-label">Hall Name <span class="text-danger">*</span></label>
                                     <input type="text" name="floors[0][name]" class="form-control floor-name-input" 
                                            value="Ground Floor" required>
                                 </div>
                                 <div class="col-md-2">
-                                    <label class="form-label">Floor Number <span class="text-danger">*</span></label>
+                                    <label class="form-label">Hall Number <span class="text-danger">*</span></label>
                                     <input type="number" name="floors[0][floor_number]" class="form-control" 
                                            value="0" min="0" required>
                                 </div>
@@ -153,7 +153,7 @@
                             </div>
                             <div class="row g-3 mt-2">
                                 <div class="col-md-12">
-                                    <label class="form-label">Floor Background Image</label>
+                                    <label class="form-label">Hall Background Image</label>
                                     <input type="file" name="floors[0][background_image]" 
                                            class="form-control floor-background-image-input" 
                                            accept="image/*" 
@@ -166,7 +166,7 @@
                     </div>
                     <div class="d-flex justify-content-end mt-2">
                         <button type="button" class="btn btn-sm btn-outline-primary" id="addFloorBtnBottom">
-                            <i class="bi bi-plus-circle me-1"></i>Add Floor
+                            <i class="bi bi-plus-circle me-1"></i>Add Hall
                         </button>
                     </div>
                 </div>
@@ -200,6 +200,41 @@
                                    value="{{ $exhibition->orphand_price_per_sqft ?? '' }}">
                         </div>
                     </div>
+                    <hr>
+                    <div class="row g-3">
+                        <div class="col-lg-6">
+                            <div class="mb-3">
+                                <label class="form-label">Side Open Variations (% adjustment)</label>
+                                <div class="row">
+                                    <div class="col-md-6 mb-2">
+                                        <div class="input-group">
+                                            <span class="input-group-text">1 Side Open</span>
+                                            <input type="text" name="side_1_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_1_open_percent ?? '' }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="input-group">
+                                            <span class="input-group-text">2 Sides Open</span>
+                                            <input type="text" name="side_2_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_2_open_percent ?? '' }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="input-group">
+                                            <span class="input-group-text">3 Sides Open</span>
+                                            <input type="text" name="side_3_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_3_open_percent ?? '' }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="input-group">
+                                            <span class="input-group-text">4 Sides Open</span>
+                                            <input type="text" name="side_4_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_4_open_percent ?? '' }}">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <hr>
                     <div class="mb-4">
                         <p class="text-muted mb-2">Size (sq meter) with Raw Price, Shell Price, category, and multiple items. Use Add size to manage multiple entries.</p>
                         <div id="boothSizesContainer">
@@ -427,48 +462,6 @@
                             <button type="button" class="btn btn-sm btn-outline-primary add-size-btn">Add size</button>
                         </div>
                     </div>
-
-                    <hr>
-
-                    <div class="row g-3">
-                        <div class="col-lg-6">
-                            <div class="mb-3">
-                                <label class="form-label">Base price per sq ft</label>
-                                <input type="number" name="price_per_sqft" class="form-control" step="0.01" placeholder="eg. 100" value="{{ $exhibition->price_per_sqft ?? '' }}">
-                            </div>
-                        </div>
-                        <div class="col-lg-6">
-                            <div class="mb-3">
-                                <label class="form-label">Side Open Variations (% adjustment)</label>
-                                <div class="row">
-                                    <div class="col-md-6 mb-2">
-                                        <div class="input-group">
-                                            <span class="input-group-text">1 Side Open</span>
-                                            <input type="text" name="side_1_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_1_open_percent ?? '' }}">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 mb-2">
-                                        <div class="input-group">
-                                            <span class="input-group-text">2 Sides Open</span>
-                                            <input type="text" name="side_2_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_2_open_percent ?? '' }}">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 mb-2">
-                                        <div class="input-group">
-                                            <span class="input-group-text">3 Sides Open</span>
-                                            <input type="text" name="side_3_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_3_open_percent ?? '' }}">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 mb-2">
-                                        <div class="input-group">
-                                            <span class="input-group-text">4 Sides Open</span>
-                                            <input type="text" name="side_4_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_4_open_percent ?? '' }}">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -557,19 +550,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const floorTemplate = (floorIndex) => `
         <div class="border rounded p-3 mb-3 floor-item" data-floor-id="new-${floorIndex}">
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="mb-0"><i class="bi bi-layers me-2"></i>Floor #${floorIndex + 1}</h6>
+                <h6 class="mb-0"><i class="bi bi-layers me-2"></i>Hall #${floorIndex + 1}</h6>
                 <button type="button" class="btn btn-sm btn-link text-danger remove-floor-btn">
                     <i class="bi bi-trash"></i> Remove
                 </button>
             </div>
             <div class="row g-3">
                 <div class="col-md-3">
-                    <label class="form-label">Floor Name <span class="text-danger">*</span></label>
+                    <label class="form-label">Hall Name <span class="text-danger">*</span></label>
                     <input type="text" name="floors[${floorIndex}][name]" class="form-control floor-name-input" 
-                           value="Floor ${floorIndex + 1}" required>
+                           value="Hall ${floorIndex + 1}" required>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label">Floor Number <span class="text-danger">*</span></label>
+                    <label class="form-label">Hall Number <span class="text-danger">*</span></label>
                     <input type="number" name="floors[${floorIndex}][floor_number]" class="form-control" 
                            value="${floorIndex}" min="0" required>
                 </div>
@@ -598,7 +591,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div class="row g-3 mt-2">
                 <div class="col-md-12">
-                    <label class="form-label">Floor Background Image</label>
+                    <label class="form-label">Hall Background Image</label>
                     <input type="file" name="floors[${floorIndex}][background_image]" 
                            class="form-control floor-background-image-input" 
                            accept="image/*" 

@@ -71,7 +71,7 @@
                             <tr>
                                 <td>{{ $booth->name }}</td>
                                 <td>{{ $booth->booth_type }}</td>
-                                <td>{{ $booth->size_sqft ?? 'N/A' }} sq ft</td>
+                                <td>{{ $booth->size_sqft ?? 'N/A' }} sq meter</td>
                                 <td>₹{{ number_format($booth->price ?? 0, 0) }}</td>
                                 <td>
                                     <span class="badge bg-{{ $booth->is_available ? 'success' : 'secondary' }}">
@@ -91,7 +91,7 @@
                         <i class="bi bi-grid-3x3-gap me-2"></i>Manage All Booths
                     </a>
                     <a href="{{ route('admin.floorplan.show', $exhibition->id) }}" class="btn btn-success">
-                        <i class="bi bi-diagram-3 me-2"></i>Interactive Floorplan
+                        <i class="bi bi-diagram-3 me-2"></i>Interactive Hall Plan
                     </a>
                 </div>
                 @else
@@ -112,9 +112,9 @@
                 <h5 class="mb-0"><i class="bi bi-currency-dollar me-2"></i>Pricing Information</h5>
             </div>
             <div class="card-body">
-                <p><strong>Base Price / Sq Ft:</strong> ₹{{ number_format($exhibition->price_per_sqft ?? 0, 0) }}</p>
-                <p><strong>Raw Booth / Sq Ft:</strong> ₹{{ number_format($exhibition->raw_price_per_sqft ?? 0, 0) }}</p>
-                <p><strong>Orphand Booth / Sq Ft:</strong> ₹{{ number_format($exhibition->orphand_price_per_sqft ?? 0, 0) }}</p>
+                <p><strong>Base Price / Sq Meter:</strong> ₹{{ number_format($exhibition->price_per_sqft ?? 0, 0) }}</p>
+                <p><strong>Raw Booth / Sq Meter:</strong> ₹{{ number_format($exhibition->raw_price_per_sqft ?? 0, 0) }}</p>
+                <p><strong>Orphand Booth / Sq Meter:</strong> ₹{{ number_format($exhibition->orphand_price_per_sqft ?? 0, 0) }}</p>
             </div>
         </div>
 

@@ -25,7 +25,7 @@
                     <small class="text-muted">Unique booth identifier</small>
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label class="form-label">Size (sq ft) *</label>
+                    <label class="form-label">Size (sq meter) *</label>
                     <input type="number" name="size_sqft" class="form-control" step="0.01" min="0" required id="size_sqft">
                 </div>
             </div>

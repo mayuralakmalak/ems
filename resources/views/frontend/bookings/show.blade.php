@@ -515,7 +515,7 @@
                                     <th>Category</th>
                                     <th>Type</th>
                                     <th>Sides Open</th>
-                                    <th>Size (sq ft)</th>
+                                    <th>Size (sq meter)</th>
                                     <th class="text-end">Price</th>
                                 </tr>
                             </thead>
@@ -562,7 +562,7 @@
                             </div>
                             <div class="detail-item">
                                 <div class="detail-label">Size</div>
-                                <div class="detail-value">{{ number_format($singleBooth['size_sqft'] ?? 0, 0) }} sq ft</div>
+                                <div class="detail-value">{{ number_format($singleBooth['size_sqft'] ?? 0, 0) }} sq meter</div>
                             </div>
                             <div class="detail-item">
                                 <div class="detail-label">Price</div>
@@ -595,7 +595,7 @@
                         @if($boothDisplay->count() > 1)
                             You can replace booths with other booths of the same category and size.
                         @else
-                            You can replace this booth with another booth of the same category and size ({{ $singleBooth['size_sqft'] ?? 0 }} sq ft).
+                            You can replace this booth with another booth of the same category and size ({{ $singleBooth['size_sqft'] ?? 0 }} sq meter).
                         @endif
                     </small>
                 </div>

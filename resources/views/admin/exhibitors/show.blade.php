@@ -300,7 +300,7 @@
                             <label class="form-label">Booth <span class="text-danger">*</span></label>
                             <select name="booth_id" class="form-select" required>
                                 @foreach($booths as $booth)
-                                <option value="{{ $booth->id }}" {{ $booking->booth_id == $booth->id ? 'selected' : '' }}>{{ $booth->name }} ({{ $booth->size_sqft }} sqft)</option>
+                                <option value="{{ $booth->id }}" {{ $booking->booth_id == $booth->id ? 'selected' : '' }}>{{ $booth->name }} ({{ $booth->size_sqft }} sq meter)</option>
                                 @endforeach
                             </select>
                         </div>

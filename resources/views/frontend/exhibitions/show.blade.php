@@ -245,7 +245,7 @@
                         @endphp
                         @if($floorplanUrl)
                             <a href="{{ $floorplanUrl }}" class="btn btn-outline-light btn-sm w-100 mb-2">
-                                <i class="bi bi-diagram-3 me-1"></i>View Floorplan
+                                <i class="bi bi-diagram-3 me-1"></i>View Hall Plan
                             </a>
                         @endif
                         @auth
@@ -291,8 +291,8 @@
                             <table class="table table-sm align-middle">
                                 <thead>
                                     <tr>
-                                        <th>Size (sq ft)</th>
-                                        <th>Row Price</th>
+                                        <th>Size (sq meter)</th>
+                                        <th>Raw Price</th>
                                         <th>Orphan Price</th>
                                         <th>Category</th>
                                         <th>Included Items</th>
@@ -374,7 +374,7 @@
         </div>
     </div>
 
-    {{-- Floorplan Background Images & Stall Variations --}}
+    {{-- Hall Plan Background Images & Stall Variations --}}
     <div class="row mt-2">
         @php
             $floorplanImages = is_array($exhibition->floorplan_images ?? null)
@@ -384,17 +384,17 @@
         <div class="col-md-7 mb-4">
             <div class="card section-card">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-image me-2"></i>Floor plan</h5>
+                    <h5 class="mb-0"><i class="bi bi-image me-2"></i>Hall plan</h5>
                     <span class="section-chip"><i class="bi bi-images"></i>{{ count($floorplanImages) }} image{{ count($floorplanImages) === 1 ? '' : 's' }}</span>
                 </div>
                 <div class="card-body">
                     @if(empty($floorplanImages))
-                        <p class="text-muted mb-0">No floorplan images uploaded yet.</p>
+                        <p class="text-muted mb-0">No hall plan images uploaded yet.</p>
                     @else
                         <div class="d-flex flex-wrap gap-3">
                             @foreach($floorplanImages as $imgPath)
                                 <div class="border rounded p-2 text-center" style="width: 140px; background-color: #f8f9fa;">
-                                    <img src="{{ asset('storage/' . ltrim($imgPath, '/')) }}" alt="Floorplan"
+                                    <img src="{{ asset('storage/' . ltrim($imgPath, '/')) }}" alt="Hall Plan"
                                          style="width: 100%; height: 90px; object-fit: cover; border-radius: 4px;">
                                 </div>
                             @endforeach

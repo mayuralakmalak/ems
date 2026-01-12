@@ -11,7 +11,7 @@
         </div>
         <div class="d-flex justify-content-between mt-2">
             <small class="text-primary fw-bold">Step 1: General Details</small>
-            <small class="text-muted">Step 2: Floor Plan & Pricing</small>
+            <small class="text-muted">Step 2: Hall Plan & Pricing</small>
             <small class="text-muted">Step 3: Payment Schedule</small>
             <small class="text-muted">Step 4: Badge & Manual</small>
         </div>

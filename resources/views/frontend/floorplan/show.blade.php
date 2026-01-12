@@ -1,7 +1,7 @@
 @extends('layouts.exhibitor')
 
-@section('title', 'Floorplan - ' . $exhibition->name)
-@section('page-title', 'Floorplan - ' . $exhibition->name)
+@section('title', 'Hall Plan - ' . $exhibition->name)
+@section('page-title', 'Hall Plan - ' . $exhibition->name)
 
 @push('styles')
 <style>
@@ -365,7 +365,7 @@
         </div>
     </div>
     
-    <!-- Right Panel: Interactive Floorplan -->
+    <!-- Right Panel: Interactive Hall Plan -->
     <div class="right-panel">
         <div class="floorplan-controls">
             <div class="filter-group">
@@ -384,7 +384,7 @@
                 $primaryFloorplanImage = $floorplanImages[0] ?? null;
             @endphp
             @if($primaryFloorplanImage)
-            <img src="{{ asset('storage/' . $primaryFloorplanImage) }}" id="floorplanImage" class="floorplan-image" alt="Floorplan">
+            <img src="{{ asset('storage/' . $primaryFloorplanImage) }}" id="floorplanImage" class="floorplan-image" alt="Hall Plan">
             @endif
             <div id="boothsContainer" style="position: relative; min-height: 100%; z-index: 2;">
                 @foreach($exhibition->booths as $booth)
@@ -432,7 +432,7 @@
                             height: {{ $booth->height ?? 80 }}px;">
                     <div class="text-center">
                         <div>{{ $booth->name }}</div>
-                        <div style="font-size: 10px;">{{ $booth->size_sqft }} sq ft</div>
+                        <div style="font-size: 10px;">{{ $booth->size_sqft }} sq meter</div>
                     </div>
                 </div>
                 @endforeach
@@ -507,7 +507,7 @@ function updateSelectedBoothInfo() {
         if (booth) {
             info.innerHTML = `
                 <div class="selected-booth-name">${booth.getAttribute('data-booth-name')}</div>
-                <div class="selected-booth-details">Size: ${booth.getAttribute('data-booth-size')} sq ft</div>
+                <div class="selected-booth-details">Size: ${booth.getAttribute('data-booth-size')} sq meter</div>
                 <div class="selected-booth-details">Category: ${booth.getAttribute('data-booth-category')}</div>
                 <div class="selected-booth-details">Type: ${booth.getAttribute('data-booth-type')}</div>
                 <div class="selected-booth-details">Sides Open: ${booth.getAttribute('data-booth-sides')}</div>

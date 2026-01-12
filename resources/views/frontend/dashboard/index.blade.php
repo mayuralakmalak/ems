@@ -417,7 +417,7 @@
                 <div class="col-6">
                     <a href="{{ route('exhibitions.list') }}" class="quick-action-btn">
                         <i class="bi bi-grid-3x3-gap"></i>
-                        <div class="quick-action-label">View Floorplan</div>
+                        <div class="quick-action-label">View Hall Plan</div>
                     </a>
                 </div>
                 <div class="col-6">

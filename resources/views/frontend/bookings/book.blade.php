@@ -906,10 +906,10 @@
     <div class="center-panel">
         <div class="floorplan-header">
             <div>
-                <h4 class="floorplan-title">Exhibition Hall Floorplan</h4>
+                <h4 class="floorplan-title">Exhibition Hall Plan</h4>
                 @if(isset($floors) && $floors->count() > 1)
                 <div class="floor-selection" style="margin-top: 10px;">
-                    <label for="floorSelect" style="font-size: 0.9rem; color: #64748b; margin-right: 10px;">Select Floor:</label>
+                    <label for="floorSelect" style="font-size: 0.9rem; color: #64748b; margin-right: 10px;">Select Hall:</label>
                     <select id="floorSelect" class="form-select" style="display: inline-block; width: auto; min-width: 200px; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem;">
                         @foreach($floors as $floor)
                             <option value="{{ $floor->id }}" {{ (isset($selectedFloorId) && $selectedFloorId == $floor->id) ? 'selected' : '' }}>
@@ -1050,7 +1050,7 @@
                             height: {{ $booth->height ?? 80 }}px;">
                     <div class="text-center">
                         <div>{{ $booth->name }}{{ $booth->is_merged ? ' (Merged)' : '' }}</div>
-                        <div style="font-size: 10px;">{{ $booth->size_sqft }} sq ft</div>
+                        <div style="font-size: 10px;">{{ $booth->size_sqft }} sq meter</div>
                         @if($mergedNames)
                         <div style="font-size: 9px; color: #0f172a;">Original: {{ $mergedNames }}</div>
                         @endif
@@ -1097,7 +1097,7 @@
         @endphp
         @if($allFloorplanImages->count() > 0)
         <div class="floorplan-images-section">
-            <div class="floorplan-images-title">Floorplan images</div>
+            <div class="floorplan-images-title">Hall Plan images</div>
             <div class="floorplan-images-grid">
                 @foreach($allFloorplanImages as $idx => $fpImage)
                     @php
@@ -1106,8 +1106,8 @@
                             : asset('storage/' . ltrim($fpImage, '/'));
                     @endphp
                     <div class="floorplan-image-thumb"
-                         onclick="openImageGallery(null, '{{ $src }}', 'Floorplan image {{ $idx + 1 }}')">
-                        <img src="{{ $src }}" alt="Floorplan image {{ $idx + 1 }}">
+                         onclick="openImageGallery(null, '{{ $src }}', 'Hall Plan image {{ $idx + 1 }}')">
+                        <img src="{{ $src }}" alt="Hall Plan image {{ $idx + 1 }}">
                     </div>
                 @endforeach
             </div>
@@ -1611,7 +1611,7 @@ function showBoothDetails(boothId) {
         ` : ''}
         <div class="detail-row">
             <span class="detail-label">Size</span>
-            <span class="detail-value">${booth.getAttribute('data-booth-size')} sq ft</span>
+            <span class="detail-value">${booth.getAttribute('data-booth-size')} sq meter</span>
         </div>
         <div class="detail-row">
             <span class="detail-label">Category</span>
