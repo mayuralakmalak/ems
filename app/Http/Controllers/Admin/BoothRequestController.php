@@ -55,10 +55,11 @@ class BoothRequestController extends Controller
         
         // Also load booths from booking's selected_booth_ids if available
         $selectedBooths = collect();
+        $boothTypeMap = []; // Map booth ID to type from selected_booth_ids
         if ($booking && $booking->selected_booth_ids) {
             $selectedBoothIds = [];
             if (is_array($booking->selected_booth_ids)) {
-                // Handle array format: [{'id': 1, 'name': 'B001'}, ...]
+                // Handle array format: [{'id': 1, 'name': 'B001', 'type': 'Orphand'}, ...]
                 if (isset($booking->selected_booth_ids[0]) && is_array($booking->selected_booth_ids[0])) {
                     $selectedBoothIds = collect($booking->selected_booth_ids)
                         ->pluck('id')
@@ -66,6 +67,13 @@ class BoothRequestController extends Controller
                         ->unique()
                         ->values()
                         ->all();
+                    
+                    // Build type map from selected_booth_ids
+                    foreach ($booking->selected_booth_ids as $boothData) {
+                        if (is_array($boothData) && isset($boothData['id']) && isset($boothData['type'])) {
+                            $boothTypeMap[$boothData['id']] = $boothData['type'];
+                        }
+                    }
                 } else {
                     // Handle simple array format: [1, 2, 3]
                     $selectedBoothIds = collect($booking->selected_booth_ids)
@@ -78,11 +86,36 @@ class BoothRequestController extends Controller
             
             if (!empty($selectedBoothIds)) {
                 $selectedBooths = Booth::whereIn('id', $selectedBoothIds)->get();
+                // Override booth_type from selected_booth_ids if available
+                foreach ($selectedBooths as $booth) {
+                    if (isset($boothTypeMap[$booth->id])) {
+                        $booth->booth_type = $boothTypeMap[$booth->id];
+                    }
+                }
             }
         }
         
         // Merge all booths, prioritizing selected booths from booking
         $displayBooths = $selectedBooths->isNotEmpty() ? $selectedBooths : $allBooths;
+        
+        // Override booth_type from selected_booth_ids for all display booths if available
+        if ($booking && $booking->selected_booth_ids && is_array($booking->selected_booth_ids)) {
+            // Build type map from selected_booth_ids if not already built
+            if (empty($boothTypeMap) && isset($booking->selected_booth_ids[0]) && is_array($booking->selected_booth_ids[0])) {
+                foreach ($booking->selected_booth_ids as $boothData) {
+                    if (is_array($boothData) && isset($boothData['id']) && isset($boothData['type'])) {
+                        $boothTypeMap[$boothData['id']] = $boothData['type'];
+                    }
+                }
+            }
+            
+            // Apply type from selected_booth_ids to all display booths
+            foreach ($displayBooths as $booth) {
+                if (isset($boothTypeMap[$booth->id])) {
+                    $booth->booth_type = $boothTypeMap[$booth->id];
+                }
+            }
+        }
         
         // Map included item extras to their item definitions (for names)
         $extraItemsMap = collect();

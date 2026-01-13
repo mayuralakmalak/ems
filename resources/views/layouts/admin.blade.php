@@ -415,6 +415,11 @@
                 </a>
             </li>
             <li>
+                <a href="{{ route('admin.size-types.index') }}" class="{{ request()->routeIs('admin.size-types.*') ? 'active' : '' }}">
+                    <i class="bi bi-rulers"></i>Size Type
+                </a>
+            </li>
+            <li>
                 <a href="{{ route('admin.discounts.index') }}" class="{{ request()->routeIs('admin.discounts.*') ? 'active' : '' }}">
                     <i class="bi bi-percent"></i>Discounts
                 </a>

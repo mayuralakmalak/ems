@@ -68,7 +68,7 @@
                                            value="{{ $floor->width_meters }}" placeholder="e.g. 50.00" min="0">
                                 </div>
                                 <div class="col-md-2">
-                                    <label class="form-label">Height (meters)</label>
+                                    <label class="form-label">Length (meters)</label>
                                     <input type="number" step="0.01" name="floors[{{ $floorIndex }}][height_meters]" class="form-control" 
                                            value="{{ $floor->height_meters }}" placeholder="e.g. 30.00" min="0">
                                 </div>
@@ -139,7 +139,7 @@
                                            placeholder="e.g. 50.00" min="0">
                                 </div>
                                 <div class="col-md-2">
-                                    <label class="form-label">Height (meters)</label>
+                                    <label class="form-label">Length (meters)</label>
                                     <input type="number" step="0.01" name="floors[0][height_meters]" class="form-control" 
                                            placeholder="e.g. 30.00" min="0">
                                 </div>
@@ -200,6 +200,41 @@
                                    value="{{ $exhibition->orphand_price_per_sqft ?? '' }}">
                         </div>
                     </div>
+                    <hr>
+                    <div class="row g-3">
+                        <div class="col-lg-12">
+                            <div class="mb-3">
+                                <label class="form-label">Side Open Variations (% adjustment)</label>
+                                <div class="row">
+                                    <div class="col-md-6 mb-2">
+                                        <div class="input-group">
+                                            <span class="input-group-text">1 Side Open</span>
+                                            <input type="text" name="side_1_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_1_open_percent ?? '' }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="input-group">
+                                            <span class="input-group-text">2 Sides Open</span>
+                                            <input type="text" name="side_2_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_2_open_percent ?? '' }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="input-group">
+                                            <span class="input-group-text">3 Sides Open</span>
+                                            <input type="text" name="side_3_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_3_open_percent ?? '' }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="input-group">
+                                            <span class="input-group-text">4 Sides Open</span>
+                                            <input type="text" name="side_4_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_4_open_percent ?? '' }}">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <hr>
                     <div class="mb-4">
                         <p class="text-muted mb-2">Size (sq meter) with Raw Price, Shell Price, category, and multiple items. Use Add size to manage multiple entries.</p>
                         <div id="boothSizesContainer">
@@ -210,15 +245,26 @@
                                     <button type="button" class="btn btn-sm btn-link text-danger remove-size-btn">Remove size</button>
                                 </div>
                                 <div class="row g-3">
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <label class="form-label">Size (sq meter)</label>
                                         <input type="number" step="0.01" name="booth_sizes[{{ $sizeIndex }}][size_sqft]" class="form-control size-input" data-size-index="{{ $sizeIndex }}" value="{{ $boothSize->size_sqft }}">
                                     </div>
                                     <div class="col-md-3">
+                                        <label class="form-label">Size Type</label>
+                                        <select name="booth_sizes[{{ $sizeIndex }}][size_type_id]" class="form-select">
+                                            <option value="">Select Size Type</option>
+                                            @foreach($sizeTypes as $sizeType)
+                                                <option value="{{ $sizeType->id }}" @selected($boothSize->size_type_id == $sizeType->id)>
+                                                    {{ $sizeType->length }} x {{ $sizeType->width }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
                                         <label class="form-label">Raw Price</label>
                                         <input type="number" step="0.01" name="booth_sizes[{{ $sizeIndex }}][row_price]" class="form-control raw-price-input" data-size-index="{{ $sizeIndex }}" value="{{ $boothSize->row_price }}">
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <label class="form-label">Shell Price</label>
                                         <input type="number" step="0.01" name="booth_sizes[{{ $sizeIndex }}][orphan_price]" class="form-control shell-price-input" data-size-index="{{ $sizeIndex }}" value="{{ $boothSize->orphan_price }}">
                                     </div>
@@ -362,19 +408,30 @@
                                     <button type="button" class="btn btn-sm btn-link text-danger remove-size-btn">Remove size</button>
                                 </div>
                                 <div class="row g-3">
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <label class="form-label">Size (sq meter)</label>
                                         <input type="number" step="0.01" name="booth_sizes[0][size_sqft]" class="form-control size-input" data-size-index="0" placeholder="e.g. 100">
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
+                                        <label class="form-label">Size Type</label>
+                                        <select name="booth_sizes[0][size_type_id]" class="form-select">
+                                            <option value="">Select Size Type</option>
+                                            @foreach($sizeTypes as $sizeType)
+                                                <option value="{{ $sizeType->id }}">
+                                                    {{ $sizeType->length }} x {{ $sizeType->width }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
                                         <label class="form-label">Raw Price</label>
                                         <input type="number" step="0.01" name="booth_sizes[0][row_price]" class="form-control raw-price-input" data-size-index="0" placeholder="e.g. 5000">
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <label class="form-label">Shell Price</label>
                                         <input type="number" step="0.01" name="booth_sizes[0][orphan_price]" class="form-control shell-price-input" data-size-index="0" placeholder="e.g. 4000">
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <label class="form-label">Category</label>
                                         <select name="booth_sizes[0][category]" class="form-select category-select" data-size-index="0">
                                             <option value="">Select</option>
@@ -425,48 +482,6 @@
                         </div>
                         <div class="d-flex justify-content-end mt-2">
                             <button type="button" class="btn btn-sm btn-outline-primary add-size-btn">Add size</button>
-                        </div>
-                    </div>
-
-                    <hr>
-
-                    <div class="row g-3">
-                        <div class="col-lg-6">
-                            <div class="mb-3">
-                                <label class="form-label">Base price per sq meter</label>
-                                <input type="number" name="price_per_sqft" class="form-control" step="0.01" placeholder="eg. 100" value="{{ $exhibition->price_per_sqft ?? '' }}">
-                            </div>
-                        </div>
-                        <div class="col-lg-6">
-                            <div class="mb-3">
-                                <label class="form-label">Side Open Variations (% adjustment)</label>
-                                <div class="row">
-                                    <div class="col-md-6 mb-2">
-                                        <div class="input-group">
-                                            <span class="input-group-text">1 Side Open</span>
-                                            <input type="text" name="side_1_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_1_open_percent ?? '' }}">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 mb-2">
-                                        <div class="input-group">
-                                            <span class="input-group-text">2 Sides Open</span>
-                                            <input type="text" name="side_2_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_2_open_percent ?? '' }}">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 mb-2">
-                                        <div class="input-group">
-                                            <span class="input-group-text">3 Sides Open</span>
-                                            <input type="text" name="side_3_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_3_open_percent ?? '' }}">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 mb-2">
-                                        <div class="input-group">
-                                            <span class="input-group-text">4 Sides Open</span>
-                                            <input type="text" name="side_4_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_4_open_percent ?? '' }}">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -548,6 +563,7 @@
 
 @push('scripts')
 <script>
+const sizeTypesData = @json($sizeTypes ?? []);
 document.addEventListener('DOMContentLoaded', () => {
     // Floor Management
     const floorsContainer = document.getElementById('floorsContainer');
@@ -584,7 +600,7 @@ document.addEventListener('DOMContentLoaded', () => {
                            placeholder="e.g. 50.00" min="0">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label">Height (meters)</label>
+                    <label class="form-label">Length (meters)</label>
                     <input type="number" step="0.01" name="floors[${floorIndex}][height_meters]" class="form-control" 
                            placeholder="e.g. 30.00" min="0">
                 </div>
@@ -739,15 +755,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button type="button" class="btn btn-sm btn-link text-danger remove-size-btn">Remove size</button>
             </div>
             <div class="row g-3">
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">Size (sq meter)</label>
                     <input type="number" step="0.01" name="booth_sizes[${sizeIndex}][size_sqft]" class="form-control size-input" data-size-index="${sizeIndex}" placeholder="e.g. 100">
                 </div>
                 <div class="col-md-3">
+                    <label class="form-label">Size Type</label>
+                    <select name="booth_sizes[${sizeIndex}][size_type_id]" class="form-select">
+                        <option value="">Select Size Type</option>
+                        ${sizeTypesData.map(sizeType => `
+                            <option value="${sizeType.id}">${sizeType.length} x ${sizeType.width}</option>
+                        `).join('')}
+                    </select>
+                </div>
+                <div class="col-md-2">
                     <label class="form-label">Raw Price</label>
                     <input type="number" step="0.01" name="booth_sizes[${sizeIndex}][row_price]" class="form-control raw-price-input" data-size-index="${sizeIndex}" placeholder="e.g. 5000">
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">Shell Price</label>
                     <input type="number" step="0.01" name="booth_sizes[${sizeIndex}][orphan_price]" class="form-control shell-price-input" data-size-index="${sizeIndex}" placeholder="e.g. 4000">
                 </div>

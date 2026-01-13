@@ -76,8 +76,9 @@ class ExhibitionController extends Controller
     {
         $exhibition = Exhibition::with(['stallSchemes', 'booths', 'boothSizes.items', 'addonServices', 'floors'])->findOrFail($id);
         $services = Service::where('is_active', true)->orderBy('name')->get();
+        $sizeTypes = \App\Models\SizeType::orderBy('id', 'desc')->get();
 
-        return view('admin.exhibitions.step2', compact('exhibition', 'services'));
+        return view('admin.exhibitions.step2', compact('exhibition', 'services', 'sizeTypes'));
     }
 
     public function storeStep2(Request $request, $id)
@@ -108,6 +109,7 @@ class ExhibitionController extends Controller
             'floors.*.is_active' => 'nullable|boolean',
             'booth_sizes' => 'nullable|array',
             'booth_sizes.*.size_sqft' => 'nullable|numeric|min:0',
+            'booth_sizes.*.size_type_id' => 'nullable|exists:size_types,id',
             'booth_sizes.*.row_price' => 'nullable|numeric|min:0',
             'booth_sizes.*.orphan_price' => 'nullable|numeric|min:0',
             'booth_sizes.*.category' => 'nullable|string|max:255',
@@ -185,6 +187,7 @@ class ExhibitionController extends Controller
 
         foreach ($boothSizes as $sizeIndex => $boothSizeData) {
             $sizeSqft = $boothSizeData['size_sqft'] ?? null;
+            $sizeTypeId = $boothSizeData['size_type_id'] ?? null;
             $rowPrice = $boothSizeData['row_price'] ?? null;
             $orphanPrice = $boothSizeData['orphan_price'] ?? null;
             $category = $boothSizeData['category'] ?? null;
@@ -220,6 +223,7 @@ class ExhibitionController extends Controller
 
             $boothSize = $exhibition->boothSizes()->create([
                 'size_sqft' => $sizeSqft,
+                'size_type_id' => $sizeTypeId,
                 'row_price' => $rowPrice,
                 'orphan_price' => $orphanPrice,
                 'category' => $category,

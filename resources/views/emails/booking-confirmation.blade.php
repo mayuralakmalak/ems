@@ -272,7 +272,7 @@
                     <tr>
                         <td>{{ $booth['name'] ?? '—' }}</td>
                         <td>{{ $booth['size_sqft'] ?? '—' }}</td>
-                        <td>{{ $booth['type'] ?? '—' }}</td>
+                        <td>{{ (($booth['type'] ?? '—') === 'Orphand') ? 'Shell' : ($booth['type'] ?? '—') }}</td>
                         <td>₹{{ number_format($booth['price'] ?? 0, 2) }}</td>
                     </tr>
                     @endforeach

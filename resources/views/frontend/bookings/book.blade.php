@@ -1480,7 +1480,7 @@ function renderBoothSelectionControls(boothId) {
 
     typeContainer.innerHTML = `
         <label><input type="radio" name="boothType-${boothId}" value="Raw"> Raw</label>
-        <label><input type="radio" name="boothType-${boothId}" value="Orphand"> Orphand</label>
+        <label><input type="radio" name="boothType-${boothId}" value="Orphand">Shell</label>
     `;
 
     if (sideContainer) {
@@ -1570,7 +1570,7 @@ function updateBoothPriceDisplay(price = 0, selection = null, booth = null) {
     if (selection) {
         const typeEl = document.getElementById('boothDetailType');
         const sideEl = document.getElementById('boothDetailSides');
-        if (typeEl) typeEl.textContent = selection.type;
+        if (typeEl) typeEl.textContent = selection.type === 'Orphand' ? 'Shell' : selection.type;
         if (sideEl) sideEl.textContent = selection.sides;
     }
 }
@@ -1619,7 +1619,7 @@ function showBoothDetails(boothId) {
         </div>
         <div class="detail-row">
             <span class="detail-label">Type</span>
-            <span class="detail-value" id="boothDetailType">${selection.type}</span>
+            <span class="detail-value" id="boothDetailType">${selection.type === 'Orphand' ? 'Shell' : selection.type}</span>
         </div>
     `;
     

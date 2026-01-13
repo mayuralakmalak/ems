@@ -12,6 +12,7 @@ class ExhibitionBoothSize extends Model
     protected $fillable = [
         'exhibition_id',
         'size_sqft',
+        'size_type_id',
         'row_price',
         'orphan_price',
         'category',
@@ -33,5 +34,10 @@ class ExhibitionBoothSize extends Model
     public function items()
     {
         return $this->hasMany(ExhibitionBoothSizeItem::class);
+    }
+
+    public function sizeType()
+    {
+        return $this->belongsTo(SizeType::class);
     }
 }

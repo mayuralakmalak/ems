@@ -106,6 +106,10 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     // Category Management
     Route::resource('categories', CategoryController::class)->except(['show']);
     
+    // Size Type Management
+    Route::resource('size-types', \App\Http\Controllers\Admin\SizeTypeController::class)->except(['show']);
+    Route::post('/size-types/bulk-delete', [\App\Http\Controllers\Admin\SizeTypeController::class, 'bulkDelete'])->name('size-types.bulk-delete');
+    
     // Role Management
     Route::get('/roles', [\App\Http\Controllers\Admin\RoleController::class, 'index'])->name('roles.index');
     Route::post('/roles', [\App\Http\Controllers\Admin\RoleController::class, 'store'])->name('roles.store');

@@ -293,7 +293,7 @@
                                     <tr>
                                         <th>Size (sq meter)</th>
                                         <th>Raw Price</th>
-                                        <th>Orphan Price</th>
+                                        <th>Shell Price</th>
                                         <th>Category</th>
                                         <th>Included Items</th>
                                     </tr>

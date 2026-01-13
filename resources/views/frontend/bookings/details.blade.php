@@ -297,7 +297,7 @@
                                     $discount = $selection['discount_amount'] ?? 0;
                                 @endphp
                                 <div style="font-size: 0.95rem; margin-bottom:4px;">
-                                    {{ $selection['name'] }} — {{ $selection['type'] }} / {{ $selection['sides'] }} sides
+                                    {{ $selection['name'] }} — {{ $selection['type'] === 'Orphand' ? 'Shell' : $selection['type'] }} / {{ $selection['sides'] }} sides
                                     @if($discount > 0)
                                         <span class="text-muted" style="text-decoration: line-through; margin-left:6px;">
                                             ₹{{ number_format($original, 2) }}

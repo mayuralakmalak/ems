@@ -140,7 +140,7 @@
                             <div class="fw-bold">{{ $booth->name }}</div>
                             <div class="small text-muted">
                                 <span class="me-3"><strong>Size:</strong> {{ $booth->size_sqft ?? 'N/A' }} sq meter</span>
-                                <span class="me-3"><strong>Type:</strong> {{ $booth->booth_type ?? 'N/A' }}</span>
+                                <span class="me-3"><strong>Type:</strong> {{ ($booth->booth_type ?? 'N/A') === 'Orphand' ? 'Shell' : ($booth->booth_type ?? 'N/A') }}</span>
                                 <span class="me-3"><strong>Category:</strong> {{ $booth->category ?? 'N/A' }}</span>
                                 <span><strong>Sides Open:</strong> {{ $booth->sides_open ?? 'N/A' }}</span>
                             </div>
@@ -152,7 +152,7 @@
                             <div class="fw-bold">{{ $booth->name }}</div>
                             <div class="small text-muted">
                                 <span class="me-3"><strong>Size:</strong> {{ $booth->size_sqft ?? 'N/A' }} sq meter</span>
-                                <span class="me-3"><strong>Type:</strong> {{ $booth->booth_type ?? 'N/A' }}</span>
+                                <span class="me-3"><strong>Type:</strong> {{ ($booth->booth_type ?? 'N/A') === 'Orphand' ? 'Shell' : ($booth->booth_type ?? 'N/A') }}</span>
                                 <span class="me-3"><strong>Category:</strong> {{ $booth->category ?? 'N/A' }}</span>
                                 <span><strong>Sides Open:</strong> {{ $booth->sides_open ?? 'N/A' }}</span>
                             </div>
@@ -311,7 +311,7 @@
                                     </div>
                                     <div class="detail-item">
                                         <div class="detail-label">Type</div>
-                                        <div class="detail-value">{{ $booth->booth_type ?? 'N/A' }}</div>
+                                        <div class="detail-value">{{ ($booth->booth_type ?? 'N/A') === 'Orphand' ? 'Shell' : ($booth->booth_type ?? 'N/A') }}</div>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -348,7 +348,7 @@
                             </div>
                             <div class="detail-item">
                                 <div class="detail-label">Type</div>
-                                <div class="detail-value">{{ $booking->booth->booth_type ?? 'N/A' }}</div>
+                                <div class="detail-value">{{ (($booking->booth->booth_type ?? 'N/A') === 'Orphand') ? 'Shell' : ($booking->booth->booth_type ?? 'N/A') }}</div>
                             </div>
                         </div>
                         <div class="col-md-6">

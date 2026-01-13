@@ -686,7 +686,7 @@
                                 <div style="margin-bottom:6px;">
                                     <strong>{{ $booth['name'] ?? 'N/A' }}</strong>
                                     <div style="font-size:0.9rem; color:#475569;">
-                                        {{ $booth['type'] ?? '—' }} / {{ $booth['sides'] ?? '—' }} sides — ₹{{ number_format($booth['price'] ?? 0, 2) }}
+                                        {{ (($booth['type'] ?? '—') === 'Orphand' ? 'Shell' : ($booth['type'] ?? '—')) }} / {{ $booth['sides'] ?? '—' }} sides — ₹{{ number_format($booth['price'] ?? 0, 2) }}
                                     </div>
                                 </div>
                             @empty

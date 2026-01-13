@@ -524,7 +524,7 @@
                                 <tr>
                                     <td><strong>{{ $booth['name'] }}</strong></td>
                                     <td>{{ $booth['category'] }}</td>
-                                    <td>{{ $booth['type'] }}</td>
+                                    <td>{{ $booth['type'] === 'Orphand' ? 'Shell' : $booth['type'] }}</td>
                                     <td>{{ $booth['sides'] }} Side{{ $booth['sides'] > 1 ? 's' : '' }}</td>
                                     <td>{{ number_format($booth['size_sqft'], 0) }}</td>
                                     <td class="text-end"><strong>₹{{ number_format($booth['price'], 2) }}</strong></td>
@@ -552,7 +552,7 @@
                             </div>
                             <div class="detail-item">
                                 <div class="detail-label">Booth Type</div>
-                                <div class="detail-value">{{ $singleBooth['type'] ?? 'N/A' }}</div>
+                                <div class="detail-value">{{ ($singleBooth['type'] ?? 'N/A') === 'Orphand' ? 'Shell' : ($singleBooth['type'] ?? 'N/A') }}</div>
                             </div>
                         </div>
                         <div class="col-md-6">
