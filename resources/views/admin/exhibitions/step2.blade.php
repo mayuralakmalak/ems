@@ -200,41 +200,6 @@
                                    value="{{ $exhibition->orphand_price_per_sqft ?? '' }}">
                         </div>
                     </div>
-                    <hr>
-                    <div class="row g-3">
-                        <div class="col-lg-6">
-                            <div class="mb-3">
-                                <label class="form-label">Side Open Variations (% adjustment)</label>
-                                <div class="row">
-                                    <div class="col-md-6 mb-2">
-                                        <div class="input-group">
-                                            <span class="input-group-text">1 Side Open</span>
-                                            <input type="text" name="side_1_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_1_open_percent ?? '' }}">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 mb-2">
-                                        <div class="input-group">
-                                            <span class="input-group-text">2 Sides Open</span>
-                                            <input type="text" name="side_2_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_2_open_percent ?? '' }}">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 mb-2">
-                                        <div class="input-group">
-                                            <span class="input-group-text">3 Sides Open</span>
-                                            <input type="text" name="side_3_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_3_open_percent ?? '' }}">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 mb-2">
-                                        <div class="input-group">
-                                            <span class="input-group-text">4 Sides Open</span>
-                                            <input type="text" name="side_4_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_4_open_percent ?? '' }}">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <hr>
                     <div class="mb-4">
                         <p class="text-muted mb-2">Size (sq meter) with Raw Price, Shell Price, category, and multiple items. Use Add size to manage multiple entries.</p>
                         <div id="boothSizesContainer">
@@ -460,6 +425,48 @@
                         </div>
                         <div class="d-flex justify-content-end mt-2">
                             <button type="button" class="btn btn-sm btn-outline-primary add-size-btn">Add size</button>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="row g-3">
+                        <div class="col-lg-6">
+                            <div class="mb-3">
+                                <label class="form-label">Base price per sq meter</label>
+                                <input type="number" name="price_per_sqft" class="form-control" step="0.01" placeholder="eg. 100" value="{{ $exhibition->price_per_sqft ?? '' }}">
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="mb-3">
+                                <label class="form-label">Side Open Variations (% adjustment)</label>
+                                <div class="row">
+                                    <div class="col-md-6 mb-2">
+                                        <div class="input-group">
+                                            <span class="input-group-text">1 Side Open</span>
+                                            <input type="text" name="side_1_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_1_open_percent ?? '' }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="input-group">
+                                            <span class="input-group-text">2 Sides Open</span>
+                                            <input type="text" name="side_2_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_2_open_percent ?? '' }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="input-group">
+                                            <span class="input-group-text">3 Sides Open</span>
+                                            <input type="text" name="side_3_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_3_open_percent ?? '' }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="input-group">
+                                            <span class="input-group-text">4 Sides Open</span>
+                                            <input type="text" name="side_4_open_percent" class="form-control" placeholder="%" value="{{ $exhibition->side_4_open_percent ?? '' }}">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

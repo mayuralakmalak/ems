@@ -109,17 +109,17 @@
                         <h2>Hall Properties</h2>
                         <div class="form-group">
                             <label>Hall Width (grid units):</label>
-                            <input type="number" id="hallWidthGrid" value="24" min="10" max="60">
+                            <input type="number" id="hallWidthGrid" name="hallWidthGrid" value="24">
                             <small>Current: <span id="hallWidthPx">2000</span> px</small>
                         </div>
                         <div class="form-group">
                             <label>Hall Height (grid units):</label>
-                            <input type="number" id="hallHeightGrid" value="16" min="10" max="40">
+                            <input type="number" id="hallHeightGrid" name="hallHeightGrid" value="16">
                             <small>Current: <span id="hallHeightPx">800</span> px</small>
                         </div>
                         <div class="form-group">
                             <label>Grid Size (px):</label>
-                            <input type="number" id="gridSizeHall" value="50" min="10" max="100">
+                            <input type="number" id="gridSizeHall" name="gridSizeHall" value="50">
                         </div>
                         <button type="button" id="updateHall" class="btn-primary">Update Hall</button>
                     </div>
@@ -129,27 +129,27 @@
                         <h2>Booth Properties</h2>
                         <div class="form-group">
                             <label>Booth ID:</label>
-                            <input type="text" id="boothId" placeholder="B001">
+                            <input type="text" id="boothId" name="boothId" placeholder="B001">
                         </div>
                         <div class="form-group">
                             <label>Width (px):</label>
-                            <input type="number" id="boothWidth" value="100" min="50" max="500">
+                            <input type="number" id="boothWidth" name="boothWidth" value="100">
                         </div>
                         <div class="form-group">
                             <label>Height (px):</label>
-                            <input type="number" id="boothHeight" value="80" min="50" max="500">
+                            <input type="number" id="boothHeight" name="boothHeight" value="80">
                         </div>
                         <div class="form-group">
                             <label>X Position:</label>
-                            <input type="number" id="boothX" value="0" min="0">
+                            <input type="number" id="boothX" name="boothX" value="0">
                         </div>
                         <div class="form-group">
                             <label>Y Position:</label>
-                            <input type="number" id="boothY" value="0" min="0">
+                            <input type="number" id="boothY" name="boothY" value="0">
                         </div>
                         <div class="form-group">
                             <label>Status:</label>
-                            <select id="boothStatus">
+                            <select id="boothStatus" name="boothStatus">
                                 <option value="available">Available</option>
                                 <option value="reserved">Reserved</option>
                                 <option value="booked">Booked</option>
@@ -157,7 +157,7 @@
                         </div>
                         <div class="form-group">
                             <label>Size Category:</label>
-                            <select id="boothSize">
+                            <select id="boothSize" name="boothSize">
                                 <option value="small">Small</option>
                                 <option value="medium">Medium</option>
                                 <option value="large">Large</option>
@@ -165,11 +165,11 @@
                         </div>
                         <div class="form-group">
                             <label>Area (sq meter):</label>
-                            <input type="number" id="boothArea" value="100" min="10" max="1000">
+                            <input type="number" id="boothArea" name="boothArea" value="100">
                         </div>
                         <div class="form-group">
                             <label>Size (sq meter):</label>
-                            <select id="boothSizeSqft">
+                            <select id="boothSizeSqft" name="boothSizeSqft">
                                 <option value="">Select size</option>
                                 @foreach(($exhibition->boothSizes ?? collect()) as $size)
                                     @php
@@ -235,16 +235,16 @@
                         <h2>Grid Settings</h2>
                         <div class="form-group">
                             <label>
-                                <input type="checkbox" id="showGrid" checked> Show Grid
+                                <input type="checkbox" id="showGrid" name="showGrid" checked> Show Grid
                             </label>
                         </div>
                         <div class="form-group">
                             <label>Grid Size (px):</label>
-                            <input type="number" id="gridSize" value="50" min="10" max="100">
+                            <input type="number" id="gridSize" name="gridSize" value="50">
                         </div>
                         <div class="form-group">
                             <label>
-                                <input type="checkbox" id="snapEnabled" checked> Enable Snap
+                                <input type="checkbox" id="snapEnabled" name="snapEnabled" checked> Enable Snap
                             </label>
                         </div>
                     </div>
@@ -312,44 +312,44 @@
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label">No of Rows</label>
-                        <input type="number" id="gridRows" class="form-control" value="3" min="1">
+                        <input type="number" id="gridRows" name="gridRows" class="form-control" value="3">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">No of Columns</label>
-                        <input type="number" id="gridCols" class="form-control" value="3" min="1">
+                        <input type="number" id="gridCols" name="gridCols" class="form-control" value="3">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Booth Rows (grid units)</label>
-                        <input type="number" id="gridBoothWidth" class="form-control" value="2" min="1">
+                        <input type="number" id="gridBoothWidth" name="gridBoothWidth" class="form-control" value="2">
                         <small class="text-muted">Width px: <span id="gridBoothWidthPx">100</span></small>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Booth Columns (grid units)</label>
-                        <input type="number" id="gridBoothHeight" class="form-control" value="2" min="1">
+                        <input type="number" id="gridBoothHeight" name="gridBoothHeight" class="form-control" value="2">
                         <small class="text-muted">Height px: <span id="gridBoothHeightPx">100</span></small>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Spacing Between Booths (grid units)</label>
-                        <input type="number" id="gridSpacing" class="form-control" value="0" min="0">
+                        <input type="number" id="gridSpacing" name="gridSpacing" class="form-control" value="0">
                         <small class="text-muted">Spacing px: <span id="gridSpacingPx">0</span></small>
                     </div>
                     <div class="col-md-6" style="display: none;">
                         <label class="form-label">Start X (grid units)</label>
-                        <input type="number" id="gridStartX" class="form-control" value="2" min="0">
+                        <input type="number" id="gridStartX" name="gridStartX" class="form-control" value="2">
                         <small class="text-muted">Start X px: <span id="gridStartXPx">100</span></small>
                     </div>
                     <div class="col-md-6" style="display: none;">
                         <label class="form-label">Start Y (grid units)</label>
-                        <input type="number" id="gridStartY" class="form-control" value="3" min="0">
+                        <input type="number" id="gridStartY" name="gridStartY" class="form-control" value="3">
                         <small class="text-muted">Start Y px: <span id="gridStartYPx">150</span></small>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Booth ID Prefix</label>
-                        <input type="text" id="gridPrefix" class="form-control" value="B">
+                        <input type="text" id="gridPrefix" name="gridPrefix" class="form-control" value="B">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Booth Size Category</label>
-                        <select id="gridBoothSizeCategory" class="form-select">
+                        <select id="gridBoothSizeCategory" name="gridBoothSizeCategory" class="form-select">
                             <option value="">Select Category (Optional)</option>
                             @foreach(($exhibition->boothSizes ?? collect()) as $size)
                                 <option value="{{ $size->id }}" 
