@@ -137,10 +137,16 @@ class AdminFloorplanManager {
 
     // Update background image dimensions
     updateBackgroundImageDimensions() {
-        const bgImage = this.svg ? this.svg.querySelector('#floorBackgroundImage') : null;
-        if (bgImage && this.hallConfig.width && this.hallConfig.height) {
-            bgImage.setAttribute('width', this.hallConfig.width);
-            bgImage.setAttribute('height', this.hallConfig.height);
+        if (!this.svg) return;
+        
+        // If background image is set, update its size to match grid dimensions
+        if (this.svg.style.backgroundImage && this.svg.style.backgroundImage !== 'none') {
+            const width = this.hallConfig.width || 2000;
+            const height = this.hallConfig.height || 800;
+            
+            // Set background size to match grid dimensions exactly
+            // This ensures the grid aligns perfectly with the floorplan image
+            this.svg.style.backgroundSize = `${width}px ${height}px`;
         }
     }
 
@@ -250,54 +256,20 @@ class AdminFloorplanManager {
     loadBackgroundImage(backgroundImagePath) {
         if (!this.svg) return;
 
-        // Find or create background image element
-        let bgImage = this.svg.querySelector('#floorBackgroundImage');
-
         if (backgroundImagePath) {
             // Construct the full URL to the image
             const imageUrl = `/storage/${backgroundImagePath.replace(/^\/+/, '')}`;
 
-            if (!bgImage) {
-                // Create SVG image element if it doesn't exist
-                bgImage = document.createElementNS('http://www.w3.org/2000/svg', 'image');
-                bgImage.id = 'floorBackgroundImage';
-                bgImage.setAttribute('preserveAspectRatio', 'none'); // Stretch to fit exactly
-                bgImage.setAttribute('opacity', '0.7'); // Slightly transparent to show grid
-
-                // Insert after defs but before gridBgOverlay (behind everything else)
-                const defs = this.svg.querySelector('defs');
-                const gridBgOverlay = this.svg.querySelector('#gridBgOverlay');
-                if (defs && gridBgOverlay) {
-                    this.svg.insertBefore(bgImage, gridBgOverlay);
-                } else if (defs && defs.nextSibling) {
-                    this.svg.insertBefore(bgImage, defs.nextSibling);
-                } else {
-                    // Insert after defs
-                    if (defs) {
-                        defs.parentNode.insertBefore(bgImage, defs.nextSibling);
-                    } else {
-                        this.svg.insertBefore(bgImage, this.svg.firstChild);
-                    }
-                }
-            }
-
-            // Set image attributes to cover entire canvas
-            // Use both href (modern) and xlink:href (legacy) for compatibility
-            bgImage.setAttribute('href', imageUrl);
-            bgImage.setAttributeNS('http://www.w3.org/1999/xlink', 'href', imageUrl);
-            bgImage.setAttribute('x', '0');
-            bgImage.setAttribute('y', '0');
-            // Use current hall dimensions or fallback
-            const width = this.hallConfig.width || 2000;
-            const height = this.hallConfig.height || 800;
-            bgImage.setAttribute('width', width);
-            bgImage.setAttribute('height', height);
-            bgImage.style.display = 'block';
+            // Set background image on the SVG element itself using CSS
+            this.svg.style.backgroundImage = `url(${imageUrl})`;
+            this.svg.style.backgroundRepeat = 'no-repeat';
+            this.svg.style.backgroundPosition = 'center center';
+            
+            // Update background size to match grid dimensions exactly
+            this.updateBackgroundImageDimensions();
         } else {
             // Remove the background image if no path is provided
-            if (bgImage) {
-                bgImage.remove();
-            }
+            this.svg.style.backgroundImage = 'none';
         }
     }
 
