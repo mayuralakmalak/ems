@@ -221,6 +221,12 @@
                 margin-left: 0;
             }
         }
+        
+        /* Reduce padding on edit buttons to match other buttons */
+        .btn-primary[title="Edit"],
+        .btn-primary[title*="Edit"] {
+            padding: 0.25rem 0.5rem !important;
+        }
     </style>
     @stack('styles')
 </head>
@@ -467,6 +473,74 @@
         
         // Refresh every 30 seconds
         setInterval(loadNotifications, 30000);
+    </script>
+    <script>
+        // Global datepicker and timepicker: Make all date/time inputs open picker on click
+        document.addEventListener('DOMContentLoaded', function() {
+            // Function to handle date/time input click
+            function setupDateTimeInput(input) {
+                if (input && (input.type === 'date' || input.type === 'time')) {
+                    input.addEventListener('click', function() {
+                        // Try showPicker() method (modern browsers)
+                        if (typeof this.showPicker === 'function') {
+                            this.showPicker();
+                        } else {
+                            // Fallback: focus and click to open picker
+                            this.focus();
+                            this.click();
+                        }
+                    });
+                }
+            }
+            
+            // Setup all existing date and time inputs
+            document.querySelectorAll('input[type="date"], input[type="time"]').forEach(setupDateTimeInput);
+            
+            // Watch for dynamically added date/time inputs (MutationObserver)
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    mutation.addedNodes.forEach(function(node) {
+                        if (node.nodeType === 1) { // Element node
+                            if (node.type === 'date' || node.type === 'time') {
+                                setupDateTimeInput(node);
+                            }
+                            // Also check children
+                            node.querySelectorAll && node.querySelectorAll('input[type="date"], input[type="time"]').forEach(setupDateTimeInput);
+                        }
+                    });
+                });
+            });
+            
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        });
+    </script>
+    <script>
+        // Scroll sidebar to show active menu item on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.querySelector('.sidebar');
+            const activeMenuItem = sidebar?.querySelector('.sidebar-menu a.active');
+            
+            if (sidebar && activeMenuItem) {
+                // Calculate the position to scroll to (center the active item in viewport)
+                const sidebarRect = sidebar.getBoundingClientRect();
+                const activeItemRect = activeMenuItem.getBoundingClientRect();
+                const sidebarScrollTop = sidebar.scrollTop;
+                const activeItemOffsetTop = activeItemRect.top - sidebarRect.top + sidebarScrollTop;
+                const sidebarHeight = sidebar.clientHeight;
+                const activeItemHeight = activeItemRect.height;
+                
+                // Scroll to center the active item in the sidebar viewport
+                const scrollPosition = activeItemOffsetTop - (sidebarHeight / 2) + (activeItemHeight / 2);
+                
+                sidebar.scrollTo({
+                    top: Math.max(0, scrollPosition),
+                    behavior: 'smooth'
+                });
+            }
+        });
     </script>
     @stack('scripts')
 </body>

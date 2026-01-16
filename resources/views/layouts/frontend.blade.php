@@ -437,6 +437,11 @@ footer {
             margin-bottom: 0;
             border-radius: 10px;
         }
+        /* Reduce padding on edit buttons to match other buttons */
+        .btn-primary[title="Edit"],
+        .btn-primary[title*="Edit"] {
+            padding: 0.25rem 0.5rem !important;
+        }
     </style>
     @stack('styles')
 </head>
@@ -478,6 +483,49 @@ footer {
             if (typeof applyCountryState === 'function') {
                 applyCountryState();
             }
+        });
+    </script>
+    <script>
+        // Global datepicker and timepicker: Make all date/time inputs open picker on click
+        document.addEventListener('DOMContentLoaded', function() {
+            // Function to handle date/time input click
+            function setupDateTimeInput(input) {
+                if (input && (input.type === 'date' || input.type === 'time')) {
+                    input.addEventListener('click', function() {
+                        // Try showPicker() method (modern browsers)
+                        if (typeof this.showPicker === 'function') {
+                            this.showPicker();
+                        } else {
+                            // Fallback: focus and click to open picker
+                            this.focus();
+                            this.click();
+                        }
+                    });
+                }
+            }
+            
+            // Setup all existing date and time inputs
+            document.querySelectorAll('input[type="date"], input[type="time"]').forEach(setupDateTimeInput);
+            
+            // Watch for dynamically added date/time inputs (MutationObserver)
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    mutation.addedNodes.forEach(function(node) {
+                        if (node.nodeType === 1) { // Element node
+                            if (node.type === 'date' || node.type === 'time') {
+                                setupDateTimeInput(node);
+                            }
+                            // Also check children
+                            node.querySelectorAll && node.querySelectorAll('input[type="date"], input[type="time"]').forEach(setupDateTimeInput);
+                        }
+                    });
+                });
+            });
+            
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
         });
     </script>
     @stack('scripts')

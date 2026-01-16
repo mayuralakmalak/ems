@@ -43,18 +43,20 @@
                             <td>{{ $request->description ?? 'N/A' }}</td>
                             <td>{{ $request->created_at->format('d M Y H:i') }}</td>
                             <td>
-                                <a class="btn btn-sm btn-info mb-1" href="{{ route('admin.booth-requests.show', $request->id) }}">
-                                    <i class="bi bi-eye"></i> View Details
+                                <a class="btn btn-sm btn-info me-1" href="{{ route('admin.booth-requests.show', $request->id) }}" title="View">
+                                    <i class="bi bi-eye"></i>
                                 </a>
-                                <button class="btn btn-sm btn-success"
+                                <button class="btn btn-sm btn-success me-1"
                                         data-approve-url="{{ url('admin/booth-requests/'.$request->id.'/approve') }}"
-                                        onclick="approveRequest(this)">
-                                    <i class="bi bi-check-circle"></i> Approve
+                                        onclick="approveRequest(this)"
+                                        title="Approve">
+                                    <i class="bi bi-check-circle"></i>
                                 </button>
                                 <button class="btn btn-sm btn-danger"
                                         data-reject-url="{{ url('admin/booth-requests/'.$request->id.'/reject') }}"
-                                        onclick="rejectRequest(this)">
-                                    <i class="bi bi-x-circle"></i> Reject
+                                        onclick="rejectRequest(this)"
+                                        title="Reject">
+                                    <i class="bi bi-x-circle"></i>
                                 </button>
                             </td>
                         </tr>

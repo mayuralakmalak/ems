@@ -5,10 +5,10 @@
 
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h2 class="mb-1"><i class="bi bi-shield-check me-2"></i>Roles & Permissions</h2>
-        <p class="text-muted mb-0">Create and manage user roles and their associated permissions</p>
-    </div>
+    <a href="{{ route('admin.dashboard') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
+    </a>
+    <div></div>
 </div>
 
 <!-- Create New Role Section -->
@@ -75,17 +75,17 @@
                 </div>
             </div>
             <div>
-                <a href="{{ route('admin.roles.edit', $role->id) }}" class="btn btn-info btn-sm me-1">
-                    <i class="bi bi-pencil"></i> Edit
+                <a href="{{ route('admin.roles.edit', $role->id) }}" class="btn btn-primary btn-sm me-1" title="Edit">
+                    <i class="bi bi-pencil"></i>
                 </a>
-                <a href="{{ route('admin.roles.edit-permissions', $role->id) }}" class="btn btn-primary btn-sm me-1">
-                    <i class="bi bi-gear"></i> Permissions
+                <a href="{{ route('admin.roles.edit-permissions', $role->id) }}" class="btn btn-secondary btn-sm me-1" title="Permissions">
+                    <i class="bi bi-gear"></i>
                 </a>
                 <form action="{{ route('admin.roles.destroy', $role->id) }}" method="POST" class="d-inline delete-role-form" data-role-name="{{ $role->name }}">
                     @csrf
                     @method('DELETE')
-                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this role?');">
-                        <i class="bi bi-trash"></i> Delete
+                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this role?');" title="Delete">
+                        <i class="bi bi-trash"></i>
                     </button>
                 </form>
             </div>

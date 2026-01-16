@@ -5,10 +5,12 @@
 
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h2 class="mb-1"><i class="bi bi-people-fill me-2"></i>All Users</h2>
-        <p class="text-muted mb-0">View and manage admin, exhibitor, staff and visitor accounts</p>
-    </div>
+    <a href="{{ route('admin.dashboard') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
+    </a>
+    <a href="{{ route('admin.users.create') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-1"></i>Add
+    </a>
 </div>
 
 <div class="card">
@@ -63,20 +65,18 @@
                             </small>
                         </td>
                         <td>
-                            <div class="btn-group" role="group">
-                                <a href="{{ route('admin.users.edit', $user->id) }}" class="btn btn-sm btn-info" title="Edit User">
-                                    <i class="bi bi-pencil"></i>
-                                </a>
-                                @if(! $user->hasRole('Admin'))
-                                <form action="{{ route('admin.users.destroy', $user->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this user?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn-sm btn-danger" title="Delete User">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </form>
-                                @endif
-                            </div>
+                            <a href="{{ route('admin.users.edit', $user->id) }}" class="btn btn-sm btn-primary me-1" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            @if(! $user->hasRole('Admin'))
+                            <form action="{{ route('admin.users.destroy', $user->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this user?');">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn btn-sm btn-danger" title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                            @endif
                         </td>
                     </tr>
                     @empty

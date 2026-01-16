@@ -146,7 +146,7 @@
                                     </td>
                                     <td>
                                         <button type="button"
-                                            class="btn btn-sm btn-outline-primary me-1"
+                                            class="btn btn-sm btn-primary me-1"
                                             data-bs-toggle="modal"
                                             data-bs-target="#editChecklistModal"
                                             data-id="{{ $item->id }}"
@@ -158,13 +158,14 @@
                                             data-visible-user="{{ $item->visible_to_user }}"
                                             data-visible-admin="{{ $item->visible_to_admin }}"
                                             data-exhibition="{{ $item->exhibition_id }}"
-                                            data-exhibition-name="{{ $item->exhibition->name ?? 'All Exhibitions' }}">
+                                            data-exhibition-name="{{ $item->exhibition->name ?? 'All Exhibitions' }}"
+                                            title="Edit">
                                             <i class="bi bi-pencil"></i>
                                         </button>
                                         <form action="{{ route('admin.checklists.destroy', $item->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure?')">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="btn btn-sm btn-danger">
+                                            <button type="submit" class="btn btn-sm btn-danger" title="Delete">
                                                 <i class="bi bi-trash"></i>
                                             </button>
                                         </form>

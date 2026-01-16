@@ -9,7 +9,7 @@
         <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
     </a>
     <a href="{{ route('admin.size-types.create') }}" class="btn btn-primary">
-        <i class="bi bi-plus-circle me-2"></i>Add New
+        <i class="bi bi-plus-circle me-1"></i>Add
     </a>
 </div>
 
@@ -51,14 +51,14 @@
                             <td>{{ $sizeType->length }}</td>
                             <td>{{ $sizeType->width }}</td>
                             <td class="text-end">
-                                <a href="{{ route('admin.size-types.edit', $sizeType) }}" class="btn btn-sm btn-outline-primary me-2">
-                                    <i class="bi bi-pencil"></i> Edit
+                                <a href="{{ route('admin.size-types.edit', $sizeType) }}" class="btn btn-sm btn-primary me-1" title="Edit">
+                                    <i class="bi bi-pencil"></i>
                                 </a>
                                 <form action="{{ route('admin.size-types.destroy', $sizeType) }}" method="POST" class="d-inline">
                                     @csrf
                                     @method('DELETE')
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this size type?')">
-                                        <i class="bi bi-trash"></i> Delete
+                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete this size type?')" title="Delete">
+                                        <i class="bi bi-trash"></i>
                                     </button>
                                 </form>
                             </td>

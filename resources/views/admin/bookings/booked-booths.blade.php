@@ -5,8 +5,8 @@
 
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <a href="{{ route('admin.exhibitions.index') }}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left me-2"></i>Back to Exhibitions
+    <a href="{{ route('admin.dashboard') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
     </a>
     <span class="text-muted small">{{ $bookings->total() }} total bookings</span>
 </div>
@@ -85,17 +85,17 @@
                         </td>
                         <td>₹{{ number_format($booking->total_amount, 2) }}</td>
                         <td class="text-end">
-                            <a href="{{ route('admin.bookings.show', $booking->id) }}" class="btn btn-sm btn-outline-primary me-1">
-                                <i class="bi bi-eye"></i> View
+                            <a href="{{ route('admin.bookings.show', $booking->id) }}" class="btn btn-sm btn-info me-1" title="View">
+                                <i class="bi bi-eye"></i>
                             </a>
-                            <a href="{{ route('admin.bookings.edit', $booking->id) }}" class="btn btn-sm btn-outline-secondary me-1">
-                                <i class="bi bi-pencil"></i> Edit
+                            <a href="{{ route('admin.bookings.edit', $booking->id) }}" class="btn btn-sm btn-primary me-1" title="Edit">
+                                <i class="bi bi-pencil"></i>
                             </a>
                             <form action="{{ route('admin.bookings.destroy', $booking->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this booking? This will free the booth.');">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" class="btn btn-sm btn-outline-danger">
-                                    <i class="bi bi-trash"></i> Delete
+                                <button type="submit" class="btn btn-sm btn-danger" title="Delete">
+                                    <i class="bi bi-trash"></i>
                                 </button>
                             </form>
                         </td>

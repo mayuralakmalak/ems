@@ -9,7 +9,7 @@
         <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
     </a>
     <a href="{{ route('admin.sponsorships.create') }}" class="btn btn-primary">
-        <i class="bi bi-plus-circle me-2"></i>Create Sponsorship
+        <i class="bi bi-plus-circle me-1"></i>Add
     </a>
 </div>
 
@@ -86,20 +86,18 @@
                             </span>
                         </td>
                         <td>
-                            <div class="btn-group btn-group-sm" role="group">
-                                <a href="{{ route('admin.sponsorships.show', $sponsorship->id) }}" class="btn btn-outline-secondary">
-                                    <i class="bi bi-eye"></i>
-                                </a>
-                                <a href="{{ route('admin.sponsorships.edit', $sponsorship->id) }}" class="btn btn-outline-primary">
-                                    <i class="bi bi-pencil"></i>
-                                </a>
-                                <form action="{{ route('admin.sponsorships.toggle-status', $sponsorship->id) }}" method="POST" class="d-inline">
-                                    @csrf
-                                    <button type="submit" class="btn btn-outline-warning" title="Toggle Status">
-                                        <i class="bi bi-power"></i>
-                                    </button>
-                                </form>
-                            </div>
+                            <a href="{{ route('admin.sponsorships.show', $sponsorship->id) }}" class="btn btn-sm btn-info me-1" title="View">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="{{ route('admin.sponsorships.edit', $sponsorship->id) }}" class="btn btn-sm btn-primary me-1" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <form action="{{ route('admin.sponsorships.toggle-status', $sponsorship->id) }}" method="POST" class="d-inline">
+                                @csrf
+                                <button type="submit" class="btn btn-sm btn-warning" title="Toggle Status">
+                                    <i class="bi bi-power"></i>
+                                </button>
+                            </form>
                         </td>
                     </tr>
                     @empty

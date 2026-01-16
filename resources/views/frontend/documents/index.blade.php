@@ -322,6 +322,11 @@
         font-size: 0.85rem;
         cursor: pointer;
     }
+    /* Reduce padding on edit buttons to match other buttons */
+    .btn-primary[title="Edit"],
+    .btn-primary[title*="Edit"] {
+        padding: 0.25rem 0.5rem !important;
+    }
 </style>
 @endpush
 
@@ -493,36 +498,31 @@
                         </td>
                         <td>{{ $document->expiry_date ? $document->expiry_date->format('Y-m-d') : 'N/A' }}</td>
                         <td>
-                            <div class="action-icons">
-                                <a href="{{ asset('storage/' . $document->file_path) }}" target="_blank" class="action-icon view" title="View">
-                                    <i class="bi bi-eye"></i>
+                            <a href="{{ asset('storage/' . $document->file_path) }}" target="_blank" class="btn btn-sm btn-info me-1" title="View">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="{{ asset('storage/' . $document->file_path) }}" download class="btn btn-sm btn-secondary me-1" title="Download">
+                                <i class="bi bi-download"></i>
+                            </a>
+                            @if($document->canBeEdited())
+                                <a href="{{ route('documents.edit', $document->id) }}" class="btn btn-sm btn-primary me-1" title="Edit">
+                                    <i class="bi bi-pencil"></i>
                                 </a>
-                                <a href="{{ asset('storage/' . $document->file_path) }}" download class="action-icon download" title="Download">
-                                    <i class="bi bi-download"></i>
-                                </a>
-                                @if($document->canBeEdited())
-                                    <a href="{{ route('documents.edit', $document->id) }}" class="action-icon edit" title="Edit">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
-                                @else
-                                    <span class="action-icon edit" title="Cannot edit approved document" style="opacity: 0.5; cursor: not-allowed;">
-                                        <i class="bi bi-pencil"></i>
-                                    </span>
-                                @endif
-                                @if($document->canBeEdited())
-                                    <form action="{{ route('documents.destroy', $document->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this document?');">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="action-icon delete" title="Delete" style="border: none; background: none; padding: 0;">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </form>
-                                @else
-                                    <span class="action-icon delete" title="Cannot delete approved document" style="opacity: 0.5; cursor: not-allowed;">
+                                <form action="{{ route('documents.destroy', $document->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this document?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-danger" title="Delete">
                                         <i class="bi bi-trash"></i>
-                                    </span>
-                                @endif
-                            </div>
+                                    </button>
+                                </form>
+                            @else
+                                <span class="btn btn-sm btn-primary me-1" title="Cannot edit approved document" style="opacity: 0.5; cursor: not-allowed; pointer-events: none;">
+                                    <i class="bi bi-pencil"></i>
+                                </span>
+                                <span class="btn btn-sm btn-danger" title="Cannot delete approved document" style="opacity: 0.5; cursor: not-allowed; pointer-events: none;">
+                                    <i class="bi bi-trash"></i>
+                                </span>
+                            @endif
                         </td>
                     </tr>
                     @empty

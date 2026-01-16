@@ -217,4 +217,40 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Make date inputs open calendar on click
+    const dateFromInput = document.getElementById('date_from');
+    const dateToInput = document.getElementById('date_to');
+    
+    if (dateFromInput) {
+        dateFromInput.addEventListener('click', function() {
+            // Try showPicker() method (modern browsers)
+            if (typeof this.showPicker === 'function') {
+                this.showPicker();
+            } else {
+                // Fallback: focus and click to open picker
+                this.focus();
+                this.click();
+            }
+        });
+    }
+    
+    if (dateToInput) {
+        dateToInput.addEventListener('click', function() {
+            // Try showPicker() method (modern browsers)
+            if (typeof this.showPicker === 'function') {
+                this.showPicker();
+            } else {
+                // Fallback: focus and click to open picker
+                this.focus();
+                this.click();
+            }
+        });
+    }
+});
+</script>
+@endpush
 @endsection

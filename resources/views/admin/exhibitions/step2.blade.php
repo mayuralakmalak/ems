@@ -188,7 +188,7 @@
                                    class="form-control"
                                    step="0.01"
                                    placeholder="e.g. 100"
-                                   value="{{ $exhibition->raw_price_per_sqft ?? '' }}">
+                                   value="{{ $exhibition->raw_price_per_sqft !== null ? $exhibition->raw_price_per_sqft : '' }}">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Base Price Shell (per meter)</label>
@@ -197,7 +197,7 @@
                                    class="form-control"
                                    step="0.01"
                                    placeholder="e.g. 120"
-                                   value="{{ $exhibition->orphand_price_per_sqft ?? '' }}">
+                                   value="{{ $exhibition->orphand_price_per_sqft !== null ? $exhibition->orphand_price_per_sqft : '' }}">
                         </div>
                     </div>
                     <hr>
