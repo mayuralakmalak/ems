@@ -1952,12 +1952,10 @@ class AdminFloorplanManager {
     }
 
     // Load configuration from JSON file
-    async loadConfiguration(floorId = null, showConfirm = true) {
+    async loadConfiguration(floorId = null, showConfirm = false) {
         if (!this.exhibitionId) return;
 
-        if (showConfirm && !confirm('Load floor plan from server? This will replace current setup.')) {
-            return;
-        }
+        // Confirmation dialog removed - load automatically without asking
 
         // Use provided floorId or get from currentFloorId
         const floorIdToUse = floorId || this.currentFloorId;
@@ -2015,7 +2013,7 @@ class AdminFloorplanManager {
 
             this.updateBoothsList();
             this.updateCounts();
-            alert('Floor plan loaded from server successfully!');
+            console.log('Floor plan loaded from server successfully!');
         } catch (error) {
             console.error('Error loading configuration:', error);
             alert('Failed to load configuration. Please try again.');
