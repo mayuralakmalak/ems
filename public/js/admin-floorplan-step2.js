@@ -25,12 +25,24 @@ class AdminFloorplanManager {
         this.hallBounds = null; // Will be set when hall is drawn
         this.autoSaveTimeout = null; // For debouncing auto-save
 
+        // Border padding: 200px on each side (400px total added to width and height)
+        this.BORDER_PADDING = 200; // px per side
+
         // Dynamic dimensions will be calculated from floor meters (1 meter = 50px)
         // Default fallback values if no floor dimensions available
         this.hallConfig = {
-            width: 2000, // Will be updated dynamically from floor dimensions
-            height: 800, // Will be updated dynamically from floor dimensions
+            width: 2000, // Will be updated dynamically from floor dimensions (grid area size)
+            height: 800, // Will be updated dynamically from floor dimensions (grid area size)
             margin: 0 // Will align to grid
+        };
+
+        // Canvas config: expanded canvas including border padding
+        // This is the actual SVG canvas size (hallConfig + border on all sides)
+        this.canvasConfig = {
+            width: 2000 + (this.BORDER_PADDING * 2), // Default: 2400 (2000 + 400)
+            height: 800 + (this.BORDER_PADDING * 2), // Default: 1200 (800 + 400)
+            offsetX: this.BORDER_PADDING, // 200px offset for grid area
+            offsetY: this.BORDER_PADDING // 200px offset for grid area
         };
 
         // Store floor dimensions in meters
@@ -62,22 +74,29 @@ class AdminFloorplanManager {
 
     updateCanvasDimensions() {
         if (!this.svg) return;
-        // Set SVG viewBox to match hall dimensions for proper scaling
-        this.svg.setAttribute('viewBox', `0 0 ${this.hallConfig.width} ${this.hallConfig.height}`);
 
-        // Set SVG width and height to match hall dimensions for proper rendering
-        this.svg.setAttribute('width', this.hallConfig.width);
-        this.svg.setAttribute('height', this.hallConfig.height);
+        // Update canvas config to include border padding
+        this.canvasConfig.width = this.hallConfig.width + (this.BORDER_PADDING * 2);
+        this.canvasConfig.height = this.hallConfig.height + (this.BORDER_PADDING * 2);
+        this.canvasConfig.offsetX = this.BORDER_PADDING;
+        this.canvasConfig.offsetY = this.BORDER_PADDING;
+
+        // Set SVG viewBox to match expanded canvas dimensions (includes border)
+        this.svg.setAttribute('viewBox', `0 0 ${this.canvasConfig.width} ${this.canvasConfig.height}`);
+
+        // Set SVG width and height to match expanded canvas dimensions
+        this.svg.setAttribute('width', this.canvasConfig.width);
+        this.svg.setAttribute('height', this.canvasConfig.height);
 
         // Update canvas wrapper to allow scrolling when dimensions exceed viewport
         // Account for current zoom level if zoom is applied
         const zoom = this.currentZoom || 1;
-        const scaledWidth = this.hallConfig.width * zoom;
-        const scaledHeight = this.hallConfig.height * zoom;
+        const scaledWidth = this.canvasConfig.width * zoom;
+        const scaledHeight = this.canvasConfig.height * zoom;
 
         if (this.canvasWrapper) {
-            this.canvasWrapper.style.width = `${Math.max(scaledWidth, this.hallConfig.width)}px`;
-            this.canvasWrapper.style.height = `${Math.max(scaledHeight, this.hallConfig.height)}px`;
+            this.canvasWrapper.style.width = `${Math.max(scaledWidth, this.canvasConfig.width)}px`;
+            this.canvasWrapper.style.height = `${Math.max(scaledHeight, this.canvasConfig.height)}px`;
         }
 
         // Preserve zoom transform if it exists
@@ -111,9 +130,10 @@ class AdminFloorplanManager {
         this.floorDimensions.heightMeters = heightMeters;
 
         // Calculate pixel dimensions (meters × 50px per meter)
+        // This is the grid/hall area size (without border)
         const { widthPx, heightPx } = this.calculateDimensionsFromMeters(widthMeters, heightMeters);
 
-        // Update hall config
+        // Update hall config (grid area size, without border)
         this.hallConfig.width = widthPx;
         this.hallConfig.height = heightPx;
 
@@ -123,7 +143,7 @@ class AdminFloorplanManager {
             height: Math.floor(this.hallConfig.height / this.gridConfig.size)
         };
 
-        // Update canvas and redraw
+        // Update canvas and redraw (canvas will be expanded with border)
         this.updateCanvasDimensions();
         this.updateGrid();
         this.drawHall();
@@ -137,16 +157,13 @@ class AdminFloorplanManager {
 
     // Update background image dimensions
     updateBackgroundImageDimensions() {
-        if (!this.svg) return;
-        
-        // If background image is set, update its size to match grid dimensions
-        if (this.svg.style.backgroundImage && this.svg.style.backgroundImage !== 'none') {
-            const width = this.hallConfig.width || 2000;
-            const height = this.hallConfig.height || 800;
-            
-            // Set background size to match grid dimensions exactly
-            // This ensures the grid aligns perfectly with the floorplan image
-            this.svg.style.backgroundSize = `${width}px ${height}px`;
+        const bgImage = this.svg ? this.svg.querySelector('#floorBackgroundImage') : null;
+        if (bgImage && this.canvasConfig.width && this.canvasConfig.height) {
+            // Background image should fill the entire expanded canvas (including border)
+            bgImage.setAttribute('width', this.canvasConfig.width);
+            bgImage.setAttribute('height', this.canvasConfig.height);
+            bgImage.setAttribute('x', '0');
+            bgImage.setAttribute('y', '0');
         }
     }
 
@@ -202,9 +219,10 @@ class AdminFloorplanManager {
         const hallWidth = hallGridWidth * gridSize;
         const hallHeight = hallGridHeight * gridSize;
 
-        // Center the hall if needed
-        const hallX = (width - hallWidth) / 2;
-        const hallY = (height - hallHeight) / 2;
+        // Position hall at border offset (100px from top-left of canvas)
+        // This centers the grid area within the expanded canvas
+        const hallX = this.canvasConfig.offsetX;
+        const hallY = this.canvasConfig.offsetY;
 
         const hall = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
         hall.setAttribute('x', hallX);
@@ -225,7 +243,7 @@ class AdminFloorplanManager {
 
         // Entrance - aligned to grid
         const entranceWidth = Math.round(80 / gridSize) * gridSize;
-        const entranceX = (width - entranceWidth) / 2;
+        const entranceX = hallX + (hallWidth - entranceWidth) / 2;
         const entrance = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
         entrance.setAttribute('x', entranceX);
         entrance.setAttribute('y', hallY - 5);
@@ -235,7 +253,7 @@ class AdminFloorplanManager {
         this.hallGroup.appendChild(entrance);
 
         const entranceLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        entranceLabel.setAttribute('x', width / 2);
+        entranceLabel.setAttribute('x', hallX + hallWidth / 2);
         entranceLabel.setAttribute('y', hallY - 10);
         entranceLabel.setAttribute('text-anchor', 'middle');
         entranceLabel.setAttribute('font-size', '14');
@@ -256,20 +274,54 @@ class AdminFloorplanManager {
     loadBackgroundImage(backgroundImagePath) {
         if (!this.svg) return;
 
+        // Find or create background image element
+        let bgImage = this.svg.querySelector('#floorBackgroundImage');
+
         if (backgroundImagePath) {
             // Construct the full URL to the image
             const imageUrl = `/storage/${backgroundImagePath.replace(/^\/+/, '')}`;
 
-            // Set background image on the SVG element itself using CSS
-            this.svg.style.backgroundImage = `url(${imageUrl})`;
-            this.svg.style.backgroundRepeat = 'no-repeat';
-            this.svg.style.backgroundPosition = 'center center';
-            
-            // Update background size to match grid dimensions exactly
-            this.updateBackgroundImageDimensions();
+            if (!bgImage) {
+                // Create SVG image element if it doesn't exist
+                bgImage = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+                bgImage.id = 'floorBackgroundImage';
+                bgImage.setAttribute('preserveAspectRatio', 'none'); // Stretch to fit exactly
+                bgImage.setAttribute('opacity', '0.7'); // Slightly transparent to show grid
+
+                // Insert after defs but before gridBgOverlay (behind everything else)
+                const defs = this.svg.querySelector('defs');
+                const gridBgOverlay = this.svg.querySelector('#gridBgOverlay');
+                if (defs && gridBgOverlay) {
+                    this.svg.insertBefore(bgImage, gridBgOverlay);
+                } else if (defs && defs.nextSibling) {
+                    this.svg.insertBefore(bgImage, defs.nextSibling);
+                } else {
+                    // Insert after defs
+                    if (defs) {
+                        defs.parentNode.insertBefore(bgImage, defs.nextSibling);
+                    } else {
+                        this.svg.insertBefore(bgImage, this.svg.firstChild);
+                    }
+                }
+            }
+
+            // Set image attributes to cover entire expanded canvas (including border)
+            // Use both href (modern) and xlink:href (legacy) for compatibility
+            bgImage.setAttribute('href', imageUrl);
+            bgImage.setAttributeNS('http://www.w3.org/1999/xlink', 'href', imageUrl);
+            bgImage.setAttribute('x', '0');
+            bgImage.setAttribute('y', '0');
+            // Use expanded canvas dimensions (hall + border on all sides)
+            const width = this.canvasConfig.width || (this.hallConfig.width || 2000) + (this.BORDER_PADDING * 2);
+            const height = this.canvasConfig.height || (this.hallConfig.height || 800) + (this.BORDER_PADDING * 2);
+            bgImage.setAttribute('width', width);
+            bgImage.setAttribute('height', height);
+            bgImage.style.display = 'block';
         } else {
             // Remove the background image if no path is provided
-            this.svg.style.backgroundImage = 'none';
+            if (bgImage) {
+                bgImage.remove();
+            }
         }
     }
 
@@ -309,11 +361,31 @@ class AdminFloorplanManager {
         if (this.gridBg) {
             this.gridBg.style.display = this.gridConfig.show ? 'block' : 'none';
             this.gridBg.setAttribute('fill', this.gridConfig.show ? 'url(#gridPattern)' : 'none');
+            // Position grid overlay only over the hall area (at border offset)
+            if (this.gridConfig.show && this.canvasConfig) {
+                this.gridBg.setAttribute('x', this.canvasConfig.offsetX);
+                this.gridBg.setAttribute('y', this.canvasConfig.offsetY);
+                this.gridBg.setAttribute('width', this.hallConfig.width);
+                this.gridBg.setAttribute('height', this.hallConfig.height);
+            } else {
+                // If grid is hidden or no canvas config, cover entire canvas
+                this.gridBg.setAttribute('x', '0');
+                this.gridBg.setAttribute('y', '0');
+                this.gridBg.setAttribute('width', this.canvasConfig ? this.canvasConfig.width : '100%');
+                this.gridBg.setAttribute('height', this.canvasConfig ? this.canvasConfig.height : '100%');
+            }
         }
 
         // Keep overlay visible to show background image through
+        // Overlay should cover only the grid area (not the border)
         if (this.gridBgOverlay) {
             this.gridBgOverlay.style.display = 'block';
+            if (this.canvasConfig) {
+                this.gridBgOverlay.setAttribute('x', this.canvasConfig.offsetX);
+                this.gridBgOverlay.setAttribute('y', this.canvasConfig.offsetY);
+                this.gridBgOverlay.setAttribute('width', this.hallConfig.width);
+                this.gridBgOverlay.setAttribute('height', this.hallConfig.height);
+            }
         }
     }
 
@@ -395,7 +467,9 @@ class AdminFloorplanManager {
                     height: Math.floor(this.hallConfig.height / this.gridConfig.size)
                 };
 
+                // Update canvas config (expanded with border)
                 this.updateCanvasDimensions();
+                this.updateGrid();
                 this.drawHall();
 
                 // Snap all booths to new grid
@@ -1379,14 +1453,15 @@ class AdminFloorplanManager {
             height: Math.floor(this.hallConfig.height / this.gridConfig.size)
         };
 
+        // Update canvas config (expanded with border)
+        this.updateCanvasDimensions();
+
         // Update grid
         this.updateGrid();
 
         // Update grid size input in grid settings
         document.getElementById('gridSize').value = gridSize;
 
-        this.svg.setAttribute('viewBox', `0 0 ${this.hallConfig.width} ${this.hallConfig.height}`);
-        this.updateCanvasDimensions();
         this.drawHall();
 
         // Snap all booths to new grid
@@ -1755,10 +1830,9 @@ class AdminFloorplanManager {
         if (showGrid) showGrid.checked = this.gridConfig.show;
         if (snapEnabled) snapEnabled.checked = this.gridConfig.snap;
 
-        // apply to canvas
-        this.updateGrid();
-        this.svg.setAttribute('viewBox', `0 0 ${this.hallConfig.width} ${this.hallConfig.height}`);
+        // Update canvas config (expanded with border)
         this.updateCanvasDimensions();
+        this.updateGrid();
         this.drawHall();
 
         // clear booths
@@ -1777,13 +1851,13 @@ class AdminFloorplanManager {
         this.svg.style.transformOrigin = 'top left';
 
         // Adjust canvas wrapper size to accommodate zoomed content
-        const scaledWidth = this.hallConfig.width * this.currentZoom;
-        const scaledHeight = this.hallConfig.height * this.currentZoom;
+        const scaledWidth = this.canvasConfig.width * this.currentZoom;
+        const scaledHeight = this.canvasConfig.height * this.currentZoom;
 
         // Ensure wrapper is at least as large as the scaled content
         if (this.canvasWrapper) {
-            this.canvasWrapper.style.width = `${Math.max(scaledWidth, this.hallConfig.width)}px`;
-            this.canvasWrapper.style.height = `${Math.max(scaledHeight, this.hallConfig.height)}px`;
+            this.canvasWrapper.style.width = `${Math.max(scaledWidth, this.canvasConfig.width)}px`;
+            this.canvasWrapper.style.height = `${Math.max(scaledHeight, this.canvasConfig.height)}px`;
         }
     }
 
@@ -1799,8 +1873,8 @@ class AdminFloorplanManager {
 
         // Reset canvas wrapper to original dimensions
         if (this.canvasWrapper) {
-            this.canvasWrapper.style.width = `${this.hallConfig.width}px`;
-            this.canvasWrapper.style.height = `${this.hallConfig.height}px`;
+            this.canvasWrapper.style.width = `${this.canvasConfig.width}px`;
+            this.canvasWrapper.style.height = `${this.canvasConfig.height}px`;
         }
 
         // Scroll to top-left
@@ -1819,8 +1893,8 @@ class AdminFloorplanManager {
         const viewportHeight = this.canvasWrapper.clientHeight;
 
         // Calculate scale to fit both width and height
-        const scaleX = viewportWidth / this.hallConfig.width;
-        const scaleY = viewportHeight / this.hallConfig.height;
+        const scaleX = viewportWidth / this.canvasConfig.width;
+        const scaleY = viewportHeight / this.canvasConfig.height;
         const scale = Math.min(scaleX, scaleY, 1); // Don't zoom in beyond 1x, only zoom out to fit
 
         // Apply zoom
@@ -1830,14 +1904,14 @@ class AdminFloorplanManager {
 
         // Reset canvas wrapper to original dimensions (scaling handles the visual size)
         if (this.canvasWrapper) {
-            this.canvasWrapper.style.width = `${this.hallConfig.width}px`;
-            this.canvasWrapper.style.height = `${this.hallConfig.height}px`;
+            this.canvasWrapper.style.width = `${this.canvasConfig.width}px`;
+            this.canvasWrapper.style.height = `${this.canvasConfig.height}px`;
         }
 
         // Center the content
         if (this.canvasWrapper) {
-            this.canvasWrapper.scrollLeft = (this.hallConfig.width * this.currentZoom - viewportWidth) / 2;
-            this.canvasWrapper.scrollTop = (this.hallConfig.height * this.currentZoom - viewportHeight) / 2;
+            this.canvasWrapper.scrollLeft = (this.canvasConfig.width * this.currentZoom - viewportWidth) / 2;
+            this.canvasWrapper.scrollTop = (this.canvasConfig.height * this.currentZoom - viewportHeight) / 2;
         }
     }
 

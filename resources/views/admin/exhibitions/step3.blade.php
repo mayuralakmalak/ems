@@ -274,8 +274,9 @@
                         </div>
                     </div>
                     <div class="canvas-wrapper" id="canvasWrapper" style="overflow: auto; min-width: 100%; min-height: 100%;">
+                        <div class="admin-svg-background">
                         <!-- SVG viewBox will be set dynamically based on floor dimensions -->
-                        <svg id="adminSvg" class="admin-svg" style="display: block;">
+                            <svg id="adminSvg" class="admin-svg" style="display: block;">
                             <defs>
                                 <pattern id="gridPattern" width="50" height="50" patternUnits="userSpaceOnUse">
                                     <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#e0e0e0" stroke-width="1"/>
@@ -293,7 +294,8 @@
                             <!-- Selection box -->
                             <rect id="selectionBox" class="selection-box hidden" stroke="#2196f3" stroke-width="2" 
                                   stroke-dasharray="5,5" fill="rgba(33, 150, 243, 0.1)"/>
-                        </svg>
+                            </svg>
+                        </div>
                     </div>
                 </div>
                 </div>

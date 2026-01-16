@@ -280,20 +280,26 @@ body {
     min-height: 0;
 }
 
+.admin-svg-background {
+    /* Container for SVG with background image */
+    position: relative;
+    display: block;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
 .admin-svg {
     /* SVG dimensions will be set dynamically via viewBox and canvas wrapper size */
     display: block;
     cursor: crosshair;
-    /* background: #fafafa; */
+    background: #fafafa;
     /* Remove fixed min dimensions to allow dynamic sizing */
     /* Ensure SVG maintains aspect ratio and proper rendering */
     max-width: none;
     max-height: none;
     /* Enable smooth zoom transitions */
     transition: transform 0.2s ease;
-    background-size: cover;
-    background-position: center;
-    padding: 100px 100px;
 }
 
 .admin-svg.select-mode {
