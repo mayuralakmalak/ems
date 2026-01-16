@@ -9,7 +9,7 @@
         <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
     </a>
     <a href="{{ route('admin.discounts.create') }}" class="btn btn-primary">
-        <i class="bi bi-plus-circle me-2"></i>Add Discount
+        <i class="bi bi-plus-circle me-1"></i>Add
     </a>
 </div>
 
@@ -58,16 +58,16 @@
                             </span>
                         </td>
                         <td>
-                            <a href="{{ route('admin.discounts.show', $discount->id) }}" class="btn btn-sm btn-info">
+                            <a href="{{ route('admin.discounts.show', $discount->id) }}" class="btn btn-sm btn-info me-1" title="View">
                                 <i class="bi bi-eye"></i>
                             </a>
-                            <a href="{{ route('admin.discounts.edit', $discount->id) }}" class="btn btn-sm btn-warning">
+                            <a href="{{ route('admin.discounts.edit', $discount->id) }}" class="btn btn-sm btn-primary me-1" title="Edit">
                                 <i class="bi bi-pencil"></i>
                             </a>
                             <form action="{{ route('admin.discounts.destroy', $discount->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure?')">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" class="btn btn-sm btn-danger">
+                                <button type="submit" class="btn btn-sm btn-danger" title="Delete">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>

@@ -4,13 +4,13 @@
 @section('page-title', 'Document Categories Management')
 
 @section('content')
-<div class="row mb-4">
-    <div class="col-12 d-flex justify-content-between align-items-center">
-        <div></div>
-        <a href="{{ route('admin.document-categories.create') }}" class="btn btn-primary">
-            <i class="bi bi-plus-circle me-2"></i>Add Category
-        </a>
-    </div>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <a href="{{ route('admin.dashboard') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
+    </a>
+    <a href="{{ route('admin.document-categories.create') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-1"></i>Add
+    </a>
 </div>
 
 <div class="card">
@@ -43,18 +43,16 @@
                         <td>{{ $category->order }}</td>
                         <td>{{ $category->documents()->count() }}</td>
                         <td>
-                            <div class="d-flex gap-2">
-                                <a href="{{ route('admin.document-categories.edit', $category->id) }}" class="btn btn-sm btn-outline-primary" title="Edit">
-                                    <i class="bi bi-pencil"></i>
-                                </a>
-                                <form action="{{ route('admin.document-categories.destroy', $category->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this category?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </form>
-                            </div>
+                            <a href="{{ route('admin.document-categories.edit', $category->id) }}" class="btn btn-sm btn-primary me-1" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <form action="{{ route('admin.document-categories.destroy', $category->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this category?');">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn btn-sm btn-danger" title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
                         </td>
                     </tr>
                     @empty

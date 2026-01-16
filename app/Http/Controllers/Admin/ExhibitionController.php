@@ -88,8 +88,8 @@ class ExhibitionController extends Controller
         $validated = $request->validate([
             'floorplan_image' => 'nullable|image|max:10240',
             'price_per_sqft' => 'nullable|numeric|min:0',
-            'rear_price_per_sqft' => 'nullable|numeric|min:0',
-            'orphaned_price_per_sqft' => 'nullable|numeric|min:0',
+            'raw_price_per_sqft' => 'nullable|numeric|min:0',
+            'orphand_price_per_sqft' => 'nullable|numeric|min:0',
             'side_1_open_percent' => 'nullable|numeric',
             'side_2_open_percent' => 'nullable|numeric',
             'side_3_open_percent' => 'nullable|numeric',
@@ -129,8 +129,8 @@ class ExhibitionController extends Controller
 
         $updateData = [
             'price_per_sqft' => $validated['price_per_sqft'] ?? $exhibition->price_per_sqft,
-            'raw_price_per_sqft' => $validated['rear_price_per_sqft'] ?? $exhibition->raw_price_per_sqft,
-            'orphand_price_per_sqft' => $validated['orphaned_price_per_sqft'] ?? $exhibition->orphand_price_per_sqft,
+            'raw_price_per_sqft' => array_key_exists('raw_price_per_sqft', $validated) ? (float)($validated['raw_price_per_sqft'] ?? 0) : $exhibition->raw_price_per_sqft,
+            'orphand_price_per_sqft' => array_key_exists('orphand_price_per_sqft', $validated) ? (float)($validated['orphand_price_per_sqft'] ?? 0) : $exhibition->orphand_price_per_sqft,
             'side_1_open_percent' => $validated['side_1_open_percent'] ?? null,
             'side_2_open_percent' => $validated['side_2_open_percent'] ?? null,
             'side_3_open_percent' => $validated['side_3_open_percent'] ?? null,

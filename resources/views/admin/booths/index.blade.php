@@ -4,12 +4,12 @@
 @section('page-title', 'Manage Booths - ' . $exhibition->name)
 
 @section('content')
-<div class="mb-4">
+<div class="d-flex justify-content-between align-items-center mb-4">
     <a href="{{ route('admin.exhibitions.show', $exhibition->id) }}" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left me-2"></i>Back to Exhibition
     </a>
     <a href="{{ route('admin.booths.create', $exhibition->id) }}" class="btn btn-primary">
-        <i class="bi bi-plus-circle me-2"></i>Create New Booth
+        <i class="bi bi-plus-circle me-1"></i>Add
     </a>
 </div>
 
@@ -60,10 +60,10 @@
                                 @endif
                             </td>
                             <td>
-                                <a href="{{ route('admin.booths.show', [$exhibition->id, $booth->id]) }}" class="btn btn-sm btn-info" title="View">
+                                <a href="{{ route('admin.booths.show', [$exhibition->id, $booth->id]) }}" class="btn btn-sm btn-info me-1" title="View">
                                     <i class="bi bi-eye"></i>
                                 </a>
-                                <a href="{{ route('admin.booths.edit', [$exhibition->id, $booth->id]) }}" class="btn btn-sm btn-warning" title="Edit">
+                                <a href="{{ route('admin.booths.edit', [$exhibition->id, $booth->id]) }}" class="btn btn-sm btn-primary me-1" title="Edit">
                                     <i class="bi bi-pencil"></i>
                                 </a>
                                 @if(!$booth->is_booked)

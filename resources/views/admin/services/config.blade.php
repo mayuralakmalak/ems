@@ -4,12 +4,18 @@
 @section('page-title', 'Service Configuration')
 
 @section('content')
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <a href="{{ route('admin.dashboard') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
+    </a>
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addServiceModal">
+        <i class="bi bi-plus-circle me-1"></i>Add
+    </button>
+</div>
+
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="bi bi-gear me-2"></i>Service Management</h5>
-        <button type="button" class="btn btn-light" data-bs-toggle="modal" data-bs-target="#addServiceModal">
-            <i class="bi bi-plus-circle me-2"></i>Add Service
-        </button>
     </div>
     <div class="card-body">
         @if(session('success'))
@@ -57,7 +63,7 @@
                             </span>
                         </td>
                         <td>
-                            <button type="button" class="btn btn-sm btn-warning" onclick="editService({{ $service->id }})" title="Edit">
+                            <button type="button" class="btn btn-sm btn-primary me-1" onclick="editService({{ $service->id }})" title="Edit">
                                 <i class="bi bi-pencil"></i>
                             </button>
                             <form action="{{ route('admin.services.config.destroy', $service->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure?')">

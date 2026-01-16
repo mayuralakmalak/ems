@@ -349,7 +349,7 @@
                         <label class="form-label">Booth ID Prefix</label>
                         <input type="text" id="gridPrefix" name="gridPrefix" class="form-control" value="B">
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-9">
                         <label class="form-label">Booth Size Category</label>
                         <select id="gridBoothSizeCategory" name="gridBoothSizeCategory" class="form-select">
                             <option value="">Select Category (Optional)</option>
@@ -366,6 +366,9 @@
                                         Economy
                                     @else
                                         {{ $size->category }}
+                                    @endif
+                                    @if($size->sizeType)
+                                        ({{ $size->sizeType->length }}x{{ $size->sizeType->width }})
                                     @endif
                                 </option>
                             @endforeach
