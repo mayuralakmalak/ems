@@ -12,14 +12,23 @@
 <input type="hidden" id="currentFloorId" value="{{ $selectedFloorId ?? '' }}">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 
-<div class="row">
+<div class="row mb-4">
     <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4>Admin - Exhibition booking step 3</h4>
-            <span class="text-muted">24 / 36</span>
+        <div class="progress" style="height: 8px;">
+            <div class="progress-bar bg-primary" role="progressbar" style="width: 75%"></div>
         </div>
-        <div class="text-center mb-4">
-            <h5>Step 3</h5>
+        <div class="d-flex justify-content-between mt-2">
+            @if(isset($exhibition) && $exhibition->id)
+                <a href="{{ route('admin.exhibitions.edit', $exhibition->id) }}" class="text-muted text-decoration-none" style="padding: 8px 16px;">Step 1: Exhibition Details</a>
+                <a href="{{ route('admin.exhibitions.step2', $exhibition->id) }}" class="text-muted text-decoration-none" style="padding: 8px 16px;">Step 2: Hall Plan & Pricing</a>
+                <span class="text-primary fw-bold" style="padding: 8px 16px;color: white; border-radius: 4px;">Step 3: Payment Schedule</span>
+                <a href="{{ route('admin.exhibitions.step4', $exhibition->id) }}" class="text-muted text-decoration-none" style="padding: 8px 16px;">Step 4: Badge & Manual</a>
+            @else
+                <small class="text-muted" style="padding: 8px 16px;">Step 1: Exhibition Details</small>
+                <small class="text-muted" style="padding: 8px 16px;">Step 2: Hall Plan & Pricing</small>
+                <small class="text-primary fw-bold" style="padding: 8px 16px;color: white; border-radius: 4px;">Step 3: Payment Schedule</small>
+                <small class="text-muted" style="padding: 8px 16px;">Step 4: Badge & Manual</small>
+            @endif
         </div>
     </div>
 </div>
@@ -435,7 +444,6 @@
                     <div class="input-group">
                         <input type="date" name="addon_services_cutoff_date" class="form-control" 
                                value="{{ $exhibition->addon_services_cutoff_date ? $exhibition->addon_services_cutoff_date->format('Y-m-d') : '' }}">
-                        <span class="input-group-text"><i class="bi bi-calendar"></i></span>
                     </div>
                 </div>
                 <div class="col-md-6 mb-3">
@@ -443,7 +451,6 @@
                     <div class="input-group">
                         <input type="date" name="document_upload_deadline" class="form-control" 
                                value="{{ $exhibition->document_upload_deadline ? $exhibition->document_upload_deadline->format('Y-m-d') : '' }}">
-                        <span class="input-group-text"><i class="bi bi-calendar"></i></span>
                     </div>
                 </div>
             </div>

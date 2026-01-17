@@ -4,21 +4,24 @@
 @section('page-title', 'Edit Exhibition')
 
 @section('content')
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="progress" style="height: 8px;">
+            <div class="progress-bar bg-primary" role="progressbar" style="width: 25%"></div>
+        </div>
+        <div class="d-flex justify-content-between mt-2">
+            <a href="{{ route('admin.exhibitions.edit', $exhibition->id) }}" class="text-primary fw-bold text-decoration-none" style="padding: 8px 16px;color: white; border-radius: 4px;">Step 1: Exhibition Details</a>
+            <a href="{{ route('admin.exhibitions.step2', $exhibition->id) }}" class="text-muted text-decoration-none" style="padding: 8px 16px;">Step 2: Hall Plan & Pricing</a>
+            <a href="{{ route('admin.exhibitions.step3', $exhibition->id) }}" class="text-muted text-decoration-none" style="padding: 8px 16px;">Step 3: Payment Schedule</a>
+            <a href="{{ route('admin.exhibitions.step4', $exhibition->id) }}" class="text-muted text-decoration-none" style="padding: 8px 16px;">Step 4: Badge & Manual</a>
+        </div>
+    </div>
+</div>
+
 <div class="mb-4 d-flex justify-content-between align-items-center">
     <a href="{{ route('admin.exhibitions.index') }}" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left me-2"></i>Back to Exhibitions
     </a>
-    <div class="text-end">
-        <div class="progress" style="height: 8px; width: 320px;">
-            <div class="progress-bar bg-warning" role="progressbar" style="width: 25%"></div>
-        </div>
-        <div class="d-flex justify-content-end gap-3 mt-2 small">
-            <a href="{{ route('admin.exhibitions.edit', $exhibition->id) }}" class="text-warning fw-bold text-decoration-none">Step 1</a>
-            <a href="{{ route('admin.exhibitions.step2', $exhibition->id) }}" class="text-muted text-decoration-none">Step 2</a>
-            <a href="{{ route('admin.exhibitions.step3', $exhibition->id) }}" class="text-muted text-decoration-none">Step 3</a>
-            <a href="{{ route('admin.exhibitions.step4', $exhibition->id) }}" class="text-muted text-decoration-none">Step 4</a>
-        </div>
-    </div>
 </div>
 
 <div class="card">

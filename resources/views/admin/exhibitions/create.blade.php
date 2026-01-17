@@ -10,10 +10,10 @@
             <div class="progress-bar bg-primary" role="progressbar" style="width: 25%"></div>
         </div>
         <div class="d-flex justify-content-between mt-2">
-            <small class="text-primary fw-bold">Step 1: General Details</small>
-            <small class="text-muted">Step 2: Hall Plan & Pricing</small>
-            <small class="text-muted">Step 3: Payment Schedule</small>
-            <small class="text-muted">Step 4: Badge & Manual</small>
+            <small class="text-primary fw-bold" style="padding: 8px 16px;color: white; border-radius: 4px;">Step 1: Exhibition Details</small>
+            <small class="text-muted" style="padding: 8px 16px;">Step 2: Hall Plan & Pricing</small>
+            <small class="text-muted" style="padding: 8px 16px;">Step 3: Payment Schedule</small>
+            <small class="text-muted" style="padding: 8px 16px;">Step 4: Badge & Manual</small>
         </div>
     </div>
 </div>
