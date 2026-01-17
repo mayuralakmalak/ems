@@ -10,6 +10,9 @@
         /* Allow page to grow with content instead of fixing to viewport height */
         min-height: calc(100vh - 150px);
         margin-top: 20px;
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden; /* Prevent horizontal page scroll */
     }
     
     /* Left Panel - Filters */
@@ -99,6 +102,9 @@
         border-radius: 12px;
         padding: 20px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        min-width: 0; /* Prevents flex item from overflowing */
+        max-width: 100%; /* Ensures it doesn't exceed parent */
+        overflow: hidden; /* Prevents content from expanding parent */
     }
     
     .floorplan-header {
@@ -170,7 +176,12 @@
         border-radius: 8px;
         overflow: auto;
         border: 1px solid #e2e8f0;
-        min-height: 320px;
+        min-height: 400px;
+        max-height: calc(100vh - 300px);
+        width: 100%;
+        /* Ensure scrolling works properly */
+        overflow-x: auto;
+        overflow-y: auto;
     }
     
     .floorplan-image {
@@ -210,8 +221,8 @@
     }
     
     .booth-booked {
-        background-color: #dc3545;
-        border-color: #b02a37;
+        background-color: #fd7e14;
+        border-color: #e65100;
         cursor: not-allowed;
     }
     
@@ -267,8 +278,8 @@
     }
     
     .legend-color.booked {
-        background: #dc3545;
-        border-color: #b02a37;
+        background: #fd7e14;
+        border-color: #e65100;
     }
     .legend-color.merged {
         background: #17a2b8;
@@ -936,6 +947,54 @@
         </div>
         
         <div class="floorplan-canvas" id="floorplanCanvas">
+            @php
+                // Calculate canvas dimensions (hall + 200px border on each side = 400px total)
+                $BORDER_PADDING = 200;
+                $hallWidth = 0;
+                $hallHeight = 0;
+                $canvasWidth = 0;
+                $canvasHeight = 0;
+                
+                if ($selectedFloor && $selectedFloor->width_meters && $selectedFloor->height_meters) {
+                    // Convert meters to pixels (1 meter = 50px, same as admin panel)
+                    $hallWidth = $selectedFloor->width_meters * 50;
+                    $hallHeight = $selectedFloor->height_meters * 50;
+                    $canvasWidth = $hallWidth + ($BORDER_PADDING * 2);
+                    $canvasHeight = $hallHeight + ($BORDER_PADDING * 2);
+                } else {
+                    // Fallback: calculate from booths or use default
+                    $maxX = 0;
+                    $maxY = 0;
+                    foreach ($exhibition->booths as $booth) {
+                        if ($booth->position_x && $booth->position_y) {
+                            $maxX = max($maxX, ($booth->position_x ?? 0) + ($booth->width ?? 100));
+                            $maxY = max($maxY, ($booth->position_y ?? 0) + ($booth->height ?? 80));
+                        }
+                    }
+                    // If we have booth positions, use them; otherwise use defaults
+                    if ($maxX > 0 && $maxY > 0) {
+                        // Booths are positioned with 200px offset, so subtract it to get hall size
+                        $hallWidth = max(2000, $maxX - $BORDER_PADDING);
+                        $hallHeight = max(800, $maxY - $BORDER_PADDING);
+                    } else {
+                        $hallWidth = 2000;
+                        $hallHeight = 800;
+                    }
+                    $canvasWidth = $hallWidth + ($BORDER_PADDING * 2);
+                    $canvasHeight = $hallHeight + ($BORDER_PADDING * 2);
+                }
+                
+                // Get background image (priority: floor background_image, fallback: exhibition floorplan_images)
+                $backgroundImage = null;
+                if ($selectedFloor && $selectedFloor->background_image) {
+                    $backgroundImage = $selectedFloor->background_image;
+                } elseif (is_array($exhibition->floorplan_images ?? null) && !empty($exhibition->floorplan_images)) {
+                    $backgroundImage = $exhibition->floorplan_images[0];
+                } elseif ($exhibition->floorplan_image) {
+                    $backgroundImage = $exhibition->floorplan_image;
+                }
+            @endphp
+            
             @if($exhibition->booths->isEmpty())
             <div style="display: flex; align-items: center; justify-content: center; min-height: 400px; flex-direction: column; gap: 15px; color: #64748b;">
                 <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.5;"></i>
@@ -946,7 +1005,20 @@
                 </div>
             </div>
             @else
-            <div id="boothsContainer" style="position: relative; min-height: 100%; z-index: 2;">
+            <div id="boothsContainer" style="position: relative; width: {{ $canvasWidth }}px; height: {{ $canvasHeight }}px; z-index: 2; flex-shrink: 0;">
+                @if($backgroundImage)
+                <!-- Background Image (covers full canvas including 200px border, same as admin panel) -->
+                <img src="{{ asset('storage/' . ltrim($backgroundImage, '/')) }}" 
+                     id="floorplanBackgroundImage" 
+                     style="position: absolute; 
+                            top: 0; 
+                            left: 0; 
+                            width: {{ $canvasWidth }}px; 
+                            height: {{ $canvasHeight }}px; 
+                            object-fit: fill;
+                            z-index: 1;
+                            opacity: 0.85;">
+                @endif
                 @foreach($exhibition->booths as $booth)
                 @php
                     // Hide split parent booths (they are replaced by their children)
@@ -1028,12 +1100,19 @@
                             $sizeImages = array_values((array) $imagesValue);
                         }
                     }
+                    
+                    // Get Size Type information (length x width)
+                    $sizeTypeText = '';
+                    if ($sizeConfig && $sizeConfig->sizeType) {
+                        $sizeTypeText = $sizeConfig->sizeType->length . ' x ' . $sizeConfig->sizeType->width;
+                    }
                 @endphp
                 <div class="booth-item {{ $statusClass }}" 
                      data-booth-id="{{ $booth->id }}"
                      data-booth-name="{{ $booth->name }}"
                      data-booth-size="{{ $booth->size_sqft }}"
                      data-booth-size-id="{{ $booth->exhibition_booth_size_id }}"
+                     data-booth-size-type="{{ $sizeTypeText }}"
                      data-booth-price="{{ $booth->price }}"
                      data-row-price="{{ $rowPriceForBooth }}"
                      data-orphan-price="{{ $orphanPriceForBooth }}"
@@ -1050,7 +1129,7 @@
                             height: {{ $booth->height ?? 80 }}px;">
                     <div class="text-center">
                         <div>{{ $booth->name }}{{ $booth->is_merged ? ' (Merged)' : '' }}</div>
-                        <div style="font-size: 10px;">{{ $booth->size_sqft }} sq meter</div>
+                        {{-- <div style="font-size: 10px;">{{ $booth->size_sqft }} </div> --}}
                         @if($mergedNames)
                         <div style="font-size: 9px; color: #0f172a;">Original: {{ $mergedNames }}</div>
                         @endif
@@ -1611,7 +1690,10 @@ function showBoothDetails(boothId) {
         ` : ''}
         <div class="detail-row">
             <span class="detail-label">Size</span>
-            <span class="detail-value">${booth.getAttribute('data-booth-size')} sq meter</span>
+            <span class="detail-value">
+                ${booth.getAttribute('data-booth-size')} sq meter
+                ${booth.getAttribute('data-booth-size-type') ? ' (' + booth.getAttribute('data-booth-size-type') + ')' : ''}
+            </span>
         </div>
         <div class="detail-row">
             <span class="detail-label">Category</span>

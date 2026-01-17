@@ -225,7 +225,7 @@ class FloorplanController extends Controller
                 $json = Storage::disk('local')->get($path);
                 $payload = json_decode($json, true) ?: [];
                 $this->syncBoothsFromPayload($payload, $exhibitionId, $floorId);
-                $payload = $this->applySizeIdsFromDatabase($payload, $exhibitionId);
+                $payload = $this->applySizeIdsFromDatabase($payload, $exhibitionId, $floorId);
                 $json = json_encode($payload, JSON_PRETTY_PRINT);
                 Storage::disk('local')->put($path, $json);
                 return response($json, 200)->header('Content-Type', 'application/json');
@@ -240,7 +240,7 @@ class FloorplanController extends Controller
             $json = Storage::disk('local')->get($primaryPath);
             $payload = json_decode($json, true) ?: [];
             $this->syncBoothsFromPayload($payload, $exhibitionId, null);
-            $payload = $this->applySizeIdsFromDatabase($payload, $exhibitionId);
+            $payload = $this->applySizeIdsFromDatabase($payload, $exhibitionId, null);
             $json = json_encode($payload, JSON_PRETTY_PRINT);
             Storage::disk('local')->put($primaryPath, $json);
             return response($json, 200)->header('Content-Type', 'application/json');
@@ -251,7 +251,7 @@ class FloorplanController extends Controller
             Storage::disk('local')->put($primaryPath, $json);
             $payload = json_decode($json, true) ?: [];
             $this->syncBoothsFromPayload($payload, $exhibitionId, null);
-            $payload = $this->applySizeIdsFromDatabase($payload, $exhibitionId);
+            $payload = $this->applySizeIdsFromDatabase($payload, $exhibitionId, null);
             $json = json_encode($payload, JSON_PRETTY_PRINT);
             Storage::disk('local')->put($primaryPath, $json);
             return response($json, 200)->header('Content-Type', 'application/json');
@@ -578,7 +578,7 @@ class FloorplanController extends Controller
      * Ensure each booth payload entry has the correct sizeId and status from DB so that
      * the admin UI can show the already-selected size and current booking status.
      */
-    private function applySizeIdsFromDatabase(array $payload, int $exhibitionId): array
+    private function applySizeIdsFromDatabase(array $payload, int $exhibitionId, ?int $floorId = null): array
     {
         if (empty($payload['booths']) || !is_array($payload['booths'])) {
             return $payload;
@@ -645,10 +645,19 @@ class FloorplanController extends Controller
             ]);
         }
 
-        $dbBooths = Booth::where('exhibition_id', $exhibitionId)
-            ->whereIn('name', $boothNames)
-            ->get()
-            ->keyBy('name');
+        // Query booths for this floor only (to avoid conflicts with same booth names across floors)
+        $dbBoothsQuery = Booth::where('exhibition_id', $exhibitionId)
+            ->whereIn('name', $boothNames);
+        
+        // Filter by floor_id if provided
+        if ($floorId !== null) {
+            $dbBoothsQuery->where('floor_id', $floorId);
+        } else {
+            // For backward compatibility: only get booths without floor_id
+            $dbBoothsQuery->whereNull('floor_id');
+        }
+        
+        $dbBooths = $dbBoothsQuery->get()->keyBy('name');
 
         foreach ($payload['booths'] as &$boothData) {
             $name = $boothData['id'] ?? null;
@@ -710,9 +719,19 @@ class FloorplanController extends Controller
             } else {
                 // Booth doesn't exist in database yet - check if it's in booked/reserved arrays by name
                 // This handles cases where booth might be referenced by name in bookings
-                $boothByName = Booth::where('exhibition_id', $exhibitionId)
-                    ->where('name', $name)
-                    ->first();
+                // IMPORTANT: Filter by floor_id to avoid conflicts with same booth names across floors
+                $boothByNameQuery = Booth::where('exhibition_id', $exhibitionId)
+                    ->where('name', $name);
+                
+                // Filter by floor_id if provided
+                if ($floorId !== null) {
+                    $boothByNameQuery->where('floor_id', $floorId);
+                } else {
+                    // For backward compatibility: only get booths without floor_id
+                    $boothByNameQuery->whereNull('floor_id');
+                }
+                
+                $boothByName = $boothByNameQuery->first();
                 
                 if ($boothByName) {
                     $boothId = (int) $boothByName->id;

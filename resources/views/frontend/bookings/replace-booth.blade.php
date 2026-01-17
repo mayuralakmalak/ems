@@ -174,8 +174,8 @@
     }
     
     .booth-booked {
-        background-color: #dc3545;
-        border: 2px solid #b02a37;
+        background-color: #fd7e14;
+        border: 2px solid #e65100;
         cursor: not-allowed;
         opacity: 0.6;
     }

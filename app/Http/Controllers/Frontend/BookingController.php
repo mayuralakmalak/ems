@@ -88,7 +88,7 @@ class BookingController extends Controller
                   ->where('is_split', true);
             })
             ->orderBy('name', 'asc');
-        }, 'booths.exhibitionBoothSize', 'stallSchemes', 'boothSizes', 'stallVariations', 'addonServices'])->findOrFail($exhibitionId);
+        }, 'booths.exhibitionBoothSize.sizeType', 'stallSchemes', 'boothSizes', 'stallVariations', 'addonServices'])->findOrFail($exhibitionId);
 
         // Get selected floor from request or default to first active floor
         $selectedFloorId = request()->query('floor_id');

@@ -119,8 +119,8 @@
     }
     
     .stall-booked {
-        background: #fee2e2;
-        border-color: #ef4444;
+        background: #fff3e0;
+        border-color: #fd7e14;
     }
     
     .stall-reserved {

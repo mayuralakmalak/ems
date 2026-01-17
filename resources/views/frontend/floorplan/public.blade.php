@@ -62,7 +62,7 @@
                         <small>Reserved</small>
                     </div>
                     <div class="d-flex align-items-center mb-2">
-                        <div style="width: 20px; height: 20px; background-color: #dc3545; border: 1px solid #b02a37; margin-right: 10px;"></div>
+                        <div style="width: 20px; height: 20px; background-color: #fd7e14; border: 1px solid #e65100; margin-right: 10px;"></div>
                         <small>Booked</small>
                     </div>
                     <div class="d-flex align-items-center mb-2">
@@ -114,8 +114,8 @@
                             
                             if ($isBooked) {
                                 $status = 'booked';
-                                $bgColor = '#dc3545';
-                                $borderColor = '#b02a37';
+                                $bgColor = '#fd7e14';
+                                $borderColor = '#e65100';
                             } elseif ($isReserved) {
                                 $status = 'reserved';
                                 $bgColor = '#ffc107';

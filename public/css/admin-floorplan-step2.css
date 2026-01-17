@@ -356,13 +356,13 @@ body {
 }
 
 .booth-admin.reserved {
-    fill: #ff9800;
-    stroke: #f57c00;
+    fill: #ffc107;
+    stroke: #d39e00;
 }
 
 .booth-admin.booked {
-    fill: #f44336;
-    stroke: #c62828;
+    fill: #fd7e14;
+    stroke: #e65100;
 }
 
 .booth-admin.selected {
