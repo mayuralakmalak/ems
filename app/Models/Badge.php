@@ -13,6 +13,8 @@ class Badge extends Model
         'booking_id',
         'user_id',
         'exhibition_id',
+        'booth_id',
+        'exhibition_booth_size_id',
         'badge_type',
         'name',
         'email',

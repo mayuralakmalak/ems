@@ -688,19 +688,22 @@
 let selectedMethod = '';
 @php
     $paymentAmount = $payment->amount;
+    
+    // Prepare payment schedule data
+    $paymentScheduleData = $payment->booking->payments->map(function($p) {
+        return [
+            'id' => $p->id,
+            'type' => $p->payment_type,
+            'amount' => $p->amount,
+            'status' => $p->status,
+            'due_date' => $p->due_date ? $p->due_date->format('Y-m-d') : null,
+        ];
+    })->toArray();
 @endphp
 let paymentAmount = parseFloat({{ number_format($paymentAmount, 2, '.', '') }});
 let gatewayCharge = parseFloat({{ number_format($gatewayCharge ?? 0, 2, '.', '') }}); // Gateway fee for current payment
 let totalGatewayFee = parseFloat({{ number_format($totalGatewayFee ?? 0, 2, '.', '') }}); // Total gateway fee for all payments
-let paymentSchedule = @json($payment->booking->payments->map(function($p) {
-    return [
-        'id' => $p->id,
-        'type' => $p->payment_type,
-        'amount' => $p->amount,
-        'status' => $p->status,
-        'due_date' => $p->due_date ? $p->due_date->format('Y-m-d') : null,
-    ];
-}));
+let paymentSchedule = @json($paymentScheduleData);
 
 // Payment method selection
 document.querySelectorAll('.payment-method-card').forEach(card => {

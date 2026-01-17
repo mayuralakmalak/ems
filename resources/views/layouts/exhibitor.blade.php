@@ -518,6 +518,54 @@
         });
     </script>
     <script>
+        // Disable past dates for all date inputs (except filters)
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date().toISOString().split('T')[0];
+            
+            function setMinDateForInput(input) {
+                // Skip filter inputs - check by ID or name
+                const inputId = input.id || '';
+                const inputName = input.name || '';
+                
+                // Exclude filter inputs (date_from, date_to in filter contexts)
+                if (inputId === 'date_from' || inputId === 'date_to' || 
+                    inputName === 'date_from' || inputName === 'date_to') {
+                    return;
+                }
+                
+                // Set min to today for all other date inputs
+                if (input.type === 'date' && !input.hasAttribute('min')) {
+                    input.setAttribute('min', today);
+                }
+            }
+            
+            // Set min date for all existing date inputs
+            document.querySelectorAll('input[type="date"]').forEach(setMinDateForInput);
+            
+            // Watch for dynamically added date inputs
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    mutation.addedNodes.forEach(function(node) {
+                        if (node.nodeType === 1) { // Element node
+                            if (node.type === 'date') {
+                                setMinDateForInput(node);
+                            }
+                            // Also check children
+                            if (node.querySelectorAll) {
+                                node.querySelectorAll('input[type="date"]').forEach(setMinDateForInput);
+                            }
+                        }
+                    });
+                });
+            });
+            
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        });
+    </script>
+    <script>
         // Scroll sidebar to show active menu item on page load
         document.addEventListener('DOMContentLoaded', function() {
             const sidebar = document.querySelector('.sidebar');

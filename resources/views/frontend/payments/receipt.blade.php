@@ -135,41 +135,55 @@
 </head>
 <body>
 @php
+    $isBadgePayment = $payment->isBadgePayment();
+    $isServicePayment = $payment->isServicePayment();
+    $badge = $isBadgePayment ? $payment->getBadge() : null;
+    $serviceRequest = $isServicePayment ? $payment->getServiceRequest() : null;
+    
     $booking = $payment->booking;
     $exhibition = $booking->exhibition ?? null;
     
-    // Calculate booth total from selected_booth_ids (works for both merged and non-merged booths)
-    // For merged booths: selected_booth_ids contains the original booths that were merged
-    // For non-merged: selected_booth_ids contains the selected booths
-    // We always sum the prices from selected_booth_ids to get the correct booth rental total
-    $boothEntries = collect($booking->selected_booth_ids ?? []);
-    if ($boothEntries->isEmpty() && $booking->booth_id) {
-        $boothEntries = collect([['id' => $booking->booth_id]]);
+    if (!$isBadgePayment && !$isServicePayment) {
+        // Calculate booth total from selected_booth_ids (works for both merged and non-merged booths)
+        // For merged booths: selected_booth_ids contains the original booths that were merged
+        // For non-merged: selected_booth_ids contains the selected booths
+        // We always sum the prices from selected_booth_ids to get the correct booth rental total
+        $boothEntries = collect($booking->selected_booth_ids ?? []);
+        if ($boothEntries->isEmpty() && $booking->booth_id) {
+            $boothEntries = collect([['id' => $booking->booth_id]]);
+        }
+        $boothIds = $boothEntries->map(fn($entry) => is_array($entry) ? ($entry['id'] ?? null) : $entry)
+            ->filter()
+            ->values();
+        $booths = \App\Models\Booth::whereIn('id', $boothIds)->get()->keyBy('id');
+        $boothDisplay = $boothEntries->map(function($entry) use ($booths) {
+            $isArray = is_array($entry);
+            $id = $isArray ? ($entry['id'] ?? null) : $entry;
+            $model = $id ? ($booths[$id] ?? null) : null;
+            return [
+                'name' => $isArray ? ($entry['name'] ?? $model?->name) : ($model?->name),
+                'size_sqft' => $isArray ? ($entry['size_sqft'] ?? $model?->size_sqft) : ($model?->size_sqft),
+                'type' => $isArray ? ($entry['type'] ?? null) : ($model?->booth_type),
+                'sides' => $isArray ? ($entry['sides'] ?? null) : ($model?->sides_open),
+                'price' => $isArray ? ($entry['price'] ?? $model?->price ?? 0) : ($model?->price ?? 0),
+            ];
+        })->filter(fn($b) => $b['name'] || $b['price']);
+        
+        // Calculate booth total by summing prices from selected_booth_ids
+        // This works correctly for both merged and non-merged booths
+        $boothTotal = $boothDisplay->sum(fn($b) => $b['price'] ?? 0);
+        $services = $booking->bookingServices()->with('service')->get();
+        $servicesTotal = $services->sum('total_price');
+        $grandTotal = $boothTotal + $servicesTotal;
+    } else {
+        $boothDisplay = collect();
+        $boothTotal = 0;
+        $services = collect();
+        $servicesTotal = 0;
+        $grandTotal = $payment->amount;
     }
-    $boothIds = $boothEntries->map(fn($entry) => is_array($entry) ? ($entry['id'] ?? null) : $entry)
-        ->filter()
-        ->values();
-    $booths = \App\Models\Booth::whereIn('id', $boothIds)->get()->keyBy('id');
-    $boothDisplay = $boothEntries->map(function($entry) use ($booths) {
-        $isArray = is_array($entry);
-        $id = $isArray ? ($entry['id'] ?? null) : $entry;
-        $model = $id ? ($booths[$id] ?? null) : null;
-        return [
-            'name' => $isArray ? ($entry['name'] ?? $model?->name) : ($model?->name),
-            'size_sqft' => $isArray ? ($entry['size_sqft'] ?? $model?->size_sqft) : ($model?->size_sqft),
-            'type' => $isArray ? ($entry['type'] ?? null) : ($model?->booth_type),
-            'sides' => $isArray ? ($entry['sides'] ?? null) : ($model?->sides_open),
-            'price' => $isArray ? ($entry['price'] ?? $model?->price ?? 0) : ($model?->price ?? 0),
-        ];
-    })->filter(fn($b) => $b['name'] || $b['price']);
     
-    // Calculate booth total by summing prices from selected_booth_ids
-    // This works correctly for both merged and non-merged booths
-    $boothTotal = $boothDisplay->sum(fn($b) => $b['price'] ?? 0);
-    $services = $booking->bookingServices()->with('service')->get();
-    $servicesTotal = $services->sum('total_price');
     $paidAmount = $payment->amount;
-    $grandTotal = $boothTotal + $servicesTotal;
 
     $statusBadge = match($payment->status) {
         'completed' => 'badge-success',
@@ -240,63 +254,112 @@
         </div>
     </div>
 
-    <div class="section">
-        <h3>Booth Details</h3>
-        <table>
-            <thead>
-                <tr>
-                    <th>Booth</th>
-                    <th>Size (sq meter)</th>
-                    <th>Sides Open</th>
-                    <th>Type</th>
-                    <th>Price (₹)</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse($boothDisplay as $booth)
-                <tr>
-                    <td>{{ $booth['name'] ?? '—' }}</td>
-                    <td>{{ $booth['size_sqft'] ?? '—' }}</td>
-                    <td>{{ $booth['sides'] ?? '—' }}</td>
-                    <td>{{ ($booth['type'] ?? '—') === 'Orphand' ? 'Shell' : ($booth['type'] ?? '—') }}</td>
-                    <td>{{ number_format($booth['price'] ?? 0, 2) }}</td>
-                </tr>
-                @empty
-                <tr><td colspan="5">No booth information available.</td></tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
+    @if($isBadgePayment && $badge)
+        <div class="section">
+            <h3>Badge Details</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Badge Type</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Price (₹)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{{ ucfirst($badge->badge_type) }}</td>
+                        <td>{{ $badge->name }}</td>
+                        <td>{{ $badge->email }}</td>
+                        <td>{{ $badge->phone }}</td>
+                        <td>₹{{ number_format($badge->price, 2) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    @elseif($isServicePayment && $serviceRequest)
+        <div class="section">
+            <h3>Additional Service Details</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Service Name</th>
+                        <th>Quantity</th>
+                        <th>Unit Price (₹)</th>
+                        <th>Total (₹)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{{ $serviceRequest->service->name ?? 'Service' }}</td>
+                        <td>{{ $serviceRequest->quantity }}</td>
+                        <td>₹{{ number_format($serviceRequest->unit_price, 2) }}</td>
+                        <td>₹{{ number_format($serviceRequest->total_price, 2) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    @else
+        <div class="section">
+            <h3>Booth Details</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Booth</th>
+                        <th>Size (sq meter)</th>
+                        <th>Sides Open</th>
+                        <th>Type</th>
+                        <th>Price (₹)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($boothDisplay as $booth)
+                    <tr>
+                        <td>{{ $booth['name'] ?? '—' }}</td>
+                        <td>{{ $booth['size_sqft'] ?? '—' }}</td>
+                        <td>{{ $booth['sides'] ?? '—' }}</td>
+                        <td>{{ ($booth['type'] ?? '—') === 'Orphand' ? 'Shell' : ($booth['type'] ?? '—') }}</td>
+                        <td>{{ number_format($booth['price'] ?? 0, 2) }}</td>
+                    </tr>
+                    @empty
+                    <tr><td colspan="5">No booth information available.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
 
-    <div class="section">
-        <h3>Additional Services</h3>
-        <table>
-            <thead>
-                <tr>
-                    <th>Service</th>
-                    <th>Unit Price (₹)</th>
-                    <th>Qty</th>
-                    <th>Total (₹)</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse($services as $svc)
-                <tr>
-                    <td>{{ $svc->service->name ?? 'Service' }}</td>
-                    <td>{{ number_format($svc->unit_price, 2) }}</td>
-                    <td>{{ $svc->quantity }}</td>
-                    <td>{{ number_format($svc->total_price, 2) }}</td>
-                </tr>
-                @empty
-                <tr><td colspan="4">No additional services selected.</td></tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
+        <div class="section">
+            <h3>Additional Services</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Service</th>
+                        <th>Unit Price (₹)</th>
+                        <th>Qty</th>
+                        <th>Total (₹)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($services as $svc)
+                    <tr>
+                        <td>{{ $svc->service->name ?? 'Service' }}</td>
+                        <td>{{ number_format($svc->unit_price, 2) }}</td>
+                        <td>{{ $svc->quantity }}</td>
+                        <td>{{ number_format($svc->total_price, 2) }}</td>
+                    </tr>
+                    @empty
+                    <tr><td colspan="4">No additional services selected.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    @endif
 
     <div class="section">
         <h3>Totals</h3>
         <table class="totals">
+            @if(!$isBadgePayment && !$isServicePayment)
             <tr>
                 <td class="label">Booth Total</td>
                 <td class="amount">₹{{ number_format($boothTotal, 2) }}</td>
@@ -305,14 +368,17 @@
                 <td class="label">Services Total</td>
                 <td class="amount">₹{{ number_format($servicesTotal, 2) }}</td>
             </tr>
+            @endif
             <tr>
                 <td class="label grand">Total Paid</td>
                 <td class="amount grand">₹{{ number_format($paidAmount, 2) }}</td>
             </tr>
+            @if(!$isBadgePayment && !$isServicePayment)
             <tr>
                 <td class="label">Grand Total (booking)</td>
                 <td class="amount">₹{{ number_format($grandTotal, 2) }}</td>
             </tr>
+            @endif
         </table>
     </div>
 

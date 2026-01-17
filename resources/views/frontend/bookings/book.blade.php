@@ -1706,7 +1706,12 @@ function showBoothDetails(boothId) {
     `;
     
     renderBoothSelectionControls(boothId);
-    renderIncludedItemsSection(booth);
+    // Only show included items if booth is selected or if there are selected booths
+    if (selectedBooths.length > 0) {
+        renderIncludedItemsSection(booth);
+    } else {
+        renderIncludedItemsSection(null);
+    }
     renderBoothSizeImagesPreview(booth);
     
     // Calculate and display initial price
@@ -1865,20 +1870,56 @@ function renderIncludedItemsSection(booth) {
 
     if (!panel || !textContainer || !subtitle || !imagesContainer) return;
 
-    if (!booth) {
+    // If no booths are selected, hide the panel
+    if (selectedBooths.length === 0) {
         panel.style.display = 'none';
         textContainer.innerHTML = '';
         imagesContainer.innerHTML = '';
         return;
     }
 
-    const included = getBoothIncluded(
-        booth.getAttribute('data-booth-size'),
-        booth.getAttribute('data-booth-size-id')
-    );
+    // If multiple booths are selected, collect items from all selected booths
+    let allItems = [];
+    let allSizeImages = [];
+    
+    // Collect items from all selected booths
+    selectedBooths.forEach(boothId => {
+        const selectedBooth = document.querySelector(`[data-booth-id="${boothId}"]`);
+        if (selectedBooth) {
+            const included = getBoothIncluded(
+                selectedBooth.getAttribute('data-booth-size'),
+                selectedBooth.getAttribute('data-booth-size-id')
+            );
+            
+            if (included && included.items) {
+                allItems = allItems.concat(included.items);
+            }
+            
+            if (included && included.images) {
+                allSizeImages = allSizeImages.concat(included.images);
+            }
+        }
+    });
+    
+    // Remove duplicate items (by key) and merge quantities if same item exists
+    const itemsMap = new Map();
+    allItems.forEach(item => {
+        const existing = itemsMap.get(item.key);
+        if (existing) {
+            // If same item exists, keep the one with higher quantity or price
+            // Or you can sum quantities if needed - for now, keep first occurrence
+            // You can modify this logic based on requirements
+        } else {
+            itemsMap.set(item.key, item);
+        }
+    });
+    allItems = Array.from(itemsMap.values());
+    
+    // Remove duplicate images
+    allSizeImages = [...new Set(allSizeImages)];
 
-    const items = (included && included.items) ? included.items : [];
-    const sizeImages = (included && included.images) ? included.images : [];
+    const items = allItems;
+    const sizeImages = allSizeImages;
 
     // If there are neither items nor images, hide the panel
     if (!items.length && !sizeImages.length) {
@@ -1974,7 +2015,12 @@ function renderIncludedItemsSection(booth) {
         imagesContainer.innerHTML = '';
     }
 
-    subtitle.textContent = 'These items and booth previews are associated with the selected booth size:';
+    // Update subtitle based on number of selected booths
+    if (selectedBooths.length > 1) {
+        subtitle.textContent = 'These items and booth previews are associated with all selected booth sizes:';
+    } else {
+        subtitle.textContent = 'These items and booth previews are associated with the selected booth size:';
+    }
 
     // Attach listeners for quantity changes
     textContainer.querySelectorAll('.included-item-qty').forEach(input => {
@@ -2048,6 +2094,8 @@ function updateSelectedBoothsList() {
         `;
         totalDiv.style.display = 'none';
         updateTotalAmount();
+        // Hide included items section when no booths are selected
+        renderIncludedItemsSection(null);
         return;
     }
     
@@ -2076,6 +2124,10 @@ function updateSelectedBoothsList() {
     totalDiv.style.display = 'block';
     updateTotalAmount();
     toggleServicesCard();
+    
+    // Update included items section to show items from all selected booths
+    const firstBooth = selectedBooths.length > 0 ? document.querySelector(`[data-booth-id="${selectedBooths[0]}"]`) : null;
+    renderIncludedItemsSection(firstBooth);
 }
 
 function updateServiceSelection() {

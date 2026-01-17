@@ -3,6 +3,43 @@
 @section('title', 'Admin Exhibition booking step 4')
 @section('page-title', 'Admin Exhibition booking step 4')
 
+@push('styles')
+<style>
+    .badge-size-section {
+        background-color: #f8f9fa !important;
+    }
+    .form-control-sm {
+        font-size: 0.8rem;
+        padding: 0.2rem 0.4rem;
+        height: calc(1.4em + 0.4rem + 2px);
+    }
+    .input-group-sm > .form-control {
+        font-size: 0.8rem;
+        padding: 0.2rem 0.4rem;
+    }
+    .input-group-sm > .btn {
+        font-size: 0.8rem;
+        padding: 0.2rem 0.4rem;
+    }
+    .form-label.small {
+        font-size: 0.8rem;
+        margin-bottom: 0.25rem;
+    }
+    .badge-size-section input[type="number"] {
+        max-width: 100px;
+    }
+    .additional-item-row {
+        width: fit-content !important;
+        display: inline-flex !important;
+    }
+    .additional-item-row input[type="text"] {
+        width: 120px !important;
+        max-width: 120px !important;
+        flex: 0 0 120px !important;
+    }
+</style>
+@endpush
+
 @section('content')
 <div class="row mb-4">
     <div class="col-12">
@@ -35,95 +72,129 @@
         </div>
         <div class="card-body">
             @php
-                $badgeConfigs = $exhibition->badgeConfigurations->keyBy('badge_type');
-                $additionalConfig = $badgeConfigs->get('Additional');
-                $additionalItems = $additionalConfig->access_permissions ?? ['Lunch', 'Entry Only', 'Snacks'];
+                $boothSizes = $exhibition->boothSizes ?? collect();
             @endphp
             
-            <!-- Primary Badge -->
-            <div class="row mb-3">
-                <div class="col-md-3">
-                    <label class="form-label">Primary Badge</label>
-                </div>
-                <div class="col-md-2">
-                    <input type="number" name="badge_configurations[Primary][quantity]" class="form-control" 
-                           placeholder="Free quantity" min="0" 
-                           value="{{ $badgeConfigs->get('Primary')->quantity ?? 0 }}">
-                </div>
-                <div class="col-md-4 offset-md-1">
-                    <input type="number" name="badge_configurations[Primary][price]" class="form-control" 
-                           placeholder="Price per additional Primary badge" step="0.01" min="0"
-                           value="{{ $badgeConfigs->get('Primary')->price ?? 0 }}">
-                    <input type="hidden" name="badge_configurations[Primary][badge_type]" value="Primary">
-                </div>
-            </div>
-
-            <!-- Secondary Badge -->
-            <div class="row mb-3">
-                <div class="col-md-3">
-                    <label class="form-label">Secondary Badge</label>
-                </div>
-                <div class="col-md-2">
-                    <input type="number" name="badge_configurations[Secondary][quantity]" class="form-control" 
-                           placeholder="Free quantity" min="0"
-                           value="{{ $badgeConfigs->get('Secondary')->quantity ?? 0 }}">
-                </div>
-                <div class="col-md-4 offset-md-1">
-                    <input type="number" name="badge_configurations[Secondary][price]" class="form-control" 
-                           placeholder="Price per additional Secondary badge" step="0.01" min="0"
-                           value="{{ $badgeConfigs->get('Secondary')->price ?? 0 }}">
-                    <input type="hidden" name="badge_configurations[Secondary][badge_type]" value="Secondary">
-                </div>
-            </div>
-
-            <!-- Additional Badge Settings (applies when free quota is exceeded) -->
-            <div class="row mb-3">
-                <div class="col-md-3">
-                    <label class="form-label">Additional Badge Settings</label>
-                </div>
-                <div class="col-md-9">
-                    <div class="mb-2">
-                        <label class="form-label d-block">Need Admin approval for additional (paid) badges?</label>
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="badge_configurations[Additional][needs_admin_approval]" 
-                                   id="approval_yes" value="1"
-                                   {{ ($additionalConfig->needs_admin_approval ?? false) ? 'checked' : '' }}>
-                            <label class="form-check-label" for="approval_yes">Yes</label>
+            @if($boothSizes->count() > 0)
+                @foreach($boothSizes as $sizeIndex => $boothSize)
+                    @php
+                        $sizeId = $boothSize->id;
+                        $sizeSqft = $boothSize->size_sqft ?? 0;
+                        $sizeType = $boothSize->sizeType;
+                        $sizeTypeLabel = $sizeType ? ($sizeType->length . ' x ' . $sizeType->width) : '';
+                        
+                        // Get badge configs for this size
+                        $sizeBadgeConfigs = $exhibition->badgeConfigurations->where('exhibition_booth_size_id', $sizeId)->keyBy('badge_type');
+                        $primaryConfig = $sizeBadgeConfigs->get('Primary');
+                        $secondaryConfig = $sizeBadgeConfigs->get('Secondary');
+                        $additionalConfig = $sizeBadgeConfigs->get('Additional');
+                        $additionalItems = $additionalConfig->access_permissions ?? ['Lunch', 'Entry Only', 'Snacks'];
+                    @endphp
+                    
+                    <div class="badge-size-section mb-4 p-3 border rounded" style="background-color: #f8f9fa;">
+                        <h6 class="mb-3 fw-bold">
+                            Size {{ $sizeSqft }} sq meter
+                            @if($sizeTypeLabel)
+                                <span class="text-muted fw-normal">({{ $sizeTypeLabel }})</span>
+                            @endif
+                        </h6>
+                        
+                        <!-- Primary & Secondary Badge - One Line -->
+                        <div class="row mb-2 align-items-center">
+                            <div class="col-md-2">
+                                <label class="form-label mb-0 small">Primary Badge</label>
+                            </div>
+                            <div class="col-md-1">
+                                <input type="number" name="badge_configurations[{{ $sizeId }}][Primary][quantity]" 
+                                       class="form-control form-control-sm" placeholder="Qty" min="0" 
+                                       value="{{ $primaryConfig->quantity ?? 0 }}" style="width: 70px;">
+                            </div>
+                            <div class="col-md-2">
+                                <input type="number" name="badge_configurations[{{ $sizeId }}][Primary][price]" 
+                                       class="form-control form-control-sm" placeholder="Price" step="0.01" min="0"
+                                       value="{{ $primaryConfig->price ?? 0 }}" style="width: 90px;">
+                            </div>
+                            <input type="hidden" name="badge_configurations[{{ $sizeId }}][Primary][badge_type]" value="Primary">
+                            <input type="hidden" name="badge_configurations[{{ $sizeId }}][Primary][exhibition_booth_size_id]" value="{{ $sizeId }}">
+                            
+                            <div class="col-md-2">
+                                <label class="form-label mb-0 small">Secondary Badge</label>
+                            </div>
+                            <div class="col-md-1">
+                                <input type="number" name="badge_configurations[{{ $sizeId }}][Secondary][quantity]" 
+                                       class="form-control form-control-sm" placeholder="Qty" min="0"
+                                       value="{{ $secondaryConfig->quantity ?? 0 }}" style="width: 70px;">
+                            </div>
+                            <div class="col-md-2">
+                                <input type="number" name="badge_configurations[{{ $sizeId }}][Secondary][price]" 
+                                       class="form-control form-control-sm" placeholder="Price" step="0.01" min="0"
+                                       value="{{ $secondaryConfig->price ?? 0 }}" style="width: 90px;">
+                            </div>
+                            <input type="hidden" name="badge_configurations[{{ $sizeId }}][Secondary][badge_type]" value="Secondary">
+                            <input type="hidden" name="badge_configurations[{{ $sizeId }}][Secondary][exhibition_booth_size_id]" value="{{ $sizeId }}">
                         </div>
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="badge_configurations[Additional][needs_admin_approval]" 
-                                   id="approval_no" value="0"
-                                   {{ !($additionalConfig->needs_admin_approval ?? false) ? 'checked' : '' }}>
-                            <label class="form-check-label" for="approval_no">No</label>
-                        </div>
-                        <small class="text-muted d-block mt-1">
-                            When enabled, any badge created beyond the free quantity (and charged) will stay in pending status until approved by admin.
-                        </small>
-                    </div>
 
-                    <div class="mt-3">
-                        <label class="form-label d-block">Items to be included in Additional Badge</label>
-                        <div id="additionalItemsContainer">
-                            @foreach($additionalItems as $index => $item)
-                                <div class="input-group mb-2 additional-item-row">
-                                    <input type="text" name="badge_configurations[Additional][access_permissions][]" 
-                                           class="form-control" placeholder="Item name"
-                                           value="{{ $item }}">
-                                    <button type="button" class="btn btn-outline-danger remove-additional-item">
-                                        <i class="bi bi-x"></i>
-                                    </button>
+                        <!-- Additional Badge Settings - Compact -->
+                        <div class="row mb-2">
+                            <div class="col-md-2">
+                                <label class="form-label mb-0 small">Additional Badge</label>
+                            </div>
+                            <div class="col-md-10">
+                                <div class="mb-2">
+                                    <label class="form-label d-block small mb-1">Need Admin approval?</label>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" 
+                                               name="badge_configurations[{{ $sizeId }}][Additional][needs_admin_approval]" 
+                                               id="approval_yes_{{ $sizeId }}" value="1"
+                                               {{ ($additionalConfig->needs_admin_approval ?? false) ? 'checked' : '' }}>
+                                        <label class="form-check-label small" for="approval_yes_{{ $sizeId }}">Yes</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" 
+                                               name="badge_configurations[{{ $sizeId }}][Additional][needs_admin_approval]" 
+                                               id="approval_no_{{ $sizeId }}" value="0"
+                                               {{ !($additionalConfig->needs_admin_approval ?? false) ? 'checked' : '' }}>
+                                        <label class="form-check-label small" for="approval_no_{{ $sizeId }}">No</label>
+                                    </div>
+                                    <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">
+                                        When enabled, any badge created beyond the free quantity (and charged) will stay in pending status until approved by admin.
+                                    </small>
                                 </div>
-                            @endforeach
+
+                                <div>
+                                    <label class="form-label d-block small mb-1">Items included</label>
+                                    <div id="additionalItemsContainer_{{ $sizeId }}" class="mb-2">
+                                        @foreach($additionalItems as $itemIndex => $item)
+                                            <div class="input-group input-group-sm mb-1 additional-item-row" style="width: fit-content;">
+                                                <input type="text" 
+                                                       name="badge_configurations[{{ $sizeId }}][Additional][access_permissions][]" 
+                                                       class="form-control form-control-sm" placeholder="Item name"
+                                                       value="{{ $item }}" style="width: 120px; max-width: 120px;">
+                                                <button type="button" class="btn btn-outline-danger btn-sm remove-additional-item" style="padding: 0.2rem 0.4rem;">
+                                                    <i class="bi bi-x"></i>
+                                                </button>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary btn-sm" 
+                                            onclick="addAdditionalItem({{ $sizeId }})" style="padding: 0.2rem 0.4rem; font-size: 0.75rem;">
+                                        <i class="bi bi-plus-circle me-1"></i>Add Item
+                                    </button>
+                                    <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">
+                                        These items describe what is bundled with an additional (paid) badge, e.g. Lunch, Entry Only, Snacks.
+                                    </small>
+                                </div>
+                                <input type="hidden" name="badge_configurations[{{ $sizeId }}][Additional][badge_type]" value="Additional">
+                                <input type="hidden" name="badge_configurations[{{ $sizeId }}][Additional][exhibition_booth_size_id]" value="{{ $sizeId }}">
+                            </div>
                         </div>
-                        <button type="button" class="btn btn-sm btn-outline-primary" id="addAdditionalItemBtn">
-                            <i class="bi bi-plus-circle me-1"></i>Add Item
-                        </button>
-                        <small class="text-muted d-block mt-1">
-                            These items describe what is bundled with an additional (paid) badge, e.g. Lunch, Entry Only, Snacks.
-                        </small>
                     </div>
+                @endforeach
+            @else
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>Please add booth sizes in Step 2 first to configure badges.
                 </div>
-            </div>
+            @endif
         </div>
     </div>
 
@@ -328,29 +399,29 @@ function previewVariations() {
     }
 }
 
-// Dynamic additional badge items
-document.addEventListener('DOMContentLoaded', function () {
-    const container = document.getElementById('additionalItemsContainer');
-    const addBtn = document.getElementById('addAdditionalItemBtn');
-
-    if (!container || !addBtn) {
+// Dynamic additional badge items per size
+function addAdditionalItem(sizeId) {
+    const container = document.getElementById('additionalItemsContainer_' + sizeId);
+    if (!container) {
         return;
     }
 
-    addBtn.addEventListener('click', function () {
-        const row = document.createElement('div');
-        row.className = 'input-group mb-2 additional-item-row';
-        row.innerHTML = `
-            <input type="text" name="badge_configurations[Additional][access_permissions][]" 
-                   class="form-control" placeholder="Item name">
-            <button type="button" class="btn btn-outline-danger remove-additional-item">
-                <i class="bi bi-x"></i>
-            </button>
-        `;
-        container.appendChild(row);
-    });
+    const row = document.createElement('div');
+    row.className = 'input-group input-group-sm mb-1 additional-item-row';
+    row.style.width = 'fit-content';
+    row.innerHTML = `
+        <input type="text" name="badge_configurations[${sizeId}][Additional][access_permissions][]" 
+               class="form-control form-control-sm" placeholder="Item name" style="width: 120px; max-width: 120px;">
+        <button type="button" class="btn btn-outline-danger btn-sm remove-additional-item" style="padding: 0.2rem 0.4rem;">
+            <i class="bi bi-x"></i>
+        </button>
+    `;
+    container.appendChild(row);
+}
 
-    container.addEventListener('click', function (e) {
+document.addEventListener('DOMContentLoaded', function () {
+    // Handle remove buttons for all size sections
+    document.addEventListener('click', function (e) {
         const btn = e.target.closest('.remove-additional-item');
         if (!btn) return;
         const row = btn.closest('.additional-item-row');

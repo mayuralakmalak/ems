@@ -671,10 +671,37 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 badgeLimitsList.innerHTML = '';
 
+                // Group by booth size if size-specific data
+                const groupedBySize = {};
                 data.data.forEach(item => {
-                    const li = document.createElement('li');
-                    li.textContent = `${item.badge_type}: Allowed ${item.allowed}, Used ${item.used}, Remaining ${item.remaining}`;
-                    badgeLimitsList.appendChild(li);
+                    const sizeKey = item.booth_size_id ? `size_${item.booth_size_id}` : 'no_size';
+                    if (!groupedBySize[sizeKey]) {
+                        groupedBySize[sizeKey] = {
+                            sizeLabel: item.booth_size_label || 'General',
+                            items: []
+                        };
+                    }
+                    groupedBySize[sizeKey].items.push(item);
+                });
+
+                // Display grouped by size
+                Object.keys(groupedBySize).forEach(sizeKey => {
+                    const group = groupedBySize[sizeKey];
+                    const sizeHeader = document.createElement('li');
+                    sizeHeader.innerHTML = `<strong>${group.sizeLabel}:</strong>`;
+                    sizeHeader.style.marginTop = sizeKey !== Object.keys(groupedBySize)[0] ? '10px' : '0';
+                    badgeLimitsList.appendChild(sizeHeader);
+                    
+                    group.items.forEach(item => {
+                        const li = document.createElement('li');
+                        li.style.marginLeft = '20px';
+                        const price = item.price || 0;
+                        const priceText = price > 0
+                            ? ` | Additional Price: ₹${price.toFixed(2)} each beyond free quota`
+                            : '';
+                        li.textContent = `${item.badge_type}: Allowed ${item.allowed}, Used ${item.used}, Remaining ${item.remaining}${priceText}`;
+                        badgeLimitsList.appendChild(li);
+                    });
                 });
 
                 badgeLimitsEmpty.classList.add('d-none');

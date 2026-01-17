@@ -8,6 +8,7 @@ class BadgeConfiguration extends Model
 {
     protected $fillable = [
         'exhibition_id',
+        'exhibition_booth_size_id',
         'badge_type',
         'quantity',
         'pricing_type',
@@ -25,5 +26,10 @@ class BadgeConfiguration extends Model
     public function exhibition()
     {
         return $this->belongsTo(Exhibition::class);
+    }
+
+    public function exhibitionBoothSize()
+    {
+        return $this->belongsTo(ExhibitionBoothSize::class, 'exhibition_booth_size_id');
     }
 }

@@ -106,15 +106,37 @@
                 </div>
                 <div class="col-md-3 mb-3">
                     <label class="form-label fw-bold">
-                        <i class="bi bi-geo-alt text-primary me-1"></i>Location
+                        <i class="bi bi-geo-alt text-primary me-1"></i>City <span class="text-danger">*</span>
                     </label>
                     <input
                         type="text"
-                        name="location"
+                        name="city"
                         class="form-control"
-                        placeholder="Location"
-                        value="{{ old('location') }}"
+                        placeholder="City"
+                        value="{{ old('city') }}"
+                        required
                     >
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-geo text-primary me-1"></i>State / Province
+                    </label>
+                    <select name="state" id="state" class="form-control" data-value-field="name">
+                        <option value="">Select State</option>
+                    </select>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-globe text-primary me-1"></i>Country <span class="text-danger">*</span>
+                    </label>
+                    <select name="country" id="country" class="form-control" required>
+                        <option value="">Select Country</option>
+                        @foreach($countries as $country)
+                            <option value="{{ $country->name }}" data-id="{{ $country->id }}" {{ old('country') == $country->name ? 'selected' : '' }}>
+                                {{ $country->name }}
+                            </option>
+                        @endforeach
+                    </select>
                 </div>
                 <div class="col-md-12 mb-3">
                     <label class="form-label fw-bold">
@@ -139,5 +161,216 @@
         </form>
     </div>
 </div>
+
+@push('scripts')
+<script src="{{ asset('js/country-state.js') }}"></script>
+<script>
+// Make select dropdowns searchable
+function makeSelectSearchable(selectId, searchPlaceholder) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    
+    if (select.hasAttribute('data-searchable-initialized')) {
+        return;
+    }
+    select.setAttribute('data-searchable-initialized', 'true');
+    
+    let originalOptions = Array.from(select.options).map(opt => ({
+        value: opt.value,
+        text: opt.textContent,
+        selected: opt.selected,
+        dataId: opt.getAttribute('data-id')
+    }));
+    
+    const seen = new Set();
+    originalOptions = originalOptions.filter(opt => {
+        if (opt.value === '') return true;
+        if (seen.has(opt.value)) return false;
+        seen.add(opt.value);
+        return true;
+    });
+    
+    select.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        showSearch();
+    });
+    
+    select.addEventListener('focus', function(e) {
+        e.preventDefault();
+        showSearch();
+    });
+    
+    select.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            showSearch();
+        }
+    });
+    
+    function showSearch() {
+        const existingOverlay = document.getElementById(selectId + '_search_overlay');
+        if (existingOverlay) {
+            existingOverlay.remove();
+        }
+        
+        const overlay = document.createElement('div');
+        overlay.id = selectId + '_search_overlay';
+        overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;';
+        
+        const container = document.createElement('div');
+        container.style.cssText = 'background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 400px; max-height: 80vh; display: flex; flex-direction: column;';
+        
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.placeholder = searchPlaceholder || 'Type to search...';
+        searchInput.style.cssText = 'padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;';
+        
+        const results = document.createElement('div');
+        results.id = selectId + '_results';
+        results.style.cssText = 'max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px;';
+        
+        container.appendChild(searchInput);
+        container.appendChild(results);
+        overlay.appendChild(container);
+        document.body.appendChild(overlay);
+        
+        setTimeout(() => searchInput.focus(), 100);
+        
+        function displayOptions(filterTerm = '') {
+            results.innerHTML = '';
+            const term = filterTerm.toLowerCase().trim();
+            const displayedValues = new Set();
+            
+            originalOptions.forEach(function(opt) {
+                if (opt.value === '') {
+                    if (!filterTerm) {
+                        const item = document.createElement('div');
+                        item.style.cssText = 'padding: 10px; cursor: pointer; border-bottom: 1px solid #eee;';
+                        item.textContent = opt.text;
+                        item.addEventListener('click', function() {
+                            select.value = '';
+                            overlay.remove();
+                            select.dispatchEvent(new Event('change', { bubbles: true }));
+                        });
+                        results.appendChild(item);
+                    }
+                    return;
+                }
+                
+                if (displayedValues.has(opt.value)) return;
+                
+                if (!term || opt.text.toLowerCase().includes(term)) {
+                    displayedValues.add(opt.value);
+                    const item = document.createElement('div');
+                    item.style.cssText = 'padding: 10px; cursor: pointer; border-bottom: 1px solid #eee;';
+                    item.textContent = opt.text;
+                    if (opt.value === select.value) {
+                        item.style.backgroundColor = '#e3f2fd';
+                    }
+                    item.addEventListener('mouseenter', function() {
+                        this.style.backgroundColor = '#f5f5f5';
+                    });
+                    item.addEventListener('mouseleave', function() {
+                        if (opt.value !== select.value) {
+                            this.style.backgroundColor = '';
+                        }
+                    });
+                    item.addEventListener('click', function() {
+                        select.value = opt.value;
+                        overlay.remove();
+                        select.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
+                    results.appendChild(item);
+                }
+            });
+        }
+        
+        displayOptions();
+        
+        searchInput.addEventListener('input', function() {
+            displayOptions(this.value);
+        });
+        
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) {
+                overlay.remove();
+            }
+        });
+        
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                overlay.remove();
+            }
+        });
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const startDateInput = document.querySelector('input[name="start_date"]');
+    const endDateInput = document.querySelector('input[name="end_date"]');
+    
+    if (startDateInput && endDateInput) {
+        // Set initial min date if start date is already selected
+        if (startDateInput.value) {
+            const startDate = new Date(startDateInput.value);
+            const minEndDate = new Date(startDate);
+            minEndDate.setDate(minEndDate.getDate() + 1);
+            endDateInput.setAttribute('min', minEndDate.toISOString().split('T')[0]);
+        }
+        
+        // Update min date when start date changes
+        startDateInput.addEventListener('change', function() {
+            if (this.value) {
+                const startDate = new Date(this.value);
+                const minEndDate = new Date(startDate);
+                minEndDate.setDate(minEndDate.getDate() + 1);
+                endDateInput.setAttribute('min', minEndDate.toISOString().split('T')[0]);
+                
+                // If end date is already selected and is before the new min date, clear it
+                if (endDateInput.value && new Date(endDateInput.value) <= startDate) {
+                    endDateInput.value = '';
+                }
+            } else {
+                endDateInput.removeAttribute('min');
+            }
+        });
+    }
+    
+    // Make country and state dropdowns searchable
+    makeSelectSearchable('country', 'Type country name...');
+    
+    // Initialize country-state functionality
+    if (typeof applyCountryState === 'function') {
+        applyCountryState();
+        
+        // Make state dropdown searchable after states are loaded
+        const countrySelect = document.getElementById('country');
+        if (countrySelect) {
+            countrySelect.addEventListener('change', function() {
+                setTimeout(function() {
+                    const stateSelect = document.getElementById('state');
+                    if (stateSelect) {
+                        const oldOverlay = document.getElementById('state_search_overlay');
+                        if (oldOverlay) {
+                            oldOverlay.remove();
+                        }
+                        stateSelect.removeAttribute('data-searchable-initialized');
+                        makeSelectSearchable('state', 'Type state name...');
+                    }
+                }, 400);
+            });
+        }
+        
+        // Initialize state searchable after initial load
+        setTimeout(function() {
+            const stateSelect = document.getElementById('state');
+            if (stateSelect) {
+                makeSelectSearchable('state', 'Type state name...');
+            }
+        }, 500);
+    }
+});
+</script>
+@endpush
 @endsection
 

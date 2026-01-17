@@ -33,7 +33,8 @@ class ExhibitionController extends Controller
 
     public function create()
     {
-        return view('admin.exhibitions.create');
+        $countries = \App\Models\Country::active()->ordered()->get();
+        return view('admin.exhibitions.create', compact('countries'));
     }
 
     public function store(Request $request)
@@ -42,7 +43,9 @@ class ExhibitionController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'venue' => 'required|string|max:255',
-            'location' => 'nullable|string|max:255',
+            'city' => 'required|string|max:255',
+            'state' => 'nullable|string|max:255',
+            'country' => 'required|string|max:255',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
             'start_time' => 'nullable|date_format:H:i',
@@ -61,8 +64,9 @@ class ExhibitionController extends Controller
             'name' => $validated['name'],
             'description' => $validated['description'] ?? null,
             'venue' => $validated['venue'],
-            'city' => $validated['location'] ?? '',
-            'country' => 'India', // Default or from form
+            'city' => $validated['city'],
+            'state' => $validated['state'] ?? null,
+            'country' => $validated['country'],
             'start_date' => $startDateTime->format('Y-m-d'),
             'end_date' => $endDateTime->format('Y-m-d'),
             'start_time' => $validated['start_time'] ? $startDateTime->format('H:i:s') : null,
@@ -576,7 +580,7 @@ class ExhibitionController extends Controller
 
     public function step4($id)
     {
-        $exhibition = Exhibition::with(['badgeConfigurations', 'stallVariations', 'requiredDocuments'])->findOrFail($id);
+        $exhibition = Exhibition::with(['badgeConfigurations.exhibitionBoothSize.sizeType', 'boothSizes.sizeType', 'stallVariations', 'requiredDocuments'])->findOrFail($id);
         return view('admin.exhibitions.step4', compact('exhibition'));
     }
 
@@ -600,52 +604,61 @@ class ExhibitionController extends Controller
             ]);
         }
 
-        // Store badge configurations
+        // Store badge configurations (size-wise)
         BadgeConfiguration::where('exhibition_id', $exhibition->id)->delete();
 
         $badgeConfigsInput = $request->badge_configurations ?? [];
 
-        // Primary & Secondary: free quota + per-additional price
-        foreach (['Primary', 'Secondary'] as $type) {
-            $config = $badgeConfigsInput[$type] ?? null;
-            if (!$config) {
-                continue;
+        // Process badge configurations per booth size
+        foreach ($badgeConfigsInput as $sizeId => $sizeConfigs) {
+            // Validate that sizeId is a valid exhibition booth size
+            $boothSize = \App\Models\ExhibitionBoothSize::where('id', $sizeId)
+                ->where('exhibition_id', $exhibition->id)
+                ->first();
+            
+            if (!$boothSize) {
+                continue; // Skip invalid size IDs
             }
 
-            $accessPermissions = $config['access_permissions'] ?? [];
-            if (!is_array($accessPermissions)) {
-                $accessPermissions = [];
+            // Primary & Secondary: free quota + per-additional price
+            foreach (['Primary', 'Secondary'] as $type) {
+                $config = $sizeConfigs[$type] ?? null;
+                if (!$config) {
+                    continue;
+                }
+
+                BadgeConfiguration::create([
+                    'exhibition_id' => $exhibition->id,
+                    'exhibition_booth_size_id' => $sizeId,
+                    'badge_type' => $type,
+                    'quantity' => $config['quantity'] ?? 0,
+                    // Quantity = free quota, price = per additional badge beyond quota
+                    'pricing_type' => 'Free',
+                    'price' => $config['price'] ?? 0,
+                    'needs_admin_approval' => false,
+                    'access_permissions' => [],
+                ]);
             }
 
-            BadgeConfiguration::create([
-                'exhibition_id' => $exhibition->id,
-                'badge_type' => $type,
-                'quantity' => $config['quantity'] ?? 0,
-                // Quantity = free quota, price = per additional badge beyond quota
-                'pricing_type' => 'Free',
-                'price' => $config['price'] ?? 0,
-                'needs_admin_approval' => false,
-                'access_permissions' => $accessPermissions,
-            ]);
-        }
+            // Additional: settings for extra (paid) badges per size
+            if (isset($sizeConfigs['Additional'])) {
+                $additional = $sizeConfigs['Additional'];
+                $accessPermissions = $additional['access_permissions'] ?? [];
+                if (!is_array($accessPermissions)) {
+                    $accessPermissions = [];
+                }
 
-        // Additional: global settings for extra (paid) badges
-        if (isset($badgeConfigsInput['Additional'])) {
-            $additional = $badgeConfigsInput['Additional'];
-            $accessPermissions = $additional['access_permissions'] ?? [];
-            if (!is_array($accessPermissions)) {
-                $accessPermissions = [];
+                BadgeConfiguration::create([
+                    'exhibition_id' => $exhibition->id,
+                    'exhibition_booth_size_id' => $sizeId,
+                    'badge_type' => 'Additional',
+                    'quantity' => 0,
+                    'pricing_type' => 'Free',
+                    'price' => 0,
+                    'needs_admin_approval' => isset($additional['needs_admin_approval']) ? (bool)$additional['needs_admin_approval'] : false,
+                    'access_permissions' => $accessPermissions,
+                ]);
             }
-
-            BadgeConfiguration::create([
-                'exhibition_id' => $exhibition->id,
-                'badge_type' => 'Additional',
-                'quantity' => 0,
-                'pricing_type' => 'Free',
-                'price' => 0,
-                'needs_admin_approval' => isset($additional['needs_admin_approval']) ? (bool)$additional['needs_admin_approval'] : false,
-                'access_permissions' => $accessPermissions,
-            ]);
         }
 
         // Handle stall variations upload
@@ -724,7 +737,18 @@ class ExhibitionController extends Controller
     public function edit($id)
     {
         $exhibition = Exhibition::findOrFail($id);
-        return view('admin.exhibitions.edit', compact('exhibition'));
+        $countries = \App\Models\Country::active()->ordered()->get();
+        
+        // Get states for the exhibition's country
+        $states = collect();
+        if ($exhibition->country) {
+            $countryModel = \App\Models\Country::where('name', $exhibition->country)->first();
+            if ($countryModel) {
+                $states = \App\Models\State::where('country_id', $countryModel->id)->orderBy('name', 'asc')->get();
+            }
+        }
+        
+        return view('admin.exhibitions.edit', compact('exhibition', 'countries', 'states'));
     }
 
     public function update(Request $request, $id)

@@ -265,6 +265,8 @@ Route::middleware('auth')->group(function () {
     // Badges
     Route::get('/badges/booking/{bookingId}/limits', [BadgeController::class, 'bookingLimits'])
         ->name('badges.booking-limits');
+    Route::get('/badges/booking/{bookingId}/booths', [BadgeController::class, 'bookingBooths'])
+        ->name('badges.booking-booths');
     Route::resource('badges', BadgeController::class);
     Route::get('/badges/{id}/download', [BadgeController::class, 'download'])->name('badges.download');
     
