@@ -4,14 +4,23 @@
 @section('page-title', 'Admin Exhibition booking step 4')
 
 @section('content')
-<div class="row">
+<div class="row mb-4">
     <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4>Admin Exhibition booking step 4</h4>
-            <span class="text-muted">25 / 36</span>
+        <div class="progress" style="height: 8px;">
+            <div class="progress-bar bg-primary" role="progressbar" style="width: 100%"></div>
         </div>
-        <div class="text-center mb-4">
-            <h5>Step 4</h5>
+        <div class="d-flex justify-content-between mt-2">
+            @if(isset($exhibition) && $exhibition->id)
+                <a href="{{ route('admin.exhibitions.edit', $exhibition->id) }}" class="text-muted text-decoration-none" style="padding: 8px 16px;">Step 1: Exhibition Details</a>
+                <a href="{{ route('admin.exhibitions.step2', $exhibition->id) }}" class="text-muted text-decoration-none" style="padding: 8px 16px;">Step 2: Hall Plan & Pricing</a>
+                <a href="{{ route('admin.exhibitions.step3', $exhibition->id) }}" class="text-muted text-decoration-none" style="padding: 8px 16px;">Step 3: Payment Schedule</a>
+                <span class="text-primary fw-bold" style="padding: 8px 16px;color: white; border-radius: 4px;">Step 4: Badge & Manual</span>
+            @else
+                <small class="text-muted" style="padding: 8px 16px;">Step 1: Exhibition Details</small>
+                <small class="text-muted" style="padding: 8px 16px;">Step 2: Hall Plan & Pricing</small>
+                <small class="text-muted" style="padding: 8px 16px;">Step 3: Payment Schedule</small>
+                <small class="text-primary fw-bold" style="padding: 8px 16px;color: white; border-radius: 4px;">Step 4: Badge & Manual</small>
+            @endif
         </div>
     </div>
 </div>
@@ -193,63 +202,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Stall Variation Management -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h6 class="mb-0">Stall Variation Management</h6>
-        </div>
-        <div class="card-body">
-            <p class="text-muted mb-3">Upload visual designs for all stall types</p>
-            
-            <div class="mb-3">
-                <label class="form-label">Upload Stall Variations</label>
-                <div class="border border-2 border-dashed rounded p-4 text-center" style="background-color: #f8f9fa;">
-                    <input type="file" name="stall_variations[]" id="stall_variations" class="d-none" accept="image/*" multiple onchange="updateVariationFiles(this)">
-                    <button type="button" class="btn btn-primary mb-2" onclick="document.getElementById('stall_variations').click()">
-                        Choose files to Upload
-                    </button>
-                    <p class="mb-0 text-muted">
-                        <i class="bi bi-cloud-upload"></i> or drag and drop them here
-                    </p>
-                    <small id="variation_files" class="text-muted"></small>
-                    <div id="stallVariationsPreview" class="d-flex flex-wrap gap-3 mt-3"></div>
-                </div>
-            </div>
-
-            <!-- Existing Stall Variation Thumbnails -->
-            @php
-                $variation = $exhibition->stallVariations->first();
-            @endphp
-            @if($variation && ($variation->front_view || $variation->side_view_left || $variation->side_view_right))
-                <div class="mb-3">
-                    <label class="form-label">Existing Stall Variation Images</label>
-                    <div class="d-flex flex-wrap gap-3">
-                        @if($variation->front_view)
-                            <div class="border rounded p-2 text-center" style="width: 140px; background-color: #f8f9fa;">
-                                <img src="{{ asset('storage/' . $variation->front_view) }}" class="img-fluid mb-1" alt="Front View">
-                                <small class="text-muted d-block text-truncate">Front View</small>
-                            </div>
-                        @endif
-                        @if($variation->side_view_left)
-                            <div class="border rounded p-2 text-center" style="width: 140px; background-color: #f8f9fa;">
-                                <img src="{{ asset('storage/' . $variation->side_view_left) }}" class="img-fluid mb-1" alt="Left View">
-                                <small class="text-muted d-block text-truncate">Side View (Left)</small>
-                            </div>
-                        @endif
-                        @if($variation->side_view_right)
-                            <div class="border rounded p-2 text-center" style="width: 140px; background-color: #f8f9fa;">
-                                <img src="{{ asset('storage/' . $variation->side_view_right) }}" class="img-fluid mb-1" alt="Right View">
-                                <small class="text-muted d-block text-truncate">Side View (Right)</small>
-                            </div>
-                        @endif
-                    </div>
-                </div>
-            @endif
-            <button type="button" class="btn btn-secondary" onclick="previewVariations()">Preview in Viewer</button>
-        </div>
-    </div>
-
     <div class="d-flex justify-content-end">
         <button type="button" class="btn btn-secondary me-2" onclick="window.location.href='{{ route('admin.exhibitions.index') }}'">Cancel</button>
         <button type="submit" class="btn btn-primary">Save</button>
