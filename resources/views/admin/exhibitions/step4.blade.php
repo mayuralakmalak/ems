@@ -83,12 +83,12 @@
                         $sizeType = $boothSize->sizeType;
                         $sizeTypeLabel = $sizeType ? ($sizeType->length . ' x ' . $sizeType->width) : '';
                         
-                        // Get badge configs for this size
+                        // Get badge configs for this size (null on first add when not yet saved)
                         $sizeBadgeConfigs = $exhibition->badgeConfigurations->where('exhibition_booth_size_id', $sizeId)->keyBy('badge_type');
                         $primaryConfig = $sizeBadgeConfigs->get('Primary');
                         $secondaryConfig = $sizeBadgeConfigs->get('Secondary');
                         $additionalConfig = $sizeBadgeConfigs->get('Additional');
-                        $additionalItems = $additionalConfig->access_permissions ?? ['Lunch', 'Entry Only', 'Snacks'];
+                        $additionalItems = optional($additionalConfig)->access_permissions ?? ['Lunch', 'Entry Only', 'Snacks'];
                     @endphp
                     
                     <div class="badge-size-section mb-4 p-3 border rounded" style="background-color: #f8f9fa;">
@@ -99,36 +99,43 @@
                             @endif
                         </h6>
                         
-                        <!-- Primary & Secondary Badge - One Line -->
-                        <div class="row mb-2 align-items-center">
+                        <!-- Primary Badge -->
+                        <div class="row mb-2 align-items-end">
                             <div class="col-md-2">
                                 <label class="form-label mb-0 small">Primary Badge</label>
                             </div>
-                            <div class="col-md-1">
+                            <div class="col-md-2">
+                                <label class="form-label mb-0 small">No of badges</label>
                                 <input type="number" name="badge_configurations[{{ $sizeId }}][Primary][quantity]" 
                                        class="form-control form-control-sm" placeholder="Qty" min="0" 
-                                       value="{{ $primaryConfig->quantity ?? 0 }}" style="width: 70px;">
+                                       value="{{ optional($primaryConfig)->quantity ?? 0 }}" style="width: 70px;">
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-3">
+                                <label class="form-label mb-0 small">Additional price for extra badges</label>
                                 <input type="number" name="badge_configurations[{{ $sizeId }}][Primary][price]" 
                                        class="form-control form-control-sm" placeholder="Price" step="0.01" min="0"
-                                       value="{{ $primaryConfig->price ?? 0 }}" style="width: 90px;">
+                                       value="{{ optional($primaryConfig)->price ?? 0 }}" style="width: 90px;">
                             </div>
                             <input type="hidden" name="badge_configurations[{{ $sizeId }}][Primary][badge_type]" value="Primary">
                             <input type="hidden" name="badge_configurations[{{ $sizeId }}][Primary][exhibition_booth_size_id]" value="{{ $sizeId }}">
-                            
+                        </div>
+
+                        <!-- Secondary Badge -->
+                        <div class="row mb-2 align-items-end">
                             <div class="col-md-2">
                                 <label class="form-label mb-0 small">Secondary Badge</label>
                             </div>
-                            <div class="col-md-1">
+                            <div class="col-md-2">
+                                <label class="form-label mb-0 small">No of badges</label>
                                 <input type="number" name="badge_configurations[{{ $sizeId }}][Secondary][quantity]" 
                                        class="form-control form-control-sm" placeholder="Qty" min="0"
-                                       value="{{ $secondaryConfig->quantity ?? 0 }}" style="width: 70px;">
+                                       value="{{ optional($secondaryConfig)->quantity ?? 0 }}" style="width: 70px;">
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-3">
+                                <label class="form-label mb-0 small">Additional price for extra badges</label>
                                 <input type="number" name="badge_configurations[{{ $sizeId }}][Secondary][price]" 
                                        class="form-control form-control-sm" placeholder="Price" step="0.01" min="0"
-                                       value="{{ $secondaryConfig->price ?? 0 }}" style="width: 90px;">
+                                       value="{{ optional($secondaryConfig)->price ?? 0 }}" style="width: 90px;">
                             </div>
                             <input type="hidden" name="badge_configurations[{{ $sizeId }}][Secondary][badge_type]" value="Secondary">
                             <input type="hidden" name="badge_configurations[{{ $sizeId }}][Secondary][exhibition_booth_size_id]" value="{{ $sizeId }}">
@@ -146,14 +153,14 @@
                                         <input class="form-check-input" type="radio" 
                                                name="badge_configurations[{{ $sizeId }}][Additional][needs_admin_approval]" 
                                                id="approval_yes_{{ $sizeId }}" value="1"
-                                               {{ ($additionalConfig->needs_admin_approval ?? false) ? 'checked' : '' }}>
+                                               {{ (optional($additionalConfig)->needs_admin_approval ?? false) ? 'checked' : '' }}>
                                         <label class="form-check-label small" for="approval_yes_{{ $sizeId }}">Yes</label>
                                     </div>
                                     <div class="form-check form-check-inline">
                                         <input class="form-check-input" type="radio" 
                                                name="badge_configurations[{{ $sizeId }}][Additional][needs_admin_approval]" 
                                                id="approval_no_{{ $sizeId }}" value="0"
-                                               {{ !($additionalConfig->needs_admin_approval ?? false) ? 'checked' : '' }}>
+                                               {{ !(optional($additionalConfig)->needs_admin_approval ?? false) ? 'checked' : '' }}>
                                         <label class="form-check-label small" for="approval_no_{{ $sizeId }}">No</label>
                                     </div>
                                     <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">
