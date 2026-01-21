@@ -11,6 +11,7 @@
         // Load states when country changes
         countrySelect.addEventListener('change', function() {
             const selectedOption = this.options[this.selectedIndex];
+            console.log(selectedOption);
             const countryId = selectedOption
                 ? (selectedOption.getAttribute('data-id') || selectedOption.value)
                 : this.value;

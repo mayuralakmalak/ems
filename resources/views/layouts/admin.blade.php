@@ -509,6 +509,17 @@
                 </a>
             </li>
             <li>
+                <a href="{{ route('admin.additional-service-requests.index') }}" class="{{ request()->routeIs('admin.additional-service-requests.*') ? 'active' : '' }}">
+                    <i class="bi bi-plus-circle"></i>Additional Service Requests
+                    @php
+                        $pendingAdditionalServiceRequests = \App\Models\AdditionalServiceRequest::where('status', 'pending')->count();
+                    @endphp
+                    @if($pendingAdditionalServiceRequests > 0)
+                        <span class="badge bg-danger ms-2">{{ $pendingAdditionalServiceRequests }}</span>
+                    @endif
+                </a>
+            </li>
+            <li>
                 <a href="{{ route('admin.documents.index') }}" class="{{ request()->routeIs('admin.documents.*') ? 'active' : '' }}">
                     <i class="bi bi-file-earmark-check"></i>Document Verification
                 </a>
@@ -815,4 +826,3 @@
     @stack('scripts')
 </body>
 </html>
-

@@ -76,22 +76,6 @@
                 </div>
                 <div class="col-md-4 mb-3">
                     <label class="form-label fw-bold">
-                        <i class="bi bi-geo text-primary me-1"></i>State / Province
-                    </label>
-                    <select name="state" id="state" class="form-control @error('state') is-invalid @enderror" data-value-field="name">
-                        <option value="">Select State</option>
-                        @foreach($states as $state)
-                            <option value="{{ $state->name }}" {{ old('state', $exhibition->state) == $state->name ? 'selected' : '' }}>
-                                {{ $state->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                    @error('state')
-                        <div class="invalid-feedback">{{ $message }}</div>
-                    @enderror
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label fw-bold">
                         <i class="bi bi-globe text-primary me-1"></i>Country <span class="text-danger">*</span>
                     </label>
                     <select name="country" id="country" class="form-control @error('country') is-invalid @enderror" required>
@@ -103,6 +87,22 @@
                         @endforeach
                     </select>
                     @error('country')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-geo text-primary me-1"></i>State / Province
+                    </label>
+                    <select name="state" id="state" class="form-control @error('state') is-invalid @enderror" data-value-field="name">
+                        <option value="">Select State</option>
+                        @foreach($states as $state)
+                            <option value="{{ $state->name }}" {{ old('state', $exhibition->state) == $state->name ? 'selected' : '' }}>
+                                {{ $state->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('state')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
                 </div>
@@ -257,8 +257,14 @@ function makeSelectSearchable(selectId, searchPlaceholder) {
             results.innerHTML = '';
             const term = filterTerm.toLowerCase().trim();
             const displayedValues = new Set();
+            const optionsToUse = Array.from(select.options).map(opt => ({
+                value: opt.value,
+                text: opt.textContent,
+                selected: opt.selected,
+                dataId: opt.getAttribute('data-id')
+            }));
             
-            originalOptions.forEach(function(opt) {
+            optionsToUse.forEach(function(opt) {
                 if (opt.value === '') {
                     if (!filterTerm) {
                         const item = document.createElement('div');

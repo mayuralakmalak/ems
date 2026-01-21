@@ -119,14 +119,6 @@
                 </div>
                 <div class="col-md-3 mb-3">
                     <label class="form-label fw-bold">
-                        <i class="bi bi-geo text-primary me-1"></i>State / Province
-                    </label>
-                    <select name="state" id="state" class="form-control" data-value-field="name">
-                        <option value="">Select State</option>
-                    </select>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <label class="form-label fw-bold">
                         <i class="bi bi-globe text-primary me-1"></i>Country <span class="text-danger">*</span>
                     </label>
                     <select name="country" id="country" class="form-control" required>
@@ -136,6 +128,14 @@
                                 {{ $country->name }}
                             </option>
                         @endforeach
+                    </select>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-geo text-primary me-1"></i>State / Province
+                    </label>
+                    <select name="state" id="state" class="form-control" data-value-field="name">
+                        <option value="">Select State</option>
                     </select>
                 </div>
                 <div class="col-md-12 mb-3">
@@ -240,8 +240,14 @@ function makeSelectSearchable(selectId, searchPlaceholder) {
             results.innerHTML = '';
             const term = filterTerm.toLowerCase().trim();
             const displayedValues = new Set();
+            const optionsToUse = Array.from(select.options).map(opt => ({
+                value: opt.value,
+                text: opt.textContent,
+                selected: opt.selected,
+                dataId: opt.getAttribute('data-id')
+            }));
             
-            originalOptions.forEach(function(opt) {
+            optionsToUse.forEach(function(opt) {
                 if (opt.value === '') {
                     if (!filterTerm) {
                         const item = document.createElement('div');
@@ -373,4 +379,3 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 @endpush
 @endsection
-
