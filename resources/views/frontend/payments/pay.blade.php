@@ -268,7 +268,7 @@
         </div>
     </div>
 
-    <form method="POST" action="{{ route('payments.store') }}" id="paymentForm">
+    <form method="POST" action="{{ route('payments.store') }}" id="paymentForm" @if($paymentAlreadySubmitted) onsubmit="return false;" @endif>
         @csrf
         <input type="hidden" name="booking_id" value="{{ $payment->booking_id }}">
         <input type="hidden" name="payment_id" value="{{ $payment->id }}">
@@ -299,6 +299,7 @@
                     </div>
                 </div>
                 
+                @if(!$paymentAlreadySubmitted)
                 <!-- Select Payment Method -->
                 <div class="section-card">
                     <h5 class="section-title">Select Payment Method</h5>
@@ -553,15 +554,25 @@
                         </div>
                     </div>
                 </div>
+                @endif
 
-                <!-- Primary submit button -->
+                <!-- Primary submit button / Already Paid -->
                 <div class="section-card" style="margin-top: -10px;">
+                    @if($paymentAlreadySubmitted)
+                    <button type="button" class="btn btn-payment" disabled style="background: #10b981; cursor: not-allowed;">
+                        <i class="bi bi-check-circle me-2"></i>Already Paid
+                    </button>
+                    <p class="mt-3 mb-0 text-center">
+                        <a href="{{ route('payments.confirmation', $payment->id) }}">View confirmation &amp; receipt</a>
+                    </p>
+                    @else
                     <button type="submit" class="btn btn-payment" id="makePaymentBtn">
                         <span id="paymentButtonLabel">Make Payment</span> - ₹<span id="paymentButtonAmount">{{ number_format($payment->amount, 2) }}</span>
                     </button>
                     <div class="security-note">
                         Online payments are secure and encrypted. NEFT/RTGS submissions stay pending until proof is approved.
                     </div>
+                    @endif
                 </div>
             </div>
             
@@ -704,8 +715,9 @@ let paymentAmount = parseFloat({{ number_format($paymentAmount, 2, '.', '') }});
 let gatewayCharge = parseFloat({{ number_format($gatewayCharge ?? 0, 2, '.', '') }}); // Gateway fee for current payment
 let totalGatewayFee = parseFloat({{ number_format($totalGatewayFee ?? 0, 2, '.', '') }}); // Total gateway fee for all payments
 let paymentSchedule = @json($paymentScheduleData);
+const paymentAlreadySubmitted = @json($paymentAlreadySubmitted);
 
-// Payment method selection
+// Payment method selection (no-op when payment already completed)
 document.querySelectorAll('.payment-method-card').forEach(card => {
     card.addEventListener('click', function() {
         // Block selection when card is disabled (e.g., wallet with insufficient balance)
@@ -750,6 +762,7 @@ document.querySelectorAll('.payment-method-card').forEach(card => {
 });
 
 function updatePaymentAmount() {
+    if (paymentAlreadySubmitted) return;
     // Gateway fee (2.5%) ONLY applies to: Credit/Debit Card, UPI, and Net Banking
     // Wallet, NEFT, and RTGS do NOT have gateway fees
     const isOnlineMethod = ['card', 'upi', 'netbanking'].includes(selectedMethod);
@@ -811,8 +824,9 @@ function copyUpiId(upiId) {
     });
 }
 
-// Form submission
+// Form submission (form has onsubmit="return false" when already submitted)
 document.getElementById('paymentForm').addEventListener('submit', function(e) {
+    if (paymentAlreadySubmitted) { e.preventDefault(); return false; }
     if (!selectedMethod) {
         e.preventDefault();
         alert('Please select a payment method');
@@ -857,9 +871,9 @@ document.querySelector('input[placeholder="MM/YY"]')?.addEventListener('input', 
     e.target.value = value;
 });
 
-// Initialize payment amount display on page load
+// Initialize payment amount display on page load (skipped when already submitted)
 document.addEventListener('DOMContentLoaded', function() {
-    updatePaymentAmount();
+    if (!paymentAlreadySubmitted) updatePaymentAmount();
 });
 </script>
 @endpush

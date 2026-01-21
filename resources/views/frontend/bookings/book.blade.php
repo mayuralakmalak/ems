@@ -1534,7 +1534,9 @@ function setupBoothSelection() {
             ensureBoothSelection(boothId);
             // Single click toggles selection (supports multi-select)
             toggleBoothSelection(boothId);
-            showBoothDetails(boothId);
+            if (selectedBooths.length > 0) {
+                showBoothDetails(boothId);
+            }
         });
     });
 }
@@ -1723,6 +1725,18 @@ function showBoothDetails(boothId) {
     const isSelected = selectedBooths.includes(boothId);
     document.getElementById('selectBoothBtn').textContent = isSelected ? 'Deselect Booth' : 'Select Booth';
     document.getElementById('splitBoothBtn').disabled = selectedBooths.length !== 1;
+}
+
+function hideBoothDetails() {
+    selectedBoothId = null;
+    const panel = document.getElementById('boothDetailsPanel');
+    const details = document.getElementById('boothDetails');
+    const controls = document.getElementById('boothSelectionControls');
+    const imagesPreview = document.getElementById('boothSizeImagesPreview');
+    if (panel) panel.style.display = 'none';
+    if (details) details.innerHTML = '';
+    if (controls) controls.style.display = 'none';
+    if (imagesPreview) imagesPreview.innerHTML = '';
 }
 
 function renderBoothSizeImagesPreview(booth) {
@@ -2086,13 +2100,14 @@ function updateSelectedBoothsList() {
     let total = 0;
     
     if (selectedBooths.length === 0) {
+        hideBoothDetails();
         list.innerHTML = `
             <div class="empty-state">
                 <i class="bi bi-inbox"></i>
                 <p>No booths selected</p>
             </div>
         `;
-        totalDiv.style.display = 'none';
+        if (totalDiv) totalDiv.style.display = 'none';
         updateTotalAmount();
         // Hide included items section when no booths are selected
         renderIncludedItemsSection(null);
@@ -2388,7 +2403,10 @@ function removeBooth(boothId) {
 document.getElementById('selectBoothBtn').addEventListener('click', function() {
     if (selectedBoothId) {
         toggleBoothSelection(selectedBoothId);
-        showBoothDetails(selectedBoothId);
+        if (selectedBooths.length > 0) {
+            const toShow = selectedBooths.includes(selectedBoothId) ? selectedBoothId : selectedBooths[0];
+            showBoothDetails(toShow);
+        }
     }
 });
 

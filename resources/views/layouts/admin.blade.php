@@ -509,11 +509,6 @@
                 </a>
             </li>
             <li>
-                <a href="{{ route('admin.additional-service-requests.index') }}" class="{{ request()->routeIs('admin.additional-service-requests.*') ? 'active' : '' }}">
-                    <i class="bi bi-plus-circle"></i>Additional Service Requests
-                </a>
-            </li>
-            <li>
                 <a href="{{ route('admin.documents.index') }}" class="{{ request()->routeIs('admin.documents.*') ? 'active' : '' }}">
                     <i class="bi bi-file-earmark-check"></i>Document Verification
                 </a>

@@ -496,11 +496,12 @@ function updateSelectedBoothInfo() {
     const info = document.getElementById('selectedBoothInfo');
     
     if (selectedBooths.length === 0) {
-        panel.style.display = 'none';
+        if (info) info.innerHTML = '';
+        if (panel) panel.style.display = 'none';
         return;
     }
     
-    panel.style.display = 'block';
+    if (panel) panel.style.display = 'block';
     
     if (selectedBooths.length === 1) {
         const booth = document.querySelector(`[data-booth-id="${selectedBooths[0]}"]`);

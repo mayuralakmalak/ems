@@ -80,15 +80,37 @@ class PaymentController extends Controller
         // Check if a specific payment ID is provided
         $paymentId = $request->get('payment_id');
         $specificPayment = null;
-        
+        $pendingPayment = null;
+
         if ($paymentId) {
-            $specificPayment = Payment::where('id', $paymentId)
+            $paymentById = Payment::where('id', $paymentId)
                 ->where('booking_id', $booking->id)
                 ->where('user_id', auth()->id())
-                ->where('status', 'pending')
-                ->firstOrFail();
+                ->first();
+            if (!$paymentById) {
+                abort(404);
+            }
+            if ($paymentById->status === 'completed') {
+                return redirect()->route('payments.confirmation', $paymentById->id)
+                    ->with('info', 'This payment is already completed.');
+            }
+            $specificPayment = $paymentById;
         }
-        
+
+        // When no specific payment: if booking has no pending payments, redirect to confirmation
+        if (!$specificPayment) {
+            $hasNoPending = $booking->payments()->exists()
+                && $booking->payments()->where('status', 'pending')->doesntExist();
+            if ($hasNoPending) {
+                $lastCompleted = $booking->payments()->where('status', 'completed')->orderBy('paid_at', 'desc')->first();
+                if ($lastCompleted) {
+                    return redirect()->route('payments.confirmation', $lastCompleted->id)
+                        ->with('info', 'All payments for this booking are already completed.');
+                }
+                return redirect()->route('bookings.show', $booking->id)->with('info', 'This booking has no pending payments.');
+            }
+        }
+
         // Get the pending payment to pay (either specific or next pending)
         if ($specificPayment) {
             // Use the specific payment amount
@@ -228,6 +250,10 @@ class PaymentController extends Controller
             $gatewayFeePerPayment[$payment->id] = $payment->gateway_charge ?? ($payment->calculated_gateway_charge ?? 0);
         }
 
+        $currentPayment = $specificPayment ?? $pendingPayment;
+        // Already submitted = completed OR user already submitted (payment was updated in store)
+        $currentPaymentAlreadySubmitted = $currentPayment && (($currentPayment->status === 'completed') || ($currentPayment->updated_at > $currentPayment->created_at));
+
         return view('frontend.payments.create', compact(
             'booking', 
             'outstanding', 
@@ -235,6 +261,8 @@ class PaymentController extends Controller
             'initialAmount', 
             'walletBalance', 
             'specificPayment', 
+            'currentPayment',
+            'currentPaymentAlreadySubmitted',
             'storedPayments',
             'upiId',
             'upiQrCode',
@@ -257,7 +285,6 @@ class PaymentController extends Controller
     {
         $payment = Payment::with(['booking.exhibition', 'booking.booth', 'user'])
             ->where('user_id', auth()->id())
-            ->where('status', 'pending')
             ->findOrFail($paymentId);
 
         $booking = $payment->booking;
@@ -370,8 +397,12 @@ class PaymentController extends Controller
             $gatewayFeePerPayment[$p->id] = $p->gateway_charge ?? ($p->calculated_gateway_charge ?? 0);
         }
 
+        // Already submitted = completed OR user already submitted (payment was updated in store)
+        $paymentAlreadySubmitted = ($payment->status === 'completed') || ($payment->updated_at > $payment->created_at);
+
         return view('frontend.payments.pay', compact(
             'payment',
+            'paymentAlreadySubmitted',
             'booking',
             'outstanding',
             'walletBalance',
@@ -512,6 +543,15 @@ class PaymentController extends Controller
                 }
             }
         } else {
+            // Do not create a new payment if booking has no pending payments (e.g. user went back from confirmation and resubmitted)
+            if ($booking->payments()->exists() && $booking->payments()->where('status', 'pending')->doesntExist()) {
+                $lastCompleted = $booking->payments()->where('status', 'completed')->orderBy('paid_at', 'desc')->first();
+                if ($lastCompleted) {
+                    return redirect()->route('payments.confirmation', $lastCompleted->id)->with('info', 'Payment already completed.');
+                }
+                return redirect()->route('bookings.show', $booking->id)->with('info', 'This booking has no pending payments.');
+            }
+
             // Fallback: Create new payment if no existing pending payment found (backward compatibility)
             $isCompleted = $request->payment_method === 'wallet';
             
@@ -569,10 +609,12 @@ class PaymentController extends Controller
             }
         }
 
-        // Keep booking pending until admin approval even if fully paid
-        $booking->status = 'pending';
-        $booking->approval_status = $booking->approval_status ?? 'pending';
-        $booking->save();
+        // Keep booking pending until admin approval when not yet confirmed. Do not override if already confirmed (e.g. when paying installments, additional badges, or additional services).
+        if ($booking->status !== 'confirmed') {
+            $booking->status = 'pending';
+            $booking->approval_status = $booking->approval_status ?? 'pending';
+            $booking->save();
+        }
 
         // Create booth request after payment is initiated
         $existingRequest = BoothRequest::where('request_type', 'booking')

@@ -17,10 +17,6 @@
         gap: 20px;
     }
     
-    .right-panel {
-        width: 400px;
-    }
-    
     .section-card {
         background: white;
         border-radius: 12px;
@@ -33,6 +29,22 @@
         font-weight: 600;
         color: #1e293b;
         margin-bottom: 15px;
+    }
+
+    .section-title-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .section-title-row .section-title {
+        margin-bottom: 0;
+    }
+
+    .section-title-row .btn-add-badge {
+        width: auto;
+        margin-top: 0;
     }
     
     .form-label {
@@ -136,7 +148,7 @@
     
     .btn-add-badge {
         width: 100%;
-        padding: 12px;
+        padding: 12px 20px;
         background: #6366f1;
         color: white;
         border: none;
@@ -144,6 +156,8 @@
         font-weight: 500;
         margin-top: 15px;
         cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
     }
     
     .toggle-switch {
@@ -308,54 +322,14 @@
 <div class="badge-management-container">
     <!-- Left Panel -->
     <div class="left-panel">
-        <!-- Badge Generation -->
-        <div class="section-card">
-            <h5 class="section-title">Badge Generation</h5>
-            
-            <div class="form-group">
-                <label class="form-label">Select Booking</label>
-                <select class="form-select" id="bookingSelect">
-                    <option value="">Select Booking</option>
-                    @foreach(\App\Models\Booking::where('user_id', auth()->id())->where('status', 'confirmed')->with('exhibition')->get() as $booking)
-                    <option value="{{ $booking->id }}">
-                        {{ $booking->booking_number }} - {{ $booking->exhibition->name ?? 'N/A' }}
-                    </option>
-                    @endforeach
-                </select>
-            </div>
-
-            <div class="form-group mt-2">
-                <div id="badgeLimitsBoxIndex" class="alert alert-info d-none">
-                    <strong>Badge limits for this booking:</strong>
-                    <ul id="badgeLimitsListIndex" class="mb-0 mt-2"></ul>
-                </div>
-                <small id="badgeLimitsEmptyIndex" class="text-muted d-none">
-                    No badge configuration found for this exhibition. Please contact the organizer if you believe this is an error.
-                </small>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Badge Type</label>
-                <div class="radio-group">
-                    <label class="radio-option selected">
-                        <input type="radio" name="badge_type" value="Staff Management" checked>
-                        <span>Staff Management (Staff)</span>
-                    </label>
-                    <label class="radio-option">
-                        <input type="radio" name="badge_type" value="Exhibitors">
-                        <span>Exhibitors (Exhibitors)</span>
-                    </label>
-                    <label class="radio-option">
-                        <input type="radio" name="badge_type" value="General Staff">
-                        <span>General Staff (Staff)</span>
-                    </label>
-                </div>
-            </div>
-        </div>
-        
         <!-- Badge Assignment -->
         <div class="section-card">
-            <h5 class="section-title">Badge Assignment</h5>
+            <div class="section-title-row">
+                <h5 class="section-title">Badge Assignment</h5>
+                <a href="{{ route('badges.create') }}" class="btn-add-badge">
+                    <i class="bi bi-plus-circle me-2"></i>Add Badge
+                </a>
+            </div>
             
             <table class="badge-assignment-table">
                 <thead>
@@ -363,8 +337,6 @@
                         <th>Staff Name</th>
                         <th>Role</th>
                         <th>Valid Date(s)</th>
-                        <th>Check-in Option</th>
-                        <th>Badge Type</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -397,12 +369,6 @@
                             {{ count($datesToShow) ? implode(', ', $datesToShow) : 'N/A' }}
                         </td>
                         <td>
-                            <input type="checkbox" checked disabled>
-                        </td>
-                        <td>
-                            <input type="checkbox" checked disabled>
-                        </td>
-                        <td>
                             <div class="action-icons">
                                 <a href="{{ route('badges.download', $badge->id) }}" class="action-icon download" title="Download">
                                     <i class="bi bi-download"></i>
@@ -419,316 +385,18 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="5" class="text-center py-3 text-muted">No badges assigned yet</td>
+                        <td colspan="4" class="text-center py-3 text-muted">No badges assigned yet</td>
                     </tr>
                     @endforelse
                 </tbody>
             </table>
-            
-            <a href="{{ route('badges.create') }}" class="btn-add-badge">
-                <i class="bi bi-plus-circle me-2"></i>Add Badge
-            </a>
-        </div>
-        
-        <!-- Additional Badges -->
-        <div class="section-card">
-            <h5 class="section-title">Additional Badges</h5>
-            <p class="text-muted small mb-3">Order additional badges if necessary.</p>
-            <input type="number" class="form-control" value="0" min="0">
-        </div>
-        
-        <!-- Generate HBL -->
-        <div class="section-card">
-            <h5 class="section-title">Generate HBL</h5>
-            <div class="d-flex justify-content-between align-items-center">
-                <span>Enable HBL Generation</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" checked>
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-            <button class="btn-generate">
-                <i class="bi bi-printer me-2"></i>Generate & Print
-            </button>
-        </div>
-        
-        <!-- Download Options -->
-        <div class="section-card">
-            <h5 class="section-title">Download Options</h5>
-            <div class="download-buttons">
-                <button class="btn-download">
-                    <i class="bi bi-download me-2"></i>Download Selected Badges
-                </button>
-                <button class="btn-download">
-                    <i class="bi bi-file-pdf me-2"></i>Download All Badges (PDF)
-                </button>
-                <button class="btn-download">
-                    <i class="bi bi-printer me-2"></i>Print Options
-                </button>
-            </div>
-        </div>
-        
-        <!-- What is HBL -->
-        <div class="section-card">
-            <h5 class="section-title">What is HBL</h5>
-            <p class="text-muted small mb-2">Quick How-to check-in/check-out (tracking) with badged staff.</p>
-            <ul class="text-muted small" style="padding-left: 20px;">
-                <li>QR code scanner</li>
-                <li>(Registration) app</li>
-                <li>POS (point-of-sale) system</li>
-                <li>Handheld tools</li>
-            </ul>
-        </div>
-    </div>
-    
-    <!-- Right Panel -->
-    <div class="right-panel">
-        <div class="section-card">
-            <div class="tabs">
-                <button class="tab active">Badge Generation</button>
-                <button class="tab">Download & Print</button>
-            </div>
-            
-            <button class="btn-download mb-3">
-                <i class="bi bi-eye me-2"></i>Event Badge Preview
-            </button>
-            
-            <div class="badge-preview">
-                <div class="badge-preview-content">
-                    @if($badges->count() > 0)
-                        @php $selectedBadge = $badges->first(); @endphp
-                        <div class="badge-id">{{ $selectedBadge->name ?? 'ASDFGH1234-FG-ASDF' }}</div>
-                        @if($selectedBadge->qr_code)
-                        <img src="{{ asset('storage/' . $selectedBadge->qr_code) }}" alt="QR Code" style="max-width: 200px;">
-                        @else
-                        <div class="qr-code-placeholder">
-                            <i class="bi bi-qr-code" style="font-size: 4rem; color: #cbd5e1;"></i>
-                        </div>
-                        @endif
-                        <p class="text-muted small">Scan the QR code to access details.</p>
-                    @else
-                        <div class="badge-preview-content">
-                            <i class="bi bi-person-badge" style="font-size: 4rem; color: #cbd5e1;"></i>
-                            <p class="text-muted mt-3">No badge selected</p>
-                        </div>
-                    @endif
-                </div>
-            </div>
-            
-            @if($badges->count() > 0)
-            <div class="d-flex gap-2">
-                <button class="btn-download" style="flex: 1;">
-                    <i class="bi bi-gear me-2"></i>Generate Badge
-                </button>
-                <a href="{{ route('badges.download', $badges->first()->id) }}" class="btn-download" style="flex: 1; text-decoration: none; display: inline-block;">
-                    <i class="bi bi-download me-2"></i>Download Badge
-                </a>
-            </div>
-            @endif
-            
-            <!-- Staff Details -->
-            @if($badges->count() > 0)
-            @php $selectedBadge = $badges->first(); @endphp
-            <div class="detail-section">
-                <h6 class="mb-3">Staff Details</h6>
-                <div class="detail-item">
-                    <div class="detail-label">Name</div>
-                    <div class="detail-value">{{ $selectedBadge->name }}</div>
-                </div>
-                <div class="detail-item">
-                    <div class="detail-label">Role</div>
-                    <div class="detail-value">{{ $selectedBadge->badge_type }}</div>
-                </div>
-                <div class="detail-item">
-                    <div class="detail-label">Department</div>
-                    <div class="detail-value">Operations</div>
-                </div>
-                <div class="detail-item">
-                    <div class="detail-label">Email</div>
-                    <div class="detail-value">{{ $selectedBadge->email ?? 'N/A' }}</div>
-                </div>
-                <div class="detail-item">
-                    <div class="detail-label">Phone</div>
-                    <div class="detail-value">{{ $selectedBadge->phone ?? 'N/A' }}</div>
-                </div>
-                <div class="detail-item">
-                    <div class="detail-label">Status</div>
-                    <div class="detail-value">
-                        <span class="badge bg-{{ $selectedBadge->status === 'approved' ? 'success' : 'warning' }}">
-                            {{ ucfirst($selectedBadge->status) }}
-                        </span>
-                    </div>
-                </div>
-                <div class="detail-item">
-                    <div class="detail-label">Valid Date(s)</div>
-                    <div class="detail-value">
-                        @php
-                            $datesToShow = [];
-                            if (is_array($selectedBadge->valid_for_dates) && count($selectedBadge->valid_for_dates) > 0) {
-                                foreach ($selectedBadge->valid_for_dates as $d) {
-                                    if ($d) {
-                                        try {
-                                            $datesToShow[] = \Carbon\Carbon::parse($d)->format('d M Y');
-                                        } catch (\Exception $e) {
-                                            $datesToShow[] = $d;
-                                        }
-                                    }
-                                }
-                            } elseif ($selectedBadge->valid_for_date) {
-                                try {
-                                    $datesToShow[] = $selectedBadge->valid_for_date->format('d M Y');
-                                } catch (\Exception $e) {
-                                    $datesToShow[] = (string) $selectedBadge->valid_for_date;
-                                }
-                            }
-                        @endphp
-                        {{ count($datesToShow) ? implode(', ', $datesToShow) : 'N/A' }}
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Event Details -->
-            <div class="detail-section">
-                <h6 class="mb-3">Event Details</h6>
-                <div class="detail-item">
-                    <div class="detail-label">Event Name</div>
-                    <div class="detail-value">{{ $selectedBadge->exhibition->name ?? 'N/A' }}</div>
-                </div>
-                <div class="detail-item">
-                    <div class="detail-label">Date</div>
-                    <div class="detail-value">
-                        {{ $selectedBadge->exhibition->start_date->format('F d') }} - {{ $selectedBadge->exhibition->end_date->format('d, Y') }}
-                    </div>
-                </div>
-                <div class="detail-item">
-                    <div class="detail-label">Location</div>
-                    <div class="detail-value">{{ $selectedBadge->exhibition->venue ?? 'N/A' }}</div>
-                </div>
-                <div class="detail-item">
-                    <div class="detail-label">Description</div>
-                    <div class="detail-value text-muted small">
-                        {{ $selectedBadge->exhibition->description ?? 'The premier event for technology innovators, industry leaders, and enthusiasts worldwide.' }}
-                    </div>
-                </div>
+            @if($badges->hasPages())
+            <div class="mt-4">
+                {{ $badges->links() }}
             </div>
             @endif
         </div>
     </div>
 </div>
 
-@push('scripts')
-<script>
-// Booking selection -> show badge limits for that exhibition/booking
-document.addEventListener('DOMContentLoaded', function () {
-    const bookingSelect = document.getElementById('bookingSelect');
-    const badgeLimitsBox = document.getElementById('badgeLimitsBoxIndex');
-    const badgeLimitsList = document.getElementById('badgeLimitsListIndex');
-    const badgeLimitsEmpty = document.getElementById('badgeLimitsEmptyIndex');
-
-    if (!bookingSelect) {
-        return;
-    }
-
-    const bookingLimitsUrlTemplate = "{{ route('badges.booking-limits', ['bookingId' => ':bookingId']) }}";
-
-    function clearBadgeLimits() {
-        if (!badgeLimitsBox || !badgeLimitsList || !badgeLimitsEmpty) {
-            return;
-        }
-        badgeLimitsList.innerHTML = '';
-        badgeLimitsBox.classList.add('d-none');
-        badgeLimitsEmpty.classList.add('d-none');
-    }
-
-    bookingSelect.addEventListener('change', function () {
-        const bookingId = this.value;
-
-        if (!bookingId) {
-            clearBadgeLimits();
-            return;
-        }
-
-        const url = bookingLimitsUrlTemplate.replace(':bookingId', bookingId);
-
-        fetch(url, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            }
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (!badgeLimitsBox || !badgeLimitsList || !badgeLimitsEmpty) {
-                    return;
-                }
-
-                if (!data.success || !data.data || data.data.length === 0) {
-                    badgeLimitsList.innerHTML = '';
-                    badgeLimitsBox.classList.add('d-none');
-                    badgeLimitsEmpty.classList.remove('d-none');
-                    return;
-                }
-
-                badgeLimitsList.innerHTML = '';
-
-                // Group by booth size if size-specific data
-                const groupedBySize = {};
-                data.data.forEach(item => {
-                    const sizeKey = item.booth_size_id ? `size_${item.booth_size_id}` : 'no_size';
-                    if (!groupedBySize[sizeKey]) {
-                        groupedBySize[sizeKey] = {
-                            sizeLabel: item.booth_size_label || 'General',
-                            items: []
-                        };
-                    }
-                    groupedBySize[sizeKey].items.push(item);
-                });
-
-                // Display grouped by size
-                Object.keys(groupedBySize).forEach(sizeKey => {
-                    const group = groupedBySize[sizeKey];
-                    const sizeHeader = document.createElement('li');
-                    sizeHeader.innerHTML = `<strong>${group.sizeLabel}:</strong>`;
-                    sizeHeader.style.marginTop = sizeKey !== Object.keys(groupedBySize)[0] ? '10px' : '0';
-                    badgeLimitsList.appendChild(sizeHeader);
-                    
-                    group.items.forEach(item => {
-                        const li = document.createElement('li');
-                        li.style.marginLeft = '20px';
-                        const price = item.price || 0;
-                        const priceText = price > 0
-                            ? ` | Additional Price: ₹${price.toFixed(2)} each beyond free quota`
-                            : '';
-                        li.textContent = `${item.badge_type}: Allowed ${item.allowed}, Used ${item.used}, Remaining ${item.remaining}${priceText}`;
-                        badgeLimitsList.appendChild(li);
-                    });
-                });
-
-                badgeLimitsEmpty.classList.add('d-none');
-                badgeLimitsBox.classList.remove('d-none');
-            })
-            .catch(() => {
-                clearBadgeLimits();
-            });
-    });
-});
-
-// Radio button selection
-document.querySelectorAll('.radio-option').forEach(option => {
-    option.addEventListener('click', function() {
-        document.querySelectorAll('.radio-option').forEach(opt => opt.classList.remove('selected'));
-        this.classList.add('selected');
-        this.querySelector('input[type="radio"]').checked = true;
-    });
-});
-
-// Tab switching
-document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', function() {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        this.classList.add('active');
-    });
-});
-</script>
-@endpush
 @endsection

@@ -304,7 +304,7 @@
         <i class="bi bi-arrow-right text-secondary"></i>
         <span class="step-pill active"><span class="badge bg-light text-dark">3</span> Payment</span>
     </div>
-    <form method="POST" action="{{ route('payments.store') }}" id="paymentForm">
+    <form method="POST" action="{{ route('payments.store') }}" id="paymentForm" @if(isset($currentPaymentAlreadySubmitted) && $currentPaymentAlreadySubmitted) onsubmit="return false;" @endif>
         @csrf
         <input type="hidden" name="booking_id" value="{{ $booking->id }}">
         @if(isset($specificPayment) && $specificPayment)
@@ -409,6 +409,7 @@
                     </div>
                 </div>
                 
+                @if(!(isset($currentPaymentAlreadySubmitted) && $currentPaymentAlreadySubmitted))
                 <!-- Select Payment Method -->
                 <div class="section-card">
                     <h5 class="section-title">Select Payment Method</h5>
@@ -656,15 +657,27 @@
                         <i class="bi bi-info-circle me-2"></i>After you transfer via NEFT/RTGS, continue and upload payment proof on the confirmation screen for admin approval.
                     </div>
                 </div>
+                @endif
 
-                <!-- Primary submit button (always visible) -->
+                <!-- Primary submit button / Already Paid when already submitted -->
                 <div class="section-card" style="margin-top: -10px;">
+                    @if(isset($currentPaymentAlreadySubmitted) && $currentPaymentAlreadySubmitted)
+                    <button type="button" class="btn btn-payment" disabled style="background: #10b981; cursor: not-allowed;">
+                        <i class="bi bi-check-circle me-2"></i>Already Paid
+                    </button>
+                    @if(isset($currentPayment) && $currentPayment)
+                    <p class="mt-3 mb-0 text-center">
+                        <a href="{{ route('payments.confirmation', $currentPayment->id) }}">View confirmation &amp; receipt</a>
+                    </p>
+                    @endif
+                    @else
                     <button type="submit" class="btn btn-payment" id="makePaymentBtn">
                         <span id="paymentButtonLabel">Make Payment</span> - ₹<span id="paymentButtonAmount">{{ number_format($initialAmount, 2) }}</span>
                     </button>
                     <div class="security-note">
                         Online payments are secure and encrypted. NEFT/RTGS submissions stay pending until proof is approved.
                     </div>
+                    @endif
                 </div>
             </div>
             

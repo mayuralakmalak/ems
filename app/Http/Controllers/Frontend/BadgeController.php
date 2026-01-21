@@ -18,9 +18,12 @@ class BadgeController extends Controller
     public function index()
     {
         $badges = Badge::where('user_id', auth()->id())
+            ->whereDoesntHave('exhibition', function ($q) {
+                $q->whereNotNull('end_date')->where('end_date', '<', today());
+            })
             ->with(['booking', 'exhibition'])
             ->latest()
-            ->get();
+            ->paginate(10);
         return view('frontend.badges.index', compact('badges'));
     }
 
@@ -29,6 +32,7 @@ class BadgeController extends Controller
         $bookings = Booking::where('user_id', auth()->id())
             ->where('status', 'confirmed')
             ->with('exhibition')
+            ->latest()
             ->get();
         return view('frontend.badges.create', compact('bookings'));
     }
