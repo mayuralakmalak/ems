@@ -45,7 +45,15 @@
             </div>
 
             <div class="mb-4">
-                <label class="form-label fw-bold">Permissions ({{ $permissions->count() }} available):</label>
+                <label class="form-label fw-bold">Module Permissions</label>
+                <p class="text-muted mb-2">
+                    Configure what this role can do in each module. 
+                    Actions are: <strong>Create</strong>, <strong>View</strong>, <strong>Delete</strong>, <strong>Modify</strong>, <strong>Download</strong>.
+                </p>
+                <p class="text-muted small mb-3">
+                    Currently used modules:
+                    {{ implode(', ', array_values($modules)) }}.
+                </p>
                 <div class="border rounded p-3" style="max-height: 500px; overflow-y: auto;">
                     <div class="form-check mb-3 pb-2 border-bottom">
                         <input class="form-check-input" type="checkbox" id="selectAllPermissions">
@@ -53,18 +61,59 @@
                             Select All
                         </label>
                     </div>
-                    @foreach($permissions as $permission)
-                    <div class="form-check mb-2">
-                        <input class="form-check-input permission-checkbox" type="checkbox" name="permissions[]" 
-                               value="{{ $permission->id }}" id="permission_{{ $permission->id }}"
-                               {{ in_array($permission->id, $rolePermissions) ? 'checked' : '' }}>
-                        <label class="form-check-label" for="permission_{{ $permission->id }}">
-                            {{ $permission->name }}
-                        </label>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Module</th>
+                                    @foreach($actions as $action)
+                                        <th class="text-center">
+                                            <div>{{ $action }}</div>
+                                            <div class="form-check d-flex justify-content-center mt-1">
+                                                <input
+                                                    type="checkbox"
+                                                    class="form-check-input select-action-checkbox"
+                                                    data-action="{{ strtolower($action) }}"
+                                                    id="select_{{ strtolower($action) }}"
+                                                >
+                                            </div>
+                                        </th>
+                                    @endforeach
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($modules as $moduleKey => $moduleLabel)
+                                    <tr>
+                                        <td class="fw-semibold">{{ $moduleLabel }}</td>
+                                        @foreach($actions as $action)
+                                            @php
+                                                $permission = $permissionsByModule[$moduleKey][$action] ?? null;
+                                            @endphp
+                                            <td class="text-center">
+                                                @if($permission)
+                                                    <input
+                                                        class="form-check-input permission-checkbox"
+                                                        type="checkbox"
+                                                        name="permissions[]"
+                                                        value="{{ $permission->id }}"
+                                                        id="permission_{{ $permission->id }}"
+                                                        data-action="{{ strtolower($action) }}"
+                                                        {{ in_array($permission->id, $rolePermissions) ? 'checked' : '' }}
+                                                    >
+                                                @endif
+                                            </td>
+                                        @endforeach
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
-                    @endforeach
                 </div>
-                <small class="text-muted">Select the permissions you want to assign to this role.</small>
+                <small class="text-muted">
+                    Select the specific actions you want this role to be able to perform in each module.
+                    For example, if only <strong>Download</strong> is checked for a module, users with this role
+                    should only be allowed to download in that module and not create, edit, delete, or modify.
+                </small>
             </div>
 
             <div class="d-flex justify-content-end">
@@ -79,6 +128,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     const selectAllCheckbox = document.getElementById('selectAllPermissions');
     const permissionCheckboxes = document.querySelectorAll('.permission-checkbox');
+    const actionSelectCheckboxes = document.querySelectorAll('.select-action-checkbox');
     
     // Function to update select all checkbox state
     function updateSelectAllState() {
@@ -86,6 +136,24 @@ document.addEventListener('DOMContentLoaded', function() {
         const someChecked = Array.from(permissionCheckboxes).some(cb => cb.checked);
         selectAllCheckbox.checked = allChecked;
         selectAllCheckbox.indeterminate = someChecked && !allChecked;
+
+        // Update per-action select all states
+        actionSelectCheckboxes.forEach(actionCheckbox => {
+            const action = actionCheckbox.dataset.action;
+            const related = Array.from(permissionCheckboxes).filter(cb => cb.dataset.action === action);
+
+            if (related.length === 0) {
+                actionCheckbox.checked = false;
+                actionCheckbox.indeterminate = false;
+                return;
+            }
+
+            const actionAllChecked = related.every(cb => cb.checked);
+            const actionSomeChecked = related.some(cb => cb.checked);
+
+            actionCheckbox.checked = actionAllChecked;
+            actionCheckbox.indeterminate = actionSomeChecked && !actionAllChecked;
+        });
     }
     
     // Select All checkbox click handler
@@ -93,8 +161,22 @@ document.addEventListener('DOMContentLoaded', function() {
         permissionCheckboxes.forEach(checkbox => {
             checkbox.checked = this.checked;
         });
+        updateSelectAllState();
     });
     
+    // Per-action select all handlers
+    actionSelectCheckboxes.forEach(actionCheckbox => {
+        actionCheckbox.addEventListener('change', function() {
+            const action = this.dataset.action;
+            permissionCheckboxes.forEach(checkbox => {
+                if (checkbox.dataset.action === action) {
+                    checkbox.checked = this.checked;
+                }
+            });
+            updateSelectAllState();
+        });
+    });
+
     // Individual checkbox change handler
     permissionCheckboxes.forEach(checkbox => {
         checkbox.addEventListener('change', updateSelectAllState);

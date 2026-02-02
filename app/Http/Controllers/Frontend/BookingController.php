@@ -690,6 +690,19 @@ class BookingController extends Controller
 
             $totalAmount += $servicesTotal + $extrasTotal;
 
+            // Apply member discount automatically if exhibitor is a member
+            $discountPercent = 0;
+            if ($user->is_member && $exhibition->member_discount_percent > 0) {
+                $memberPercent = (float) $exhibition->member_discount_percent;
+                $maxPercent = $exhibition->maximum_discount_apply_percent !== null
+                    ? (float) $exhibition->maximum_discount_apply_percent
+                    : 100;
+                $effectivePercent = min($memberPercent, $maxPercent);
+                $discountAmount = ($totalAmount * $effectivePercent) / 100;
+                $totalAmount = round($totalAmount - $discountAmount, 2);
+                $discountPercent = round($effectivePercent, 2);
+            }
+
             // Handle logo upload
             $logoPath = null;
             if ($request->hasFile('logo')) {
@@ -723,6 +736,10 @@ class BookingController extends Controller
                 'approval_status' => 'pending', // Requires admin approval
                 'total_amount' => $totalAmount,
                 'paid_amount' => 0,
+                'discount_percent' => $discountPercent,
+                'discount_type' => $discountPercent > 0 ? 'member' : null,
+                'member_discount_percent' => $discountPercent > 0 ? $discountPercent : null,
+                'coupon_discount_percent' => null,
                 'contact_emails' => array_values($contactEmails),
                 'contact_numbers' => array_values($contactNumbers),
                 'included_item_extras' => !empty($includedItemExtras) ? $includedItemExtras : null,

@@ -251,8 +251,10 @@ class PaymentController extends Controller
         }
 
         $currentPayment = $specificPayment ?? $pendingPayment;
-        // Already submitted = completed OR user already submitted (payment was updated in store)
-        $currentPaymentAlreadySubmitted = $currentPayment && (($currentPayment->status === 'completed') || ($currentPayment->updated_at > $currentPayment->created_at));
+        // Already submitted = only when payment is actually completed
+        // (do NOT treat updated_at > created_at as submitted, because apply/remove discount
+        // operations also update payments while they remain pending)
+        $currentPaymentAlreadySubmitted = $currentPayment && ($currentPayment->status === 'completed');
 
         return view('frontend.payments.create', compact(
             'booking', 
@@ -397,8 +399,10 @@ class PaymentController extends Controller
             $gatewayFeePerPayment[$p->id] = $p->gateway_charge ?? ($p->calculated_gateway_charge ?? 0);
         }
 
-        // Already submitted = completed OR user already submitted (payment was updated in store)
-        $paymentAlreadySubmitted = ($payment->status === 'completed') || ($payment->updated_at > $payment->created_at);
+        // Already submitted = only when payment is actually completed
+        // (do NOT treat updated_at > created_at as submitted, because apply/remove discount
+        // operations also update payments while they remain pending)
+        $paymentAlreadySubmitted = ($payment->status === 'completed');
 
         return view('frontend.payments.pay', compact(
             'payment',
@@ -432,12 +436,98 @@ class PaymentController extends Controller
             'payment_method' => 'required|in:online,offline,rtgs,neft,wallet',
             'amount' => 'required|numeric|min:1',
             'payment_id' => 'nullable|exists:payments,id',
+            'payment_type_option' => 'nullable|in:full,part',
             'updated_payment_schedule' => 'nullable|string',
         ]);
 
-        $booking = Booking::where('user_id', auth()->id())->findOrFail($request->booking_id);
+        $booking = Booking::with('exhibition')->where('user_id', auth()->id())->findOrFail($request->booking_id);
         $amount = (float) $request->amount;
         $user = auth()->user();
+        $paymentTypeOption = $request->payment_type_option ?? 'part'; // Default to part payment
+        
+        // Handle full payment with discount (cap total discount by maximum_discount_apply_percent)
+        if ($paymentTypeOption === 'full') {
+            $baseTotal = $booking->total_amount;
+            $memberPercent = (float) ($booking->member_discount_percent ?? 0);
+            $couponPercent = (float) ($booking->coupon_discount_percent ?? 0);
+            $maxPercent = $booking->exhibition->maximum_discount_apply_percent !== null
+                ? (float) $booking->exhibition->maximum_discount_apply_percent
+                : 100.0;
+            $fullPaymentDiscountPercentRaw = (float) ($booking->exhibition->full_payment_discount_percent ?? 0);
+            $maxFullPaymentPercent = max(0, $maxPercent - $memberPercent - $couponPercent);
+            $fullPaymentDiscountPercent = min($fullPaymentDiscountPercentRaw, $maxFullPaymentPercent);
+            $fullPaymentDiscountAmount = ($baseTotal * $fullPaymentDiscountPercent) / 100;
+            $fullPaymentAmount = $baseTotal - $fullPaymentDiscountAmount;
+            
+            // Gateway charge on discounted amount (2.5%)
+            $fullPaymentGatewayCharge = ($fullPaymentAmount * 2.5) / 100;
+            $fullPaymentTotal = $fullPaymentAmount + $fullPaymentGatewayCharge;
+            
+            // Verify the amount matches
+            if (abs($amount - $fullPaymentAmount) > 0.01) {
+                return back()->with('error', 'Payment amount mismatch. Please refresh and try again.');
+            }
+            
+            // Handle wallet payment for full payment
+            if ($request->payment_method === 'wallet') {
+                $walletBalance = $user->wallet_balance;
+                if ($walletBalance < $fullPaymentTotal) {
+                    return back()->with('error', 'Insufficient wallet balance. Your balance is ₹' . number_format($walletBalance, 2) . '. Required: ₹' . number_format($fullPaymentTotal, 2));
+                }
+                
+                // Deduct from wallet
+                Wallet::create([
+                    'user_id' => $user->id,
+                    'balance' => $walletBalance - $fullPaymentTotal,
+                    'transaction_type' => 'debit',
+                    'amount' => $fullPaymentTotal,
+                    'reference_type' => 'booking',
+                    'reference_id' => $booking->id,
+                    'description' => 'Full payment for booking #' . $booking->booking_number,
+                ]);
+            }
+            
+            // Mark all pending payments as completed
+            $allPayments = Payment::where('booking_id', $booking->id)
+                ->where('status', 'pending')
+                ->get();
+            
+            $gatewayCharge = 0;
+            if ($request->payment_method === 'online') {
+                $gatewayCharge = $fullPaymentGatewayCharge;
+            }
+            
+            foreach ($allPayments as $payment) {
+                $payment->update([
+                    'payment_method' => $request->payment_method,
+                    'status' => 'completed',
+                    'approval_status' => 'approved',
+                    'gateway_charge' => ($payment->payment_type === 'initial' ? $gatewayCharge : 0), // Only charge gateway on first payment
+                    'paid_at' => now(),
+                    'transaction_id' => $request->transaction_id ?? null,
+                ]);
+            }
+            
+            // Update booking paid_amount to full amount (without gateway charge)
+            $booking->paid_amount = $fullPaymentAmount;
+            $booking->save();
+            
+            // Reload payment with relationships for email
+            $lastPayment = $allPayments->first();
+            if ($lastPayment) {
+                $lastPayment->load(['booking.exhibition', 'booking.booth', 'booking.bookingServices.service', 'user']);
+                
+                // Send payment receipt email
+                try {
+                    Mail::to($user->email)->send(new PaymentReceiptMail($lastPayment));
+                } catch (\Exception $e) {
+                    Log::error('Failed to send payment receipt email: ' . $e->getMessage());
+                }
+            }
+            
+            return redirect()->route('payments.confirmation', $lastPayment->id ?? $allPayments->first()->id)
+                ->with('success', 'Full payment completed successfully! You saved ₹' . number_format($fullPaymentDiscountAmount, 2) . ' with the discount.');
+        }
         $boothIds = collect($booking->selected_booth_ids ?? [$booking->booth_id])
             ->map(function($entry) {
                 if (is_array($entry)) {
@@ -788,5 +878,392 @@ class PaymentController extends Controller
         return response($pdfContent, 200)
             ->header('Content-Type', 'application/pdf')
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+    }
+
+    /**
+     * Apply a discount code for part payments.
+     */
+    public function applyDiscount(Request $request)
+    {
+        $request->validate([
+            'booking_id' => 'required|exists:bookings,id',
+            'discount_code' => 'required|string|max:255',
+        ]);
+
+        $booking = Booking::with(['exhibition', 'payments'])
+            ->where('user_id', auth()->id())
+            ->findOrFail($request->booking_id);
+
+        // Do not allow changing discounts once any payment is completed
+        if ($booking->paid_amount > 0 || $booking->payments()->where('status', 'completed')->exists()) {
+            $message = 'Cannot apply discount: some payments have already been completed.';
+            if ($request->expectsJson()) {
+                return response()->json(['status' => 'error', 'message' => $message], 400);
+            }
+            return back()->with('error', $message);
+        }
+
+        // Prevent applying a second coupon (member discount can have one coupon stacked)
+        $discountType = $booking->discount_type ?? ($booking->discount_percent > 0 ? 'member' : null);
+        if ($discountType === 'coupon' || $discountType === 'both') {
+            $message = 'A coupon is already applied to this booking.';
+            if ($request->expectsJson()) {
+                return response()->json(['status' => 'error', 'message' => $message], 400);
+            }
+            return back()->with('error', $message);
+        }
+
+        // Only active discounts for this exhibition
+        $discount = \App\Models\Discount::where('code', $request->discount_code)
+            ->where('status', 'active')
+            ->where('exhibition_id', $booking->exhibition_id)
+            ->first();
+
+        if (!$discount) {
+            $message = 'Invalid or inactive discount code for this exhibition.';
+            if ($request->expectsJson()) {
+                return response()->json(['status' => 'error', 'message' => $message], 404);
+            }
+            return back()->with('error', $message);
+        }
+
+        // If discount is restricted to a specific email, only that user can apply it
+        if (! empty(trim($discount->email ?? ''))) {
+            $userEmail = auth()->user()->email ?? '';
+            if (strtolower(trim($discount->email)) !== strtolower(trim($userEmail))) {
+                $message = 'This discount is not valid for your account.';
+                if ($request->expectsJson()) {
+                    return response()->json(['status' => 'error', 'message' => $message], 403);
+                }
+                return back()->with('error', $message);
+            }
+        }
+
+        $baseTotal = $booking->total_amount;
+        if ($baseTotal <= 0) {
+            $message = 'Cannot apply discount to an empty booking amount.';
+            if ($request->expectsJson()) {
+                return response()->json(['status' => 'error', 'message' => $message], 400);
+            }
+            return back()->with('error', $message);
+        }
+
+        // Calculate coupon discount amount and percent (from coupon code)
+        $couponDiscountAmount = 0;
+        $couponDiscountPercent = 0;
+
+        if ($discount->type === 'percentage') {
+            $couponDiscountPercent = min((float) $discount->amount, 100.0);
+            $couponDiscountAmount = ($baseTotal * $couponDiscountPercent) / 100;
+        } elseif ($discount->type === 'fixed') {
+            $couponDiscountAmount = min((float) $discount->amount, $baseTotal);
+            $couponDiscountPercent = $couponDiscountAmount > 0 ? ($couponDiscountAmount / $baseTotal) * 100 : 0;
+        } else {
+            $message = 'Invalid discount type configured.';
+            if ($request->expectsJson()) {
+                return response()->json(['status' => 'error', 'message' => $message], 400);
+            }
+            return back()->with('error', $message);
+        }
+
+        if ($couponDiscountAmount <= 0) {
+            $message = 'Discount amount calculated as zero. Please check the discount configuration.';
+            if ($request->expectsJson()) {
+                return response()->json(['status' => 'error', 'message' => $message], 400);
+            }
+            return back()->with('error', $message);
+        }
+
+        $paymentSchedules = $booking->exhibition->paymentSchedules()
+            ->orderBy('part_number', 'asc')
+            ->get();
+
+        if ($paymentSchedules->isEmpty()) {
+            $message = 'Payment schedule not found for this exhibition.';
+            if ($request->expectsJson()) {
+                return response()->json(['status' => 'error', 'message' => $message], 400);
+            }
+            return back()->with('error', $message);
+        }
+
+        $payments = $booking->payments()
+            ->orderByRaw("CASE WHEN payment_type = 'initial' THEN 1 ELSE 2 END")
+            ->orderBy('due_date', 'asc')
+            ->get();
+
+        if ($payments->isEmpty()) {
+            $message = 'No payments found for this booking.';
+            if ($request->expectsJson()) {
+                return response()->json(['status' => 'error', 'message' => $message], 400);
+            }
+            return back()->with('error', $message);
+        }
+
+        $memberDiscountPercent = (float) ($booking->member_discount_percent ?? ($booking->discount_percent > 0 ? $booking->discount_percent : 0));
+        $hasMemberDiscount = $discountType === 'member' || ($discountType === null && $booking->discount_percent > 0);
+
+        if ($hasMemberDiscount && $memberDiscountPercent > 0) {
+            // Stack coupon on top of member discount; cap total by maximum_discount_apply_percent
+            $originalTotal = $baseTotal / (1 - ($memberDiscountPercent / 100));
+            $maxPercent = $booking->exhibition->maximum_discount_apply_percent !== null
+                ? (float) $booking->exhibition->maximum_discount_apply_percent
+                : 100.0;
+            $couponEffectivePercent = min($couponDiscountPercent, $maxPercent - $memberDiscountPercent);
+
+            if ($couponEffectivePercent <= 0) {
+                $message = 'Total discount cannot exceed the maximum allowed (' . ($booking->exhibition->maximum_discount_apply_percent ?? 100) . '%).';
+                if ($request->expectsJson()) {
+                    return response()->json(['status' => 'error', 'message' => $message], 400);
+                }
+                return back()->with('error', $message);
+            }
+
+            $newDiscountPercent = $memberDiscountPercent + $couponEffectivePercent;
+            $newTotalAmount = $originalTotal * (1 - ($newDiscountPercent / 100));
+            $couponDiscountAmount = $originalTotal * ($couponEffectivePercent / 100);
+
+            $booking->discount_type = 'both';
+            $booking->member_discount_percent = round($memberDiscountPercent, 2);
+            $booking->coupon_discount_percent = round($couponEffectivePercent, 2);
+            $booking->discount_percent = round($newDiscountPercent, 2);
+            $booking->total_amount = round($newTotalAmount, 2);
+            $booking->save();
+        } else {
+            // No existing discount: apply coupon only; cap by maximum_discount_apply_percent
+            $maxPercent = $booking->exhibition->maximum_discount_apply_percent !== null
+                ? (float) $booking->exhibition->maximum_discount_apply_percent
+                : 100.0;
+            $couponEffectivePercent = min($couponDiscountPercent, $maxPercent);
+            $couponDiscountAmount = ($baseTotal * $couponEffectivePercent) / 100;
+            $newTotalAmount = $baseTotal - $couponDiscountAmount;
+            $booking->discount_type = 'coupon';
+            $booking->member_discount_percent = null;
+            $booking->coupon_discount_percent = round($couponEffectivePercent, 2);
+            $booking->discount_percent = round($couponEffectivePercent, 2);
+            $booking->total_amount = round($newTotalAmount, 2);
+            $booking->save();
+        }
+
+        // Recalculate payment amounts so they sum to the new total
+        $newTotalAmount = $booking->total_amount;
+        $paymentIndex = 0;
+        foreach ($payments as $payment) {
+            if (isset($paymentSchedules[$paymentIndex])) {
+                $schedule = $paymentSchedules[$paymentIndex];
+                $newPaymentAmount = round(($newTotalAmount * $schedule->percentage) / 100, 2);
+                $payment->amount = $newPaymentAmount;
+                $payment->save();
+            }
+            $paymentIndex++;
+        }
+
+        $memberDiscountAmount = 0;
+        if ($booking->member_discount_percent > 0) {
+            $origTotal = $booking->total_amount / (1 - ($booking->discount_percent / 100));
+            $memberDiscountAmount = $origTotal * ($booking->member_discount_percent / 100);
+        }
+        $displayCouponAmount = round($couponDiscountAmount, 2);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Discount code applied successfully!',
+                'discount_type' => $booking->discount_type,
+                'discount_percent' => $booking->discount_percent,
+                'member_discount_percent' => $booking->member_discount_percent,
+                'coupon_discount_percent' => $booking->coupon_discount_percent,
+                'member_discount_amount' => round($memberDiscountAmount, 2),
+                'discount_amount' => $displayCouponAmount,
+                'coupon_discount_amount' => $displayCouponAmount,
+                'total_amount' => $booking->total_amount,
+                'payments' => $payments->map(function ($payment) {
+                    return [
+                        'id' => $payment->id,
+                        'amount' => $payment->amount,
+                    ];
+                })->values(),
+            ]);
+        }
+
+        return back()->with(
+            'success',
+            'Discount code applied successfully! You saved ₹' . number_format($displayCouponAmount, 2) . '.'
+        );
+    }
+
+    /**
+     * Remove an applied discount for part payments.
+     */
+    public function removeDiscount(Request $request)
+    {
+        $request->validate([
+            'booking_id' => 'required|exists:bookings,id',
+        ]);
+
+        $booking = Booking::with(['exhibition', 'payments'])
+            ->where('user_id', auth()->id())
+            ->findOrFail($request->booking_id);
+
+        // Do not allow changing discounts once any payment is completed
+        if ($booking->paid_amount > 0 || $booking->payments()->where('status', 'completed')->exists()) {
+            $message = 'Cannot remove discount: some payments have already been completed.';
+            if ($request->expectsJson()) {
+                return response()->json(['status' => 'error', 'message' => $message], 400);
+            }
+            return back()->with('error', $message);
+        }
+
+        $discountType = $booking->discount_type ?? ($booking->discount_percent > 0 ? 'member' : null);
+
+        // If only member discount (no coupon), nothing to remove
+        if ($discountType === 'member' || ($discountType === null && $booking->discount_percent > 0)) {
+            $message = 'No coupon applied to remove.';
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'success',
+                    'message' => $message,
+                    'discount_type' => $booking->discount_type ?? 'member',
+                    'discount_percent' => $booking->discount_percent,
+                    'member_discount_percent' => $booking->member_discount_percent ?? $booking->discount_percent,
+                    'coupon_discount_percent' => $booking->coupon_discount_percent ?? 0,
+                    'total_amount' => $booking->total_amount,
+                    'payments' => $booking->payments()
+                        ->orderByRaw("CASE WHEN payment_type = 'initial' THEN 1 ELSE 2 END")
+                        ->orderBy('due_date', 'asc')
+                        ->get()
+                        ->map(function ($p) {
+                            return ['id' => $p->id, 'amount' => $p->amount];
+                        })->values(),
+                ]);
+            }
+            return back()->with('info', $message);
+        }
+
+        if ($booking->discount_percent <= 0) {
+            $message = 'No discount is currently applied to this booking.';
+            if ($request->expectsJson()) {
+                return response()->json(['status' => 'error', 'message' => $message], 400);
+            }
+            return back()->with('error', $message);
+        }
+
+        $currentTotal = $booking->total_amount;
+        $paymentSchedules = $booking->exhibition->paymentSchedules()
+            ->orderBy('part_number', 'asc')
+            ->get();
+
+        if ($paymentSchedules->isEmpty()) {
+            $message = 'Payment schedule not found for this exhibition.';
+            if ($request->expectsJson()) {
+                return response()->json(['status' => 'error', 'message' => $message], 400);
+            }
+            return back()->with('error', $message);
+        }
+
+        $payments = $booking->payments()
+            ->orderByRaw("CASE WHEN payment_type = 'initial' THEN 1 ELSE 2 END")
+            ->orderBy('due_date', 'asc')
+            ->get();
+
+        if ($payments->isEmpty()) {
+            $message = 'No payments found for this booking.';
+            if ($request->expectsJson()) {
+                return response()->json(['status' => 'error', 'message' => $message], 400);
+            }
+            return back()->with('error', $message);
+        }
+
+        if ($discountType === 'both') {
+            // Remove only coupon; keep member discount
+            $memberDiscountPercent = (float) $booking->member_discount_percent;
+            $originalTotal = $currentTotal / (1 - ($booking->discount_percent / 100));
+            $memberTotal = $originalTotal * (1 - ($memberDiscountPercent / 100));
+
+            $booking->discount_type = 'member';
+            $booking->coupon_discount_percent = null;
+            $booking->discount_percent = round($memberDiscountPercent, 2);
+            $booking->total_amount = round($memberTotal, 2);
+            $booking->save();
+
+            $newTotalAmount = $booking->total_amount;
+            $paymentIndex = 0;
+            foreach ($payments as $payment) {
+                if (isset($paymentSchedules[$paymentIndex])) {
+                    $schedule = $paymentSchedules[$paymentIndex];
+                    $newPaymentAmount = round(($newTotalAmount * $schedule->percentage) / 100, 2);
+                    $payment->amount = $newPaymentAmount;
+                    $payment->save();
+                }
+                $paymentIndex++;
+            }
+
+            $removedAmount = round($currentTotal - $newTotalAmount, 2);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Coupon discount removed successfully.',
+                    'discount_type' => 'member',
+                    'discount_percent' => $booking->discount_percent,
+                    'member_discount_percent' => $booking->member_discount_percent,
+                    'coupon_discount_percent' => 0,
+                    'discount_amount' => $removedAmount,
+                    'total_amount' => $booking->total_amount,
+                    'payments' => $payments->map(function ($payment) {
+                        return [
+                            'id' => $payment->id,
+                            'amount' => $payment->amount,
+                        ];
+                    })->values(),
+                ]);
+            }
+            return back()->with('success', 'Coupon discount removed successfully.');
+        }
+
+        // discount_type === 'coupon': remove entire discount
+        $discountPercent = (float) $booking->discount_percent;
+        if ($discountPercent >= 100) {
+            return back()->with('error', 'Cannot remove a 100% discount safely.');
+        }
+        $originalTotal = $currentTotal / (1 - ($discountPercent / 100));
+
+        $booking->discount_type = null;
+        $booking->member_discount_percent = null;
+        $booking->coupon_discount_percent = null;
+        $booking->discount_percent = 0;
+        $booking->total_amount = round($originalTotal, 2);
+        $booking->save();
+
+        $paymentIndex = 0;
+        foreach ($payments as $payment) {
+            if (isset($paymentSchedules[$paymentIndex])) {
+                $schedule = $paymentSchedules[$paymentIndex];
+                $originalPaymentAmount = round(($originalTotal * $schedule->percentage) / 100, 2);
+                $payment->amount = $originalPaymentAmount;
+                $payment->save();
+            }
+            $paymentIndex++;
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Discount removed successfully.',
+                'discount_type' => null,
+                'discount_percent' => 0,
+                'member_discount_percent' => null,
+                'coupon_discount_percent' => null,
+                'discount_amount' => round($originalTotal - $currentTotal, 2),
+                'total_amount' => $booking->total_amount,
+                'payments' => $payments->map(function ($payment) {
+                    return [
+                        'id' => $payment->id,
+                        'amount' => $payment->amount,
+                    ];
+                })->values(),
+            ]);
+        }
+
+        return back()->with('success', 'Discount removed successfully.');
     }
 }

@@ -36,6 +36,9 @@ class User extends Authenticatable implements MustVerifyEmail
         'country',
         'pincode',
         'gst_number',
+        'has_gst_number',
+        'gst_certificate',
+        'is_member',
         'pan_number',
         'website',
         'company_description',
@@ -63,6 +66,7 @@ class User extends Authenticatable implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_member' => 'boolean',
         ];
     }
 

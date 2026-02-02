@@ -96,6 +96,7 @@ class DatabaseSeeder extends Seeder
             ExhibitionSeeder::class,
             BoothSeeder::class,
             ServiceSeeder::class,
+            CmsPageSeeder::class,
         ]);
     }
 }

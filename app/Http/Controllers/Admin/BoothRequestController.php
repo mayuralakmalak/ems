@@ -19,9 +19,12 @@ class BoothRequestController extends Controller
             ->latest()
             ->paginate(20);
 
-        // Attach related booking details (latest matching booking) for quick view
+        // Attach related booking details (latest matching booking) for quick view,
+        // including its payments so we can show payment status information in the
+        // approval/rejection UI without extra queries.
         $requests->getCollection()->transform(function ($request) {
-            $request->booking = Booking::where('user_id', $request->user_id)
+            $request->booking = Booking::with('payments')
+                ->where('user_id', $request->user_id)
                 ->where('exhibition_id', $request->exhibition_id)
                 ->when($request->booth_ids, function ($query) use ($request) {
                     $query->whereIn('booth_id', $request->booth_ids);

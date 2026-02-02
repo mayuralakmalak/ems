@@ -17,7 +17,7 @@
         background: white !important;
     }
     body footer {
-        background-color: #6B3FA0 !important;
+        background-color: #6B3FA0;
     }
     
     main {

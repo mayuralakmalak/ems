@@ -263,6 +263,50 @@
         color: #6366f1;
         text-decoration: none;
     }
+    
+    .payment-option-card {
+        transition: all 0.3s ease;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    
+    .payment-option-card:hover {
+        border-color: #6366f1 !important;
+        background: #f0f9ff;
+    }
+    
+    .payment-option-card input[type="radio"]:checked ~ label {
+        color: #6366f1;
+    }
+    
+    .payment-option-card:has(input[type="radio"]:checked) {
+        border-color: #6366f1 !important;
+        background: #f0f9ff;
+    }
+    
+    .payment-option-card .form-check-label {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 60px;
+        height: 100%;
+    }
+    
+    .payment-option-card .form-check-input {
+        margin-top: 0;
+        margin-right: 8px;
+    }
+    
+    /* Ensure both payment option cards have equal height */
+    .row.g-2 > .col-md-6 {
+        display: flex;
+    }
+    
+    .row.g-2 > .col-md-6 > .payment-option-card {
+        min-height: 80px;
+    }
 </style>
 @endpush
 
@@ -297,6 +341,16 @@
     $boothTotal = $boothDisplay->sum(fn($b) => $b['price'] ?? 0);
 @endphp
 <div class="payment-container">
+    {{-- Hidden forms for discount apply/remove to avoid nesting inside payment form --}}
+    <form id="discountApplyForm" method="POST" action="{{ route('payments.apply-discount') }}" style="display:none;">
+        @csrf
+        <input type="hidden" name="booking_id" value="{{ $booking->id }}">
+        <input type="hidden" name="discount_code" id="discount_code_hidden">
+    </form>
+    <form id="discountRemoveForm" method="POST" action="{{ route('payments.remove-discount') }}" style="display:none;">
+        @csrf
+        <input type="hidden" name="booking_id" value="{{ $booking->id }}">
+    </form>
     <div class="stepper mb-2">
         <span class="step-pill"><span class="badge bg-light text-dark">1</span> Select Booth</span>
         <i class="bi bi-arrow-right text-secondary"></i>
@@ -312,6 +366,7 @@
         @endif
         <input type="hidden" name="payment_method" id="selectedPaymentMethod" value="">
         <input type="hidden" name="amount" id="paymentAmount" value="{{ $initialAmount }}">
+        <input type="hidden" name="payment_type_option" id="paymentTypeOption" value="full">
         
         <div class="row g-4">
             <!-- Left Column -->
@@ -369,11 +424,15 @@
                         // Calculate base total from breakdown items (Booth Rental + Services + Extras)
                         $baseTotal = $boothTotal + $servicesTotal + $extrasTotal;
                         
-                        // Apply legacy booking-level discount percent if present
-                        $discountAmount = 0;
+                        // Booking-level discounts: member and/or coupon
+                        $discountType = $booking->discount_type ?? ($booking->discount_percent > 0 ? 'member' : null);
+                        $memberDiscountPercent = (float) ($booking->member_discount_percent ?? ($discountType === 'member' || $discountType === 'both' ? $booking->discount_percent : 0));
+                        $couponDiscountPercent = (float) ($booking->coupon_discount_percent ?? 0);
+                        $originalBase = $booking->discount_percent > 0 ? $booking->total_amount / (1 - ($booking->discount_percent / 100)) : $baseTotal;
+                        $memberDiscountAmount = $memberDiscountPercent > 0 ? $originalBase * ($memberDiscountPercent / 100) : 0;
+                        $couponDiscountAmount = $couponDiscountPercent > 0 ? $originalBase * ($couponDiscountPercent / 100) : 0;
                         if ($booking->discount_percent > 0) {
-                            $discountAmount = ($baseTotal * $booking->discount_percent) / 100;
-                            $baseTotal -= $discountAmount;
+                            $baseTotal = $booking->total_amount;
                         }
                     @endphp
                     
@@ -391,12 +450,38 @@
                     </div>
                     @endif
                     
-                    @if($discountAmount > 0)
-                    <div class="breakdown-item">
-                        <span class="breakdown-label">Special Discount</span>
-                        <span class="breakdown-value" style="color: #10b981;">-₹{{ number_format($discountAmount, 2) }}</span>
+                    <div class="breakdown-item" id="discountRowMember" @if($memberDiscountAmount <= 0) style="display:none;" @endif>
+                        <span class="breakdown-label">
+                            Member Discount
+                            (<span id="memberDiscountPercentLabel">{{ number_format($memberDiscountPercent, 2) }}</span>%)
+                        </span>
+                        <span class="breakdown-value" style="color: #10b981;">
+                            -₹<span id="memberDiscountAmountValue">{{ number_format($memberDiscountAmount, 2) }}</span>
+                        </span>
                     </div>
-                    @endif
+                    <div class="breakdown-item" id="discountRowCoupon" @if($couponDiscountAmount <= 0) style="display:none;" @endif>
+                        <span class="breakdown-label">
+                            Coupon Code Discount
+                            (<span id="couponDiscountPercentLabel">{{ number_format($couponDiscountPercent, 2) }}</span>%)
+                        </span>
+                        <span class="breakdown-value" style="color: #10b981;">
+                            -₹<span id="couponDiscountAmountValue">{{ number_format($couponDiscountAmount, 2) }}</span>
+                        </span>
+                    </div>
+                    
+                    @php
+                        $maximumDiscountApplyPercent = (float) ($booking->exhibition->maximum_discount_apply_percent ?? 100);
+                        $fullPaymentDiscountPercentRaw = (float) ($booking->exhibition->full_payment_discount_percent ?? 0);
+                        $maxFullPaymentPercent = max(0, $maximumDiscountApplyPercent - $memberDiscountPercent - $couponDiscountPercent);
+                        $effectiveFullPaymentPercent = min($fullPaymentDiscountPercentRaw, $maxFullPaymentPercent);
+                        $fullPaymentDiscountPercent = $effectiveFullPaymentPercent;
+                        $fullPaymentDiscountAmount = ($baseTotal * $fullPaymentDiscountPercent) / 100;
+                    @endphp
+                    
+                    <div class="breakdown-item" id="fullPaymentDiscountItem" style="display: none;">
+                        <span class="breakdown-label">Full Payment Discount ({{ number_format($fullPaymentDiscountPercent, 2) }}%)</span>
+                        <span class="breakdown-value" style="color: #10b981;" id="fullPaymentDiscountAmount">-₹{{ number_format($fullPaymentDiscountAmount, 2) }}</span>
+                    </div>
                     
                     <div class="breakdown-item" id="gatewayFeeItem" style="display: none;">
                         <span class="breakdown-label">Payment Gateway Fee (2.5%) <small class="text-muted">(Card/UPI/Net Banking only)</small></span>
@@ -719,8 +804,110 @@
                     </div>
                 </div>
                 
+                <!-- Payment Type Selection -->
+                <div class="section-card mb-4">
+                    <h5 class="section-title">Payment Option</h5>
+                    <p class="section-description">Choose your payment method.</p>
+                    <div class="row g-2">
+                        <div class="col-md-6 d-flex">
+                            <div class="form-check payment-option-card" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; cursor: pointer; width: 100%;" onclick="selectPaymentType('full')">
+                                <input class="form-check-input" type="radio" name="payment_type_option" id="paymentTypeFull" value="full" checked>
+                                <label class="form-check-label" for="paymentTypeFull" style="cursor: pointer; width: 100%; margin: 0;">
+                                    <strong style="display: block; margin-bottom: 4px;">Full Payment</strong>
+                                    @if($booking->exhibition->full_payment_discount_percent > 0)
+                                        <span class="text-success" style="font-size: 0.9rem;">Get {{ $booking->exhibition->full_payment_discount_percent }}% discount</span>
+                                    @else
+                                        <span class="text-muted" style="font-size: 0.9rem; visibility: hidden;">Placeholder</span>
+                                    @endif
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 d-flex">
+                            <div class="form-check payment-option-card" style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 12px; cursor: pointer; width: 100%;" onclick="selectPaymentType('part')">
+                                <input class="form-check-input" type="radio" name="payment_type_option" id="paymentTypePart" value="part">
+                                <label class="form-check-label" for="paymentTypePart" style="cursor: pointer; width: 100%; margin: 0;">
+                                    <strong style="display: block; margin-bottom: 4px;">Part Payment</strong>
+                                    <span class="text-muted" style="font-size: 0.9rem;">Pay in installments</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Discount Code Section (Full & Part Payment) -->
+                <div class="section-card mb-4" id="discountCodeSection">
+                    <h5 class="section-title">Apply Discount Code</h5>
+                    <p class="section-description">Enter a discount code to save on your booking.</p>
+
+                    <div class="input-group">
+                        <input type="text"
+                               id="discount_code_visible"
+                               class="form-control"
+                               placeholder="Enter discount code"
+                               value="">
+                        <button type="button"
+                                id="discountActionButton"
+                                class="btn"
+                                style="background:#6366f1;border-color:#6366f1;color:#ffffff;white-space:nowrap;"
+                                onclick="handleDiscountAction()">
+                            <i class="bi bi-tag me-1"></i><span id="discountActionLabel">Apply</span>
+                        </button>
+                    </div>
+                    <div id="discountMessage" class="mt-2 small"></div>
+                </div>
+
+                <!-- Full Payment Display -->
+                <div class="section-card" id="fullPaymentSection">
+                    <h5 class="section-title">Full Payment Details</h5>
+                    <p class="section-description">Pay the full amount now and save with discount.</p>
+                    @php
+                        $maximumDiscountApplyPercentFP = (float) ($booking->exhibition->maximum_discount_apply_percent ?? 100);
+                        $memberDiscountPercentFP = (float) ($booking->member_discount_percent ?? 0);
+                        $couponDiscountPercentFP = (float) ($booking->coupon_discount_percent ?? 0);
+                        $fullPaymentDiscountPercentRawFP = (float) ($booking->exhibition->full_payment_discount_percent ?? 0);
+                        $maxFullPaymentPercentFP = max(0, $maximumDiscountApplyPercentFP - $memberDiscountPercentFP - $couponDiscountPercentFP);
+                        $effectiveFullPaymentPercentFP = min($fullPaymentDiscountPercentRawFP, $maxFullPaymentPercentFP);
+                        $fullPaymentDiscountPercentFP = $effectiveFullPaymentPercentFP;
+                        $baseTotalFP = $booking->total_amount;
+                        $fullPaymentDiscountAmountFP = ($baseTotalFP * $fullPaymentDiscountPercentFP) / 100;
+                        $fullPaymentAmountFP = $baseTotalFP - $fullPaymentDiscountAmountFP;
+                        $fullPaymentGatewayChargeFP = ($fullPaymentAmountFP * 2.5) / 100;
+                        $fullPaymentTotalFP = $fullPaymentAmountFP + $fullPaymentGatewayChargeFP;
+                    @endphp
+                    <div class="breakdown-item">
+                        <span class="breakdown-label">Total Booking Amount</span>
+                        <span class="breakdown-value" id="fullPaymentSectionBaseTotal">₹{{ number_format($baseTotalFP, 2) }}</span>
+                    </div>
+                    <div class="breakdown-item" id="fullPaymentMemberDiscountRow" style="display: none;">
+                        <span class="breakdown-label">Member Discount (<span id="fullPaymentMemberDiscountPct">0</span>%)</span>
+                        <span class="breakdown-value" style="color: #10b981;" id="fullPaymentMemberDiscountAmt">-₹0.00</span>
+                    </div>
+                    <div class="breakdown-item" id="fullPaymentCouponDiscountRow" style="display: none;">
+                        <span class="breakdown-label">Coupon Code Discount (<span id="fullPaymentCouponDiscountPct">0</span>%)</span>
+                        <span class="breakdown-value" style="color: #10b981;" id="fullPaymentCouponDiscountAmt">-₹0.00</span>
+                    </div>
+                    <div class="breakdown-item" id="fullPaymentDiscountRow" @if($fullPaymentDiscountPercentFP <= 0) style="display: none;" @endif>
+                        <span class="breakdown-label">Full Payment Discount (<span id="fullPaymentDiscountPctLabel">{{ number_format($fullPaymentDiscountPercentFP, 2) }}</span>%)</span>
+                        <span class="breakdown-value" style="color: #10b981;" id="fullPaymentSectionDiscountAmt">-₹{{ number_format($fullPaymentDiscountAmountFP, 2) }}</span>
+                    </div>
+                    <div class="breakdown-item" id="fullPaymentAmountAfterRow" @if($fullPaymentDiscountPercentFP <= 0) style="display: none;" @endif>
+                        <span class="breakdown-label">Amount After Discount</span>
+                        <span class="breakdown-value" id="fullPaymentSectionAmountAfter">₹{{ number_format($fullPaymentAmountFP, 2) }}</span>
+                    </div>
+                    <div class="breakdown-item" id="fullPaymentGatewayChargeItem" style="display: none;">
+                        <span class="breakdown-label">Gateway Charge (2.5%) <small class="text-muted">(Card/UPI/Net Banking only)</small></span>
+                        <span class="breakdown-value" id="fullPaymentGatewayChargeAmount">₹{{ number_format($fullPaymentGatewayChargeFP, 2) }}</span>
+                    </div>
+                    <div class="total-due">
+                        <span class="total-due-label">Total Amount to Pay</span>
+                        <span class="total-due-value" id="fullPaymentTotal">₹{{ number_format($fullPaymentAmountFP, 2) }}</span>
+                    </div>
+                    <input type="hidden" id="fullPaymentAmount" value="{{ $fullPaymentAmountFP }}">
+                    <input type="hidden" id="fullPaymentGatewayCharge" value="{{ $fullPaymentGatewayChargeFP }}">
+                </div>
+
                 <!-- Payment Schedule -->
-                <div class="section-card">
+                <div class="section-card" id="partPaymentSection" style="display: none;">
                     <h5 class="section-title">Payment Schedule</h5>
                     <p class="section-description">Initial payment and remaining due dates.</p>
                     
@@ -828,11 +1015,43 @@
 @push('scripts')
 <script>
 let selectedMethod = '';
+// Global booking context for AJAX operations
+let bookingId = {{ $booking->id }};
+let csrfToken = '';
+try {
+    var metaTokenEl = document.querySelector('meta[name="csrf-token"]');
+    if (metaTokenEl) {
+        csrfToken = metaTokenEl.getAttribute('content') || '';
+    }
+    if (!csrfToken) {
+        var hiddenTokenEl = document.querySelector('#discountApplyForm input[name="_token"]') ||
+            document.querySelector('#paymentForm input[name="_token"]');
+        if (hiddenTokenEl) {
+            csrfToken = hiddenTokenEl.value || '';
+        }
+    }
+} catch (e) {
+    csrfToken = '';
+}
 // Base total = Booth Rental + Services
 let baseTotal = {{ $baseTotal }};
 let initialAmount = {{ $initialAmount }};
 let gatewayCharge = {{ number_format($gatewayCharge ?? 0, 2, '.', '') }}; // Gateway fee for current payment
 let totalGatewayFee = {{ number_format($totalGatewayFee ?? 0, 2, '.', '') }}; // Total gateway fee for all payments
+// Maximum discount cap from exhibition (member + coupon + full payment <= this)
+let maximumDiscountApplyPercent = {{ ($booking->exhibition->maximum_discount_apply_percent ?? null) !== null ? (float)($booking->exhibition->maximum_discount_apply_percent) : 100 }};
+let memberDiscountPercentCurrent = {{ $memberDiscountPercent ?? 0 }};
+let couponDiscountPercentCurrent = {{ $couponDiscountPercent ?? 0 }};
+let fullPaymentDiscountPercentRaw = {{ $booking->exhibition->full_payment_discount_percent ?? 0 }};
+// Effective full payment % capped so member + coupon + full payment <= maximum
+function getEffectiveFullPaymentPercent() {
+    const maxForFull = Math.max(0, maximumDiscountApplyPercent - memberDiscountPercentCurrent - couponDiscountPercentCurrent);
+    return Math.min(fullPaymentDiscountPercentRaw, maxForFull);
+}
+let fullPaymentDiscountPercent = getEffectiveFullPaymentPercent();
+let fullPaymentDiscountAmount = (baseTotal * fullPaymentDiscountPercent) / 100;
+// Whether a coupon code is currently applied (show "Remove"); member-only discount shows "Apply"
+let discountApplied = {{ ($booking->coupon_discount_percent ?? 0) > 0 ? 'true' : 'false' }};
 
 // Store payment percentages for recalculation
 let paymentPercentages = @json($paymentPercentages ?? []);
@@ -881,6 +1100,38 @@ document.querySelectorAll('.payment-method-card').forEach(card => {
             document.getElementById('offlineInstructions').style.display = 'block';
         }
 
+        // Update Full Payment gateway charge visibility
+        const fullPaymentGatewayChargeItem = document.getElementById('fullPaymentGatewayChargeItem');
+        const fullPaymentTotal = document.getElementById('fullPaymentTotal');
+        const paymentTypeOption = document.getElementById('paymentTypeOption').value;
+        
+        if (paymentTypeOption === 'full') {
+            const isOnlineMethod = ['card', 'upi', 'netbanking'].includes(selectedMethod);
+            const fullAmount = parseFloat(document.getElementById('fullPaymentAmount').value);
+            const fullGatewayCharge = parseFloat(document.getElementById('fullPaymentGatewayCharge').value);
+            
+            if (isOnlineMethod && fullGatewayCharge > 0) {
+                // Show gateway charge
+                if (fullPaymentGatewayChargeItem) {
+                    fullPaymentGatewayChargeItem.style.display = 'flex';
+                    document.getElementById('fullPaymentGatewayChargeAmount').textContent = '₹' + fullGatewayCharge.toFixed(2);
+                }
+                // Update total with gateway charge
+                if (fullPaymentTotal) {
+                    fullPaymentTotal.textContent = '₹' + (fullAmount + fullGatewayCharge).toFixed(2);
+                }
+            } else {
+                // Hide gateway charge
+                if (fullPaymentGatewayChargeItem) {
+                    fullPaymentGatewayChargeItem.style.display = 'none';
+                }
+                // Update total without gateway charge
+                if (fullPaymentTotal) {
+                    fullPaymentTotal.textContent = '₹' + fullAmount.toFixed(2);
+                }
+            }
+        }
+
         // Button label text
         const buttonLabel = document.getElementById('paymentButtonLabel');
         if (buttonLabel) {
@@ -903,29 +1154,46 @@ function updatePaymentAmount() {
     const gatewayFeeAmount = document.getElementById('gatewayFeeAmount');
     const totalDueAmount = document.getElementById('totalDueAmount');
     const paymentButtonAmount = document.getElementById('paymentButtonAmount');
+    const paymentTypeOption = document.getElementById('paymentTypeOption').value;
+    
+    // Calculate base amount (with or without full payment discount)
+    let calculatedBaseTotal = baseTotal;
+    if (paymentTypeOption === 'full' && fullPaymentDiscountPercent > 0) {
+        calculatedBaseTotal = baseTotal - fullPaymentDiscountAmount;
+    }
     
     // Show/hide gateway fee based on payment method
     if (isOnlineMethod && totalGatewayFee > 0) {
-        // Calculate new total with gateway fee FIRST
-        const totalWithGatewayFee = baseTotal + totalGatewayFee;
+        // For full payment, gateway fee is calculated on discounted amount
+        // For part payment, use original totalGatewayFee
+        let gatewayFeeToUse = totalGatewayFee;
+        if (paymentTypeOption === 'full' && fullPaymentDiscountPercent > 0) {
+            // Calculate gateway fee on discounted amount (2.5%)
+            gatewayFeeToUse = (calculatedBaseTotal * 2.5) / 100;
+        }
+        
+        // Calculate new total with gateway fee
+        const totalWithGatewayFee = calculatedBaseTotal + gatewayFeeToUse;
         
         // Show total gateway fee in breakdown
         gatewayFeeItem.style.display = 'flex';
-        gatewayFeeAmount.textContent = '₹' + totalGatewayFee.toFixed(2);
+        gatewayFeeAmount.textContent = '₹' + gatewayFeeToUse.toFixed(2);
         
         // Update total due amount to include gateway fee
         totalDueAmount.textContent = '₹' + totalWithGatewayFee.toFixed(2);
         
         // Recalculate installments as percentages of the NEW total (with gateway fee)
-        document.querySelectorAll('[data-payment-id]').forEach(row => {
-            // Get percentage from data attribute or fallback to paymentPercentages object
-            const paymentId = row.getAttribute('data-payment-id');
-            const percentageFromData = parseFloat(row.getAttribute('data-percentage')) || 0;
-            const percentageFromObject = paymentPercentages[paymentId] || 0;
-            const percentage = percentageFromData > 0 ? percentageFromData : percentageFromObject;
-            
-            // Calculate new installment amount as percentage of totalWithGatewayFee
-            const newInstallmentAmount = (totalWithGatewayFee * percentage) / 100;
+        // Only for part payment - full payment doesn't show installments
+        if (paymentTypeOption === 'part') {
+            document.querySelectorAll('[data-payment-id]').forEach(row => {
+                // Get percentage from data attribute or fallback to paymentPercentages object
+                const paymentId = row.getAttribute('data-payment-id');
+                const percentageFromData = parseFloat(row.getAttribute('data-percentage')) || 0;
+                const percentageFromObject = paymentPercentages[paymentId] || 0;
+                const percentage = percentageFromData > 0 ? percentageFromData : percentageFromObject;
+                
+                // Calculate new installment amount as percentage of totalWithGatewayFee
+                const newInstallmentAmount = (totalWithGatewayFee * percentage) / 100;
             
             const baseAmountSpan = row.querySelector('.payment-amount-base');
             const gatewayFeeSpan = row.querySelector('.payment-gateway-fee');
@@ -941,67 +1209,135 @@ function updatePaymentAmount() {
             if (gatewayFeeSpan) {
                 gatewayFeeSpan.style.display = 'none';
             }
-            if (totalWithFeeSpan) {
-                totalWithFeeSpan.style.display = 'none';
-            }
-        });
-        
-        // Update fallback payment row if exists
-        const fallbackRow = document.querySelector('.due-today:not([data-payment-id])');
-        if (fallbackRow) {
-            // For fallback, use initial percentage (10% typically)
-            const initialPercentage = (initialAmount / bookingTotalAmount) * 100;
-            const newInitialAmount = (totalWithGatewayFee * initialPercentage) / 100;
+                if (totalWithFeeSpan) {
+                    totalWithFeeSpan.style.display = 'none';
+                }
+            });
             
-            const baseAmountSpan = fallbackRow.querySelector('.payment-amount-base');
-            const gatewayFeeSpan = fallbackRow.querySelector('.payment-gateway-fee');
-            const totalWithFeeSpan = fallbackRow.querySelector('.payment-total-with-fee');
-            
-            if (baseAmountSpan) {
-                baseAmountSpan.textContent = '₹' + newInitialAmount.toFixed(2);
+            // Update fallback payment row if exists
+            const fallbackRow = document.querySelector('.due-today:not([data-payment-id])');
+            if (fallbackRow) {
+                // For fallback, use initial percentage (10% typically)
+                const initialPercentage = (initialAmount / bookingTotalAmount) * 100;
+                const newInitialAmount = (totalWithGatewayFee * initialPercentage) / 100;
+                
+                const baseAmountSpan = fallbackRow.querySelector('.payment-amount-base');
+                const gatewayFeeSpan = fallbackRow.querySelector('.payment-gateway-fee');
+                const totalWithFeeSpan = fallbackRow.querySelector('.payment-total-with-fee');
+                
+                if (baseAmountSpan) {
+                    baseAmountSpan.textContent = '₹' + newInitialAmount.toFixed(2);
+                }
+                if (gatewayFeeSpan) {
+                    gatewayFeeSpan.style.display = 'none';
+                }
+                if (totalWithFeeSpan) {
+                    totalWithFeeSpan.style.display = 'none';
+                }
+                
+                // Update payment button with new initial amount
+                paymentButtonAmount.textContent = newInitialAmount.toFixed(2);
+            } else {
+                // Update payment button with new initial amount (first payment)
+                const firstPaymentRow = document.querySelector('[data-payment-id]');
+                if (firstPaymentRow) {
+                    const firstPaymentId = firstPaymentRow.getAttribute('data-payment-id');
+                    const percentageFromData = parseFloat(firstPaymentRow.getAttribute('data-percentage')) || 0;
+                    const percentageFromObject = paymentPercentages[firstPaymentId] || 0;
+                    const firstPercentage = percentageFromData > 0 ? percentageFromData : percentageFromObject;
+                    const newFirstAmount = (totalWithGatewayFee * firstPercentage) / 100;
+                    paymentButtonAmount.textContent = newFirstAmount.toFixed(2);
+                }
             }
-            if (gatewayFeeSpan) {
-                gatewayFeeSpan.style.display = 'none';
-            }
-            if (totalWithFeeSpan) {
-                totalWithFeeSpan.style.display = 'none';
-            }
-            
-            // Update payment button with new initial amount
-            paymentButtonAmount.textContent = newInitialAmount.toFixed(2);
         } else {
-            // Update payment button with new initial amount (first payment)
-            const firstPaymentRow = document.querySelector('[data-payment-id]');
-            if (firstPaymentRow) {
-                const firstPaymentId = firstPaymentRow.getAttribute('data-payment-id');
-                const percentageFromData = parseFloat(firstPaymentRow.getAttribute('data-percentage')) || 0;
-                const percentageFromObject = paymentPercentages[firstPaymentId] || 0;
-                const firstPercentage = percentageFromData > 0 ? percentageFromData : percentageFromObject;
-                const newFirstAmount = (totalWithGatewayFee * firstPercentage) / 100;
-                paymentButtonAmount.textContent = newFirstAmount.toFixed(2);
+            // Full payment - update button with full payment amount
+            const fullAmount = parseFloat(document.getElementById('fullPaymentAmount').value);
+            const fullGatewayCharge = parseFloat(document.getElementById('fullPaymentGatewayCharge').value);
+            const fullPaymentTotal = fullAmount + (isOnlineMethod ? fullGatewayCharge : 0);
+            paymentButtonAmount.textContent = fullPaymentTotal.toFixed(2);
+            
+            // Update Full Payment Details section gateway charge visibility
+            const fullPaymentGatewayChargeItem = document.getElementById('fullPaymentGatewayChargeItem');
+            const fullPaymentTotalElement = document.getElementById('fullPaymentTotal');
+            
+            if (isOnlineMethod && fullGatewayCharge > 0) {
+                // Show gateway charge
+                if (fullPaymentGatewayChargeItem) {
+                    fullPaymentGatewayChargeItem.style.display = 'flex';
+                    document.getElementById('fullPaymentGatewayChargeAmount').textContent = '₹' + fullGatewayCharge.toFixed(2);
+                }
+                // Update total with gateway charge
+                if (fullPaymentTotalElement) {
+                    fullPaymentTotalElement.textContent = '₹' + fullPaymentTotal.toFixed(2);
+                }
+            } else {
+                // Hide gateway charge
+                if (fullPaymentGatewayChargeItem) {
+                    fullPaymentGatewayChargeItem.style.display = 'none';
+                }
+                // Update total without gateway charge
+                if (fullPaymentTotalElement) {
+                    fullPaymentTotalElement.textContent = '₹' + fullAmount.toFixed(2);
+                }
             }
         }
     } else {
         // Hide gateway fee
         gatewayFeeItem.style.display = 'none';
         
-        // Show base total without gateway fee
-        totalDueAmount.textContent = '₹' + baseTotal.toFixed(2);
-        paymentButtonAmount.textContent = initialAmount.toFixed(2);
+        // Show base total (with or without full payment discount)
+        totalDueAmount.textContent = '₹' + calculatedBaseTotal.toFixed(2);
         
-        // Reset payment schedule to show original amounts
-        document.querySelectorAll('[data-payment-id]').forEach(row => {
-            const baseAmount = parseFloat(row.dataset.baseAmount);
-            const baseAmountSpan = row.querySelector('.payment-amount-base');
-            if (baseAmountSpan && baseAmount > 0) {
-                baseAmountSpan.textContent = '₹' + baseAmount.toFixed(2);
+        // Update payment button amount based on payment type
+        if (paymentTypeOption === 'full') {
+            const fullAmount = parseFloat(document.getElementById('fullPaymentAmount').value);
+            const fullGatewayCharge = parseFloat(document.getElementById('fullPaymentGatewayCharge').value);
+            const fullPaymentTotal = fullAmount + (isOnlineMethod ? fullGatewayCharge : 0);
+            paymentButtonAmount.textContent = fullPaymentTotal.toFixed(2);
+            
+            // Update Full Payment Details section gateway charge visibility
+            const fullPaymentGatewayChargeItem = document.getElementById('fullPaymentGatewayChargeItem');
+            const fullPaymentTotalElement = document.getElementById('fullPaymentTotal');
+            
+            if (isOnlineMethod && fullGatewayCharge > 0) {
+                // Show gateway charge
+                if (fullPaymentGatewayChargeItem) {
+                    fullPaymentGatewayChargeItem.style.display = 'flex';
+                    document.getElementById('fullPaymentGatewayChargeAmount').textContent = '₹' + fullGatewayCharge.toFixed(2);
+                }
+                // Update total with gateway charge
+                if (fullPaymentTotalElement) {
+                    fullPaymentTotalElement.textContent = '₹' + fullPaymentTotal.toFixed(2);
+                }
+            } else {
+                // Hide gateway charge
+                if (fullPaymentGatewayChargeItem) {
+                    fullPaymentGatewayChargeItem.style.display = 'none';
+                }
+                // Update total without gateway charge
+                if (fullPaymentTotalElement) {
+                    fullPaymentTotalElement.textContent = '₹' + fullAmount.toFixed(2);
+                }
             }
-        });
+        } else {
+            paymentButtonAmount.textContent = initialAmount.toFixed(2);
+        }
         
-        // Hide gateway fees in payment schedule
-        document.querySelectorAll('.payment-gateway-fee, .payment-total-with-fee').forEach(el => {
-            el.style.display = 'none';
-        });
+        // Reset payment schedule to show original amounts (only for part payment)
+        if (paymentTypeOption === 'part') {
+            document.querySelectorAll('[data-payment-id]').forEach(row => {
+                const baseAmount = parseFloat(row.dataset.baseAmount);
+                const baseAmountSpan = row.querySelector('.payment-amount-base');
+                if (baseAmountSpan && baseAmount > 0) {
+                    baseAmountSpan.textContent = '₹' + baseAmount.toFixed(2);
+                }
+            });
+            
+            // Hide gateway fees in payment schedule
+            document.querySelectorAll('.payment-gateway-fee, .payment-total-with-fee').forEach(el => {
+                el.style.display = 'none';
+            });
+        }
     }
 }
 
@@ -1069,10 +1405,524 @@ function copyUpiId(upiId) {
     });
 }
 
+// Payment type selection (Full Payment vs Part Payment)
+function selectPaymentType(type) {
+    document.getElementById('paymentTypeOption').value = type;
+    document.getElementById('paymentTypeFull').checked = (type === 'full');
+    document.getElementById('paymentTypePart').checked = (type === 'part');
+    
+    // Discount code section shown for both full and part payment
+    const discountCodeSection = document.getElementById('discountCodeSection');
+    const discountActionLabel = document.getElementById('discountActionLabel');
+    const discountCodeInput = document.getElementById('discount_code_visible');
+    if (discountCodeSection) {
+        discountCodeSection.style.display = 'block';
+    }
+    // Configure discount button/label for both full and part (discount code input always enabled)
+    if (discountActionLabel) {
+        if (discountApplied) {
+            discountActionLabel.textContent = 'Remove';
+        } else {
+            discountActionLabel.textContent = 'Apply';
+        }
+    }
+    if (discountCodeInput) {
+        discountCodeInput.disabled = false;
+    }
+    
+    // Update payment breakdown section
+    const fullPaymentDiscountItem = document.getElementById('fullPaymentDiscountItem');
+    const totalDueAmount = document.getElementById('totalDueAmount');
+    
+    if (type === 'full') {
+        document.getElementById('fullPaymentSection').style.display = 'block';
+        document.getElementById('partPaymentSection').style.display = 'none';
+        
+        // Recalc full payment amounts with maximum discount cap (member + coupon + full payment <= max)
+        fullPaymentDiscountPercent = getEffectiveFullPaymentPercent();
+        fullPaymentDiscountAmount = (baseTotal * fullPaymentDiscountPercent) / 100;
+        const fullAmount = baseTotal - fullPaymentDiscountAmount;
+        const fullGatewayCharge = (fullAmount * 2.5) / 100;
+        document.getElementById('fullPaymentAmount').value = fullAmount;
+        document.getElementById('fullPaymentGatewayCharge').value = fullGatewayCharge;
+        const fullPaymentSectionBaseTotal = document.getElementById('fullPaymentSectionBaseTotal');
+        const fullPaymentMemberDiscountRow = document.getElementById('fullPaymentMemberDiscountRow');
+        const fullPaymentMemberDiscountPct = document.getElementById('fullPaymentMemberDiscountPct');
+        const fullPaymentMemberDiscountAmt = document.getElementById('fullPaymentMemberDiscountAmt');
+        const fullPaymentCouponDiscountRow = document.getElementById('fullPaymentCouponDiscountRow');
+        const fullPaymentCouponDiscountPct = document.getElementById('fullPaymentCouponDiscountPct');
+        const fullPaymentCouponDiscountAmt = document.getElementById('fullPaymentCouponDiscountAmt');
+        const fullPaymentDiscountRow = document.getElementById('fullPaymentDiscountRow');
+        const fullPaymentSectionDiscountAmt = document.getElementById('fullPaymentSectionDiscountAmt');
+        const fullPaymentAmountAfterRow = document.getElementById('fullPaymentAmountAfterRow');
+        const fullPaymentSectionAmountAfter = document.getElementById('fullPaymentSectionAmountAfter');
+        if (fullPaymentSectionBaseTotal) fullPaymentSectionBaseTotal.textContent = '₹' + baseTotal.toFixed(2);
+        const memberPctEl = document.getElementById('memberDiscountPercentLabel');
+        const memberAmtEl = document.getElementById('memberDiscountAmountValue');
+        const couponPctEl = document.getElementById('couponDiscountPercentLabel');
+        const couponAmtEl = document.getElementById('couponDiscountAmountValue');
+        if (fullPaymentMemberDiscountRow && memberPctEl && memberAmtEl) {
+            fullPaymentMemberDiscountRow.style.display = memberAmtEl.textContent !== '0.00' ? 'flex' : 'none';
+            if (fullPaymentMemberDiscountPct) fullPaymentMemberDiscountPct.textContent = memberPctEl.textContent;
+            if (fullPaymentMemberDiscountAmt) fullPaymentMemberDiscountAmt.textContent = '-₹' + (memberAmtEl.textContent || '0.00');
+        }
+        if (fullPaymentCouponDiscountRow && couponPctEl && couponAmtEl) {
+            fullPaymentCouponDiscountRow.style.display = couponAmtEl.textContent !== '0.00' ? 'flex' : 'none';
+            if (fullPaymentCouponDiscountPct) fullPaymentCouponDiscountPct.textContent = couponPctEl.textContent;
+            if (fullPaymentCouponDiscountAmt) fullPaymentCouponDiscountAmt.textContent = '-₹' + (couponAmtEl.textContent || '0.00');
+        }
+        if (fullPaymentDiscountPercent > 0 && fullPaymentDiscountRow) {
+            fullPaymentDiscountRow.style.display = 'flex';
+            if (fullPaymentSectionDiscountAmt) fullPaymentSectionDiscountAmt.textContent = '-₹' + fullPaymentDiscountAmount.toFixed(2);
+            if (fullPaymentAmountAfterRow) fullPaymentAmountAfterRow.style.display = 'flex';
+            if (fullPaymentSectionAmountAfter) fullPaymentSectionAmountAfter.textContent = '₹' + fullAmount.toFixed(2);
+        }
+        if (fullPaymentDiscountItem) {
+            fullPaymentDiscountItem.style.display = fullPaymentDiscountPercent > 0 ? 'flex' : 'none';
+            document.getElementById('fullPaymentDiscountAmount').textContent = '-₹' + fullPaymentDiscountAmount.toFixed(2);
+        }
+        
+        // Update total amount (baseTotal - discount)
+        const discountedTotal = baseTotal - fullPaymentDiscountAmount;
+        if (totalDueAmount) {
+            totalDueAmount.textContent = '₹' + discountedTotal.toFixed(2);
+        }
+        
+        document.getElementById('paymentAmount').value = fullAmount;
+        
+        // Update Full Payment Details gateway charge visibility based on current payment method
+        const isOnlineMethod = ['card', 'upi', 'netbanking'].includes(selectedMethod);
+        const fullPaymentGatewayChargeItem = document.getElementById('fullPaymentGatewayChargeItem');
+        const fullPaymentTotalElement = document.getElementById('fullPaymentTotal');
+        
+        if (isOnlineMethod && fullGatewayCharge > 0) {
+            // Show gateway charge
+            if (fullPaymentGatewayChargeItem) {
+                fullPaymentGatewayChargeItem.style.display = 'flex';
+                document.getElementById('fullPaymentGatewayChargeAmount').textContent = '₹' + fullGatewayCharge.toFixed(2);
+            }
+            // Update total with gateway charge
+            if (fullPaymentTotalElement) {
+                fullPaymentTotalElement.textContent = '₹' + (fullAmount + fullGatewayCharge).toFixed(2);
+            }
+        } else {
+            // Hide gateway charge
+            if (fullPaymentGatewayChargeItem) {
+                fullPaymentGatewayChargeItem.style.display = 'none';
+            }
+            // Update total without gateway charge
+            if (fullPaymentTotalElement) {
+                fullPaymentTotalElement.textContent = '₹' + fullAmount.toFixed(2);
+            }
+        }
+        
+        updatePaymentAmount();
+    } else {
+        document.getElementById('fullPaymentSection').style.display = 'none';
+        document.getElementById('partPaymentSection').style.display = 'block';
+        
+        // Hide full payment discount in breakdown
+        if (fullPaymentDiscountItem) {
+            fullPaymentDiscountItem.style.display = 'none';
+        }
+        
+        // Reset total amount to baseTotal (which may already include booking-level discount)
+        if (totalDueAmount) {
+            totalDueAmount.textContent = '₹' + baseTotal.toFixed(2);
+        }
+        
+        // Reset to initial amount for part payment
+        document.getElementById('paymentAmount').value = initialAmount;
+        updatePaymentAmount();
+    }
+}
+
 // Initialize payment amount display on page load
 document.addEventListener('DOMContentLoaded', function() {
+    // Default to full payment option on initial load; discount code works for both full and part payment
+    selectPaymentType('full');
     updatePaymentAmount();
 });
+
+// Unified handler for the discount button (apply vs remove)
+function handleDiscountAction() {
+    // If a discount is already applied, clicking should remove it; otherwise apply
+    if (discountApplied) {
+        removeDiscountCode();
+    } else {
+        applyDiscountCode();
+    }
+}
+
+// Apply discount code (full or part payment)
+function applyDiscountCode() {
+    const codeInput = document.getElementById('discount_code_visible');
+    if (!codeInput) {
+        return;
+    }
+    const code = codeInput.value.trim();
+    if (!code) {
+        alert('Please enter a discount code.');
+        return;
+    }
+    const messageEl = document.getElementById('discountMessage');
+
+    // Clear previous message
+    if (messageEl) {
+        messageEl.textContent = '';
+        messageEl.className = 'mt-2 small';
+    }
+
+    // Perform AJAX request to apply discount without page refresh
+    fetch("{{ route('payments.apply-discount') }}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': csrfToken,
+        },
+        body: JSON.stringify({
+            booking_id: bookingId,
+            discount_code: code,
+        }),
+    })
+    .then(async (response) => {
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data) {
+            const errorMessage = (data && data.message) ? data.message : 'Failed to apply discount. Please try again.';
+            if (messageEl) {
+                messageEl.textContent = errorMessage;
+                messageEl.className = 'mt-2 small text-danger';
+            }
+            return;
+        }
+
+        // Success - update UI with new totals and payment schedule
+        discountApplied = true;
+
+        if (messageEl) {
+            messageEl.textContent = data.message || 'Discount code applied successfully!';
+            messageEl.className = 'mt-2 small text-success';
+        }
+
+        // Update booking totals
+        if (typeof data.total_amount === 'number') {
+            baseTotal = data.total_amount;
+            bookingTotalAmount = data.total_amount;
+        }
+
+        // Update discount display rows (Member Discount / Coupon Code Discount)
+        const discountRowMember = document.getElementById('discountRowMember');
+        const discountRowCoupon = document.getElementById('discountRowCoupon');
+        const memberDiscountPercentLabel = document.getElementById('memberDiscountPercentLabel');
+        const memberDiscountAmountValue = document.getElementById('memberDiscountAmountValue');
+        const couponDiscountPercentLabel = document.getElementById('couponDiscountPercentLabel');
+        const couponDiscountAmountValue = document.getElementById('couponDiscountAmountValue');
+        const memberPct = typeof data.member_discount_percent === 'number' ? data.member_discount_percent : (data.member_discount_percent != null ? parseFloat(data.member_discount_percent) : 0);
+        const couponPct = typeof data.coupon_discount_percent === 'number' ? data.coupon_discount_percent : (data.coupon_discount_percent != null ? parseFloat(data.coupon_discount_percent) : 0);
+        const memberAmt = typeof data.member_discount_amount === 'number' ? data.member_discount_amount : (data.member_discount_amount != null ? parseFloat(data.member_discount_amount) : 0);
+        const couponAmt = typeof data.coupon_discount_amount === 'number' ? data.coupon_discount_amount : (typeof data.discount_amount === 'number' ? data.discount_amount : (data.coupon_discount_amount != null ? parseFloat(data.coupon_discount_amount) : 0));
+        if (discountRowMember) discountRowMember.style.display = memberPct > 0 ? 'flex' : 'none';
+        if (discountRowCoupon) discountRowCoupon.style.display = couponPct > 0 ? 'flex' : 'none';
+        if (memberDiscountPercentLabel) memberDiscountPercentLabel.textContent = memberPct.toFixed(2);
+        if (memberDiscountAmountValue) memberDiscountAmountValue.textContent = memberAmt.toFixed(2);
+        if (couponDiscountPercentLabel) couponDiscountPercentLabel.textContent = couponPct.toFixed(2);
+        if (couponDiscountAmountValue) couponDiscountAmountValue.textContent = couponAmt.toFixed(2);
+
+        // Update discount button to "Remove" (discount code input stays enabled)
+        const discountActionLabel = document.getElementById('discountActionLabel');
+        if (discountActionLabel) {
+            discountActionLabel.textContent = 'Remove';
+        }
+
+        // If full payment selected, update full payment section amounts (with max discount cap)
+        const paymentTypeOption = document.getElementById('paymentTypeOption').value;
+        if (paymentTypeOption === 'full') {
+            memberDiscountPercentCurrent = memberPct;
+            couponDiscountPercentCurrent = couponPct;
+            fullPaymentDiscountPercent = getEffectiveFullPaymentPercent();
+            fullPaymentDiscountAmount = (baseTotal * fullPaymentDiscountPercent) / 100;
+            const fullAmount = baseTotal - fullPaymentDiscountAmount;
+            const fullGatewayCharge = (fullAmount * 2.5) / 100;
+            document.getElementById('fullPaymentAmount').value = fullAmount;
+            document.getElementById('fullPaymentGatewayCharge').value = fullGatewayCharge;
+            const fullPaymentSectionBaseTotal = document.getElementById('fullPaymentSectionBaseTotal');
+            const fullPaymentDiscountRow = document.getElementById('fullPaymentDiscountRow');
+            const fullPaymentSectionDiscountAmt = document.getElementById('fullPaymentSectionDiscountAmt');
+            const fullPaymentAmountAfterRow = document.getElementById('fullPaymentAmountAfterRow');
+            const fullPaymentSectionAmountAfter = document.getElementById('fullPaymentSectionAmountAfter');
+            const fullPaymentTotalEl = document.getElementById('fullPaymentTotal');
+            if (fullPaymentSectionBaseTotal) fullPaymentSectionBaseTotal.textContent = '₹' + baseTotal.toFixed(2);
+            const fullPaymentDiscountPctLabelEl = document.getElementById('fullPaymentDiscountPctLabel');
+            if (fullPaymentDiscountPctLabelEl) fullPaymentDiscountPctLabelEl.textContent = fullPaymentDiscountPercent.toFixed(2);
+            const fullPaymentMemberDiscountRowApply = document.getElementById('fullPaymentMemberDiscountRow');
+            const fullPaymentMemberDiscountPctApply = document.getElementById('fullPaymentMemberDiscountPct');
+            const fullPaymentMemberDiscountAmtApply = document.getElementById('fullPaymentMemberDiscountAmt');
+            const fullPaymentCouponDiscountRowApply = document.getElementById('fullPaymentCouponDiscountRow');
+            const fullPaymentCouponDiscountPctApply = document.getElementById('fullPaymentCouponDiscountPct');
+            const fullPaymentCouponDiscountAmtApply = document.getElementById('fullPaymentCouponDiscountAmt');
+            if (fullPaymentMemberDiscountRowApply) {
+                fullPaymentMemberDiscountRowApply.style.display = memberPct > 0 ? 'flex' : 'none';
+                if (fullPaymentMemberDiscountPctApply) fullPaymentMemberDiscountPctApply.textContent = memberPct.toFixed(2);
+                if (fullPaymentMemberDiscountAmtApply) fullPaymentMemberDiscountAmtApply.textContent = '-₹' + memberAmt.toFixed(2);
+            }
+            if (fullPaymentCouponDiscountRowApply) {
+                fullPaymentCouponDiscountRowApply.style.display = couponPct > 0 ? 'flex' : 'none';
+                if (fullPaymentCouponDiscountPctApply) fullPaymentCouponDiscountPctApply.textContent = couponPct.toFixed(2);
+                if (fullPaymentCouponDiscountAmtApply) fullPaymentCouponDiscountAmtApply.textContent = '-₹' + couponAmt.toFixed(2);
+            }
+            if (fullPaymentDiscountPercent > 0 && fullPaymentDiscountRow) {
+                fullPaymentDiscountRow.style.display = 'flex';
+                if (fullPaymentSectionDiscountAmt) fullPaymentSectionDiscountAmt.textContent = '-₹' + fullPaymentDiscountAmount.toFixed(2);
+                if (fullPaymentAmountAfterRow) fullPaymentAmountAfterRow.style.display = 'flex';
+                if (fullPaymentSectionAmountAfter) fullPaymentSectionAmountAfter.textContent = '₹' + fullAmount.toFixed(2);
+            }
+            if (fullPaymentTotalEl) fullPaymentTotalEl.textContent = '₹' + fullAmount.toFixed(2);
+            document.getElementById('paymentAmount').value = fullAmount;
+            const isOnlineMethod = ['card', 'upi', 'netbanking'].includes(selectedMethod);
+            if (isOnlineMethod && fullGatewayCharge > 0) {
+                document.getElementById('fullPaymentGatewayChargeItem').style.display = 'flex';
+                document.getElementById('fullPaymentGatewayChargeAmount').textContent = '₹' + fullGatewayCharge.toFixed(2);
+                if (fullPaymentTotalEl) fullPaymentTotalEl.textContent = '₹' + (fullAmount + fullGatewayCharge).toFixed(2);
+            } else {
+                const gwi = document.getElementById('fullPaymentGatewayChargeItem');
+                if (gwi) gwi.style.display = 'none';
+            }
+            updatePaymentAmount();
+        }
+
+        // Update part-payment schedule amounts using returned payments
+        if (Array.isArray(data.payments)) {
+            // Map for quick lookup
+            const paymentAmountMap = {};
+            data.payments.forEach(p => {
+                if (p && typeof p.id !== 'undefined' && typeof p.amount === 'number') {
+                    paymentAmountMap[String(p.id)] = p.amount;
+                }
+            });
+
+            // Update rows
+            const rows = document.querySelectorAll('[data-payment-id]');
+            let firstPaymentNewAmount = null;
+            rows.forEach((row, index) => {
+                const paymentId = row.getAttribute('data-payment-id');
+                const newAmount = paymentAmountMap[paymentId];
+                if (typeof newAmount === 'number') {
+                    const baseAmountSpan = row.querySelector('.payment-amount-base');
+                    row.dataset.baseAmount = newAmount.toFixed(2);
+                    if (baseAmountSpan) {
+                        baseAmountSpan.textContent = '₹' + newAmount.toFixed(2);
+                    }
+                    if (index === 0) {
+                        firstPaymentNewAmount = newAmount;
+                    }
+                }
+            });
+
+            // Update initial amount (used for button/hidden input)
+            if (firstPaymentNewAmount !== null) {
+                initialAmount = firstPaymentNewAmount;
+            }
+        }
+
+        // Refresh current payment type display (full or part)
+        selectPaymentType(document.getElementById('paymentTypeOption').value);
+        updatePaymentAmount();
+    })
+    .catch(() => {
+        if (messageEl) {
+            messageEl.textContent = 'Failed to apply discount. Please try again.';
+            messageEl.className = 'mt-2 small text-danger';
+        }
+    });
+}
+
+// Remove discount code (full or part payment)
+function removeDiscountCode() {
+    const messageEl = document.getElementById('discountMessage');
+
+    // Clear previous message
+    if (messageEl) {
+        messageEl.textContent = '';
+        messageEl.className = 'mt-2 small';
+    }
+
+    // Perform AJAX request to remove discount without page refresh
+    fetch("{{ route('payments.remove-discount') }}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': csrfToken,
+        },
+        body: JSON.stringify({
+            booking_id: bookingId,
+        }),
+    })
+    .then(async (response) => {
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data) {
+            const errorMessage = (data && data.message) ? data.message : 'Failed to remove discount. Please try again.';
+            if (messageEl) {
+                messageEl.textContent = errorMessage;
+                messageEl.className = 'mt-2 small text-danger';
+            }
+            return;
+        }
+
+        // Success - coupon removed; member discount may still be present
+        const hasCouponLeft = (data.coupon_discount_percent != null && parseFloat(data.coupon_discount_percent) > 0);
+        discountApplied = hasCouponLeft;
+
+        if (messageEl) {
+            messageEl.textContent = data.message || 'Discount removed successfully.';
+            messageEl.className = 'mt-2 small text-success';
+        }
+
+        // Update booking totals
+        if (typeof data.total_amount === 'number') {
+            baseTotal = data.total_amount;
+            bookingTotalAmount = data.total_amount;
+        }
+
+        // Update discount display rows from API (Member / Coupon)
+        const discountRowMemberRemove = document.getElementById('discountRowMember');
+        const discountRowCouponRemove = document.getElementById('discountRowCoupon');
+        const memberDiscountPercentLabelRemove = document.getElementById('memberDiscountPercentLabel');
+        const memberDiscountAmountValueRemove = document.getElementById('memberDiscountAmountValue');
+        const couponDiscountPercentLabelRemove = document.getElementById('couponDiscountPercentLabel');
+        const couponDiscountAmountValueRemove = document.getElementById('couponDiscountAmountValue');
+        const memberPctR = (data.member_discount_percent != null ? parseFloat(data.member_discount_percent) : 0);
+        const couponPctR = (data.coupon_discount_percent != null ? parseFloat(data.coupon_discount_percent) : 0);
+        const originalTotalForRemove = (memberPctR > 0 && data.total_amount) ? data.total_amount / (1 - (memberPctR / 100)) : 0;
+        const memberAmtR = memberPctR > 0 && originalTotalForRemove > 0 ? originalTotalForRemove * (memberPctR / 100) : 0;
+        const couponAmtR = 0;
+        if (discountRowMemberRemove) discountRowMemberRemove.style.display = memberPctR > 0 ? 'flex' : 'none';
+        if (discountRowCouponRemove) discountRowCouponRemove.style.display = couponPctR > 0 ? 'flex' : 'none';
+        if (memberDiscountPercentLabelRemove) memberDiscountPercentLabelRemove.textContent = memberPctR.toFixed(2);
+        if (memberDiscountAmountValueRemove) memberDiscountAmountValueRemove.textContent = memberAmtR.toFixed(2);
+        if (couponDiscountPercentLabelRemove) couponDiscountPercentLabelRemove.textContent = couponPctR.toFixed(2);
+        if (couponDiscountAmountValueRemove) couponDiscountAmountValueRemove.textContent = couponAmtR.toFixed(2);
+
+        const fullPaymentMemberDiscountRowRemove = document.getElementById('fullPaymentMemberDiscountRow');
+        const fullPaymentCouponDiscountRowRemove = document.getElementById('fullPaymentCouponDiscountRow');
+        if (fullPaymentMemberDiscountRowRemove) {
+            fullPaymentMemberDiscountRowRemove.style.display = memberPctR > 0 ? 'flex' : 'none';
+            const fpMemberPct = document.getElementById('fullPaymentMemberDiscountPct');
+            const fpMemberAmt = document.getElementById('fullPaymentMemberDiscountAmt');
+            if (fpMemberPct) fpMemberPct.textContent = memberPctR.toFixed(2);
+            if (fpMemberAmt) fpMemberAmt.textContent = '-₹' + memberAmtR.toFixed(2);
+        }
+        if (fullPaymentCouponDiscountRowRemove) {
+            fullPaymentCouponDiscountRowRemove.style.display = couponPctR > 0 ? 'flex' : 'none';
+            const fpCouponPct = document.getElementById('fullPaymentCouponDiscountPct');
+            const fpCouponAmt = document.getElementById('fullPaymentCouponDiscountAmt');
+            if (fpCouponPct) fpCouponPct.textContent = couponPctR.toFixed(2);
+            if (fpCouponAmt) fpCouponAmt.textContent = '-₹' + couponAmtR.toFixed(2);
+        }
+
+        // Update discount button to "Apply" when no coupon, "Remove" when coupon still applied
+        const discountActionLabel = document.getElementById('discountActionLabel');
+        if (discountActionLabel) {
+            discountActionLabel.textContent = hasCouponLeft ? 'Remove' : 'Apply';
+        }
+
+        // Clear the discount code input when coupon is removed
+        const discountCodeInputToClear = document.getElementById('discount_code_visible');
+        if (discountCodeInputToClear) {
+            discountCodeInputToClear.value = '';
+        }
+        const discountCodeHidden = document.getElementById('discount_code_hidden');
+        if (discountCodeHidden) {
+            discountCodeHidden.value = '';
+        }
+
+        // Update part-payment schedule amounts using returned payments
+        if (Array.isArray(data.payments)) {
+            const paymentAmountMap = {};
+            data.payments.forEach(p => {
+                if (p && typeof p.id !== 'undefined' && typeof p.amount === 'number') {
+                    paymentAmountMap[String(p.id)] = p.amount;
+                }
+            });
+
+            const rows = document.querySelectorAll('[data-payment-id]');
+            let firstPaymentNewAmount = null;
+            rows.forEach((row, index) => {
+                const paymentId = row.getAttribute('data-payment-id');
+                const newAmount = paymentAmountMap[paymentId];
+                if (typeof newAmount === 'number') {
+                    const baseAmountSpan = row.querySelector('.payment-amount-base');
+                    row.dataset.baseAmount = newAmount.toFixed(2);
+                    if (baseAmountSpan) {
+                        baseAmountSpan.textContent = '₹' + newAmount.toFixed(2);
+                    }
+                    if (index === 0) {
+                        firstPaymentNewAmount = newAmount;
+                    }
+                }
+            });
+
+            if (firstPaymentNewAmount !== null) {
+                initialAmount = firstPaymentNewAmount;
+            }
+        }
+
+        // If full payment selected, update full payment section amounts (with max discount cap)
+        const paymentTypeOptionRemove = document.getElementById('paymentTypeOption').value;
+        if (paymentTypeOptionRemove === 'full') {
+            memberDiscountPercentCurrent = memberPctR;
+            couponDiscountPercentCurrent = couponPctR;
+            fullPaymentDiscountPercent = getEffectiveFullPaymentPercent();
+            fullPaymentDiscountAmount = (baseTotal * fullPaymentDiscountPercent) / 100;
+            const fullAmount = baseTotal - fullPaymentDiscountAmount;
+            const fullGatewayCharge = (fullAmount * 2.5) / 100;
+            document.getElementById('fullPaymentAmount').value = fullAmount;
+            document.getElementById('fullPaymentGatewayCharge').value = fullGatewayCharge;
+            const fullPaymentSectionBaseTotal = document.getElementById('fullPaymentSectionBaseTotal');
+            const fullPaymentDiscountRow = document.getElementById('fullPaymentDiscountRow');
+            const fullPaymentSectionDiscountAmt = document.getElementById('fullPaymentSectionDiscountAmt');
+            const fullPaymentAmountAfterRow = document.getElementById('fullPaymentAmountAfterRow');
+            const fullPaymentSectionAmountAfter = document.getElementById('fullPaymentSectionAmountAfter');
+            const fullPaymentTotalEl = document.getElementById('fullPaymentTotal');
+            if (fullPaymentSectionBaseTotal) fullPaymentSectionBaseTotal.textContent = '₹' + baseTotal.toFixed(2);
+            const fullPaymentDiscountPctLabelRemove = document.getElementById('fullPaymentDiscountPctLabel');
+            if (fullPaymentDiscountPctLabelRemove) fullPaymentDiscountPctLabelRemove.textContent = fullPaymentDiscountPercent.toFixed(2);
+            if (fullPaymentDiscountPercent > 0 && fullPaymentDiscountRow) {
+                fullPaymentDiscountRow.style.display = 'flex';
+                if (fullPaymentSectionDiscountAmt) fullPaymentSectionDiscountAmt.textContent = '-₹' + fullPaymentDiscountAmount.toFixed(2);
+                if (fullPaymentAmountAfterRow) fullPaymentAmountAfterRow.style.display = 'flex';
+                if (fullPaymentSectionAmountAfter) fullPaymentSectionAmountAfter.textContent = '₹' + fullAmount.toFixed(2);
+            }
+            if (fullPaymentTotalEl) fullPaymentTotalEl.textContent = '₹' + fullAmount.toFixed(2);
+            document.getElementById('paymentAmount').value = fullAmount;
+            const isOnlineMethod = ['card', 'upi', 'netbanking'].includes(selectedMethod);
+            if (isOnlineMethod && fullGatewayCharge > 0) {
+                document.getElementById('fullPaymentGatewayChargeItem').style.display = 'flex';
+                document.getElementById('fullPaymentGatewayChargeAmount').textContent = '₹' + fullGatewayCharge.toFixed(2);
+                if (fullPaymentTotalEl) fullPaymentTotalEl.textContent = '₹' + (fullAmount + fullGatewayCharge).toFixed(2);
+            } else {
+                const gwi = document.getElementById('fullPaymentGatewayChargeItem');
+                if (gwi) gwi.style.display = 'none';
+            }
+            updatePaymentAmount();
+        }
+
+        // Refresh current payment type display
+        selectPaymentType(document.getElementById('paymentTypeOption').value);
+        updatePaymentAmount();
+    })
+    .catch(() => {
+        if (messageEl) {
+            messageEl.textContent = 'Failed to remove discount. Please try again.';
+            messageEl.className = 'mt-2 small text-danger';
+        }
+    });
+}
 </script>
 @endpush
 @endsection

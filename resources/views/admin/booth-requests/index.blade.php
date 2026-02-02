@@ -27,6 +27,32 @@
                     </thead>
                     <tbody>
                         @foreach($requests as $request)
+                        @php
+                            $booking = $request->booking;
+                            $bookingLabel = $booking
+                                ? ($booking->booking_number ?? ('Booking #'.$booking->id))
+                                : null;
+                            $paymentsForButton = [];
+                            if ($booking && $booking->payments && $booking->payments->count()) {
+                                foreach ($booking->payments as $payment) {
+                                    $statusLabel = ucfirst($payment->status ?? 'pending');
+                                    if ($payment->status === 'pending' && $payment->approval_status === 'pending') {
+                                        $statusLabel = 'Pending (waiting for approval)';
+                                    } elseif ($payment->status === 'completed' && $payment->approval_status === 'pending') {
+                                        $statusLabel = 'Completed (awaiting admin approval)';
+                                    } elseif ($payment->status === 'completed' && $payment->approval_status === 'approved') {
+                                        $statusLabel = 'Completed & approved';
+                                    } elseif ($payment->approval_status === 'rejected') {
+                                        $statusLabel = 'Rejected';
+                                    }
+                                    $paymentsForButton[] = [
+                                        'label' => $payment->payment_number ?? ('Payment #'.$payment->id),
+                                        'amount' => number_format($payment->amount, 2, '.', ''),
+                                        'status' => $statusLabel,
+                                    ];
+                                }
+                            }
+                        @endphp
                         <tr>
                             <td>
                                 <span class="badge bg-{{ $request->request_type === 'merge' ? 'primary' : ($request->request_type === 'split' ? 'warning' : 'success') }}">
@@ -54,6 +80,10 @@
                                 </button>
                                 <button class="btn btn-sm btn-danger"
                                         data-reject-url="{{ url('admin/booth-requests/'.$request->id.'/reject') }}"
+                                        data-request-id="{{ $request->id }}"
+                                        data-paid-amount="{{ $booking ? number_format($booking->paid_amount, 2, '.', '') : '0.00' }}"
+                                        data-booking-label="{{ $bookingLabel }}"
+                                        data-payments='@json($paymentsForButton)'
                                         onclick="rejectRequest(this)"
                                         title="Reject">
                                     <i class="bi bi-x-circle"></i>
@@ -80,6 +110,7 @@
             <form id="rejectForm" method="POST">
                 @csrf
                 <div class="modal-body">
+                    <div id="rejectPaymentInfo" class="alert alert-warning py-2 px-3 small d-none"></div>
                     <div class="mb-3">
                         <label class="form-label">Rejection Reason *</label>
                         <textarea class="form-control" name="rejection_reason" rows="3" required></textarea>
@@ -136,6 +167,47 @@ function approveRequest(btn) {
 function rejectRequest(btn) {
     const form = document.getElementById('rejectForm');
     form.action = btn.getAttribute('data-reject-url');
+    
+    const paymentInfoEl = document.getElementById('rejectPaymentInfo');
+    const paidAmountRaw = btn.getAttribute('data-paid-amount') || '0';
+    const paidAmount = parseFloat(paidAmountRaw);
+    const bookingLabel = btn.getAttribute('data-booking-label') || 'this booking';
+    const paymentsJson = btn.getAttribute('data-payments') || '[]';
+    let payments = [];
+    try {
+        payments = JSON.parse(paymentsJson);
+    } catch (e) {
+        payments = [];
+    }
+
+    if (paymentInfoEl) {
+        if (!isNaN(paidAmount) && paidAmount > 0) {
+            paymentInfoEl.classList.remove('d-none');
+            let html = '';
+            html += '<p class="mb-2">Booking <strong>' + bookingLabel + '</strong> has already received payments totalling <strong>₹' +
+                paidAmount.toFixed(2) + '</strong>.</p>';
+
+            if (Array.isArray(payments) && payments.length > 0) {
+                html += '<table class="table table-sm table-bordered mb-2">';
+                html += '<thead><tr><th>Payment</th><th>Amount</th><th>Status</th></tr></thead><tbody>';
+                payments.forEach(function (p) {
+                    html += '<tr>';
+                    html += '<td>' + (p.label || '') + '</td>';
+                    html += '<td>₹' + (parseFloat(p.amount || 0).toFixed(2)) + '</td>';
+                    html += '<td>' + (p.status || '') + '</td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+            }
+
+            html += '<p class="mb-0 mt-2">Please ensure any refund or follow-up is handled before confirming rejection.</p>';
+            paymentInfoEl.innerHTML = html;
+        } else {
+            paymentInfoEl.classList.add('d-none');
+            paymentInfoEl.innerHTML = '';
+        }
+    }
+
     new bootstrap.Modal(document.getElementById('rejectModal')).show();
 }
 

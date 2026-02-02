@@ -16,7 +16,7 @@ class Exhibition extends Model
         'side_1_open_percent', 'side_2_open_percent', 'side_3_open_percent', 'side_4_open_percent',
         'premium_price', 'standard_price', 'economy_price',
         'addon_services_cutoff_date', 'document_upload_deadline',
-        'initial_payment_percent', 'exhibition_manual_pdf', 'status'
+        'initial_payment_percent', 'full_payment_discount_percent', 'member_discount_percent', 'maximum_discount_apply_percent', 'exhibition_manual_pdf', 'status'
     ];
 
     protected $casts = [

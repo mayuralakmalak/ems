@@ -33,10 +33,19 @@ class ProfileUpdateRequest extends FormRequest
             'state' => ['nullable', 'string', 'max:100'],
             'country' => ['nullable', 'string', 'max:100'],
             'pincode' => ['nullable', 'string', 'max:20'],
-            'gst_number' => ['nullable', 'string', 'max:50'],
+            'gst_number' => [
+                'nullable',
+                'string',
+                'max:15',
+                // Indian GSTIN format
+                'regex:/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/',
+            ],
+            'has_gst_number' => ['nullable', 'boolean'],
+            'gst_certificate' => ['nullable', 'file', 'max:5120'],
             'pan_number' => ['nullable', 'string', 'max:50'],
             'website' => ['nullable', 'url', 'max:255'],
             'company_description' => ['nullable', 'string', 'max:2000'],
+            'is_member' => ['required', 'in:yes,no'],
         ];
     }
 }

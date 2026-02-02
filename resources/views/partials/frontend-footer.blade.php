@@ -55,8 +55,12 @@
                     <li><a href="#">Faqs</a></li>
                     <li><a href="#">Help</a></li>
                     <li><a href="#">Message us</a></li>
-                    <li><a href="#">Terms & Conditions</a></li>
-                    <li><a href="#">Privacy Policy</a></li>
+                    @php
+                        $cmsFooterPages = \App\Models\CmsPage::active()->showInFooter()->orderBy('title')->get();
+                    @endphp
+                    @foreach($cmsFooterPages as $cmsPage)
+                        <li><a href="{{ route('cms-page', $cmsPage->slug) }}">{{ $cmsPage->title }}</a></li>
+                    @endforeach
                 </ul>
             </div>
             

@@ -153,7 +153,6 @@
         .nav-link.active,
         body .nav-link.active { 
             font-weight: 700 !important; 
-            border-bottom: 2px solid #333 !important; 
             color: var(--primary-purple) !important;
         }
         .nav-link:hover,

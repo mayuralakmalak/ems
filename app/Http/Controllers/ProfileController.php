@@ -43,6 +43,12 @@ class ProfileController extends Controller
             $user->photo = $photoPath;
         }
         
+        // Handle GST certificate upload (optional)
+        if ($request->hasFile('gst_certificate')) {
+            $gstCertificatePath = $request->file('gst_certificate')->store('gst-certificates', 'public');
+            $user->gst_certificate = $gstCertificatePath;
+        }
+        
         // Update other fields
         $data = $request->only([
             'name',
@@ -55,10 +61,12 @@ class ProfileController extends Controller
             'country',
             'pincode',
             'gst_number',
+            'has_gst_number',
             'pan_number',
             'website',
             'company_description',
         ]);
+        $data['is_member'] = $request->input('is_member', 'no') === 'yes';
 
         // If country/state come as IDs (from dropdown), convert to names before saving
         if (!empty($data['country']) && ctype_digit((string) $data['country'])) {

@@ -17,7 +17,7 @@
         background: white !important;
     }
     body footer {
-        background-color: #6B3FA0 !important;
+        background-color: #6B3FA0;
     }
     
     main {
@@ -271,7 +271,7 @@
         </div>
     @endif
     
-    <form method="POST" action="{{ route('register') }}" id="registerForm" novalidate>
+    <form method="POST" action="{{ route('register') }}" id="registerForm" novalidate enctype="multipart/form-data">
         @csrf
         
         <!-- Company Details Section -->
@@ -647,6 +647,131 @@
             </div>
         </div>
         
+        <!-- Is Member -->
+        <div class="form-section">
+            <h3 class="section-title">Is Member</h3>
+            <div class="form-group">
+                <label class="form-label d-block">Are you a member?</label>
+                <div style="display: flex; gap: 20px;">
+                    <div class="form-check">
+                        <input
+                            class="form-check-input"
+                            type="radio"
+                            name="is_member"
+                            id="is_member_no"
+                            value="no"
+                            {{ old('is_member', 'no') === 'no' ? 'checked' : '' }}
+                        >
+                        <label class="form-check-label" for="is_member_no">
+                            No
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input
+                            class="form-check-input"
+                            type="radio"
+                            name="is_member"
+                            id="is_member_yes"
+                            value="yes"
+                            {{ old('is_member', 'no') === 'yes' ? 'checked' : '' }}
+                        >
+                        <label class="form-check-label" for="is_member_yes">
+                            Yes
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tax Information -->
+        <div class="form-section">
+            <h3 class="section-title">Tax Information</h3>
+            
+            <div class="form-group">
+                <label class="form-label d-block">Do you have a GST number?</label>
+                <div style="display: flex; gap: 20px;">
+                    <div class="form-check">
+                        <input
+                            class="form-check-input"
+                            type="radio"
+                            name="has_gst_number"
+                            id="has_gst_number_yes"
+                            value="yes"
+                            {{ old('has_gst_number', 'no') === 'yes' ? 'checked' : '' }}
+                        >
+                        <label class="form-check-label" for="has_gst_number_yes">
+                            Yes
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input
+                            class="form-check-input"
+                            type="radio"
+                            name="has_gst_number"
+                            id="has_gst_number_no"
+                            value="no"
+                            {{ old('has_gst_number', 'no') === 'no' ? 'checked' : '' }}
+                        >
+                        <label class="form-check-label" for="has_gst_number_no">
+                            No
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="gstDetailsSection" style="{{ old('has_gst_number', 'no') === 'yes' ? '' : 'display:none;' }}">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="gst_number" class="form-label">GST Number (optional)</label>
+                            <input
+                                type="text"
+                                class="form-control @error('gst_number') is-invalid @enderror"
+                                id="gst_number"
+                                name="gst_number"
+                                value="{{ old('gst_number') }}"
+                                placeholder="GST number">
+                            @error('gst_number')
+                                <div class="text-danger">{{ $message }}</div>
+                            @enderror
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="gst_certificate" class="form-label">GST Certificate (optional)</label>
+                            <input
+                                type="file"
+                                class="form-control @error('gst_certificate') is-invalid @enderror"
+                                id="gst_certificate"
+                                name="gst_certificate">
+                            @error('gst_certificate')
+                                <div class="text-danger">{{ $message }}</div>
+                            @enderror
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Privacy Policy -->
+        <div class="form-group">
+            <div class="form-check">
+                <input 
+                    class="form-check-input @error('privacy_policy') is-invalid @enderror" 
+                    type="checkbox" 
+                    id="privacy_policy" 
+                    name="privacy_policy" 
+                    value="1"
+                    required>
+                <label class="form-check-label" for="privacy_policy">
+                    I Agree To The <a href="{{ route('privacy-policy') }}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();" style="color: #c7d2fe; text-decoration: underline;">Privacy & Policy</a>
+                </label>
+            </div>
+            @error('privacy_policy')
+                <div class="text-danger">{{ $message }}</div>
+            @enderror
+        </div>
+        
         <!-- Terms & Conditions -->
         <div class="form-group">
             <div class="form-check">
@@ -655,12 +780,51 @@
                     type="checkbox" 
                     id="terms" 
                     name="terms" 
+                    value="1"
                     required>
                 <label class="form-check-label" for="terms">
-                    I agree to the terms & conditions
+                    I Agree To The <a href="{{ route('terms-and-conditions') }}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();" style="color: #c7d2fe; text-decoration: underline;">Terms and Conditions</a>
                 </label>
             </div>
             @error('terms')
+                <div class="text-danger">{{ $message }}</div>
+            @enderror
+        </div>
+        
+        <!-- Rules for Exhibitors -->
+        <div class="form-group">
+            <div class="form-check">
+                <input 
+                    class="form-check-input @error('exhibitor_rules') is-invalid @enderror" 
+                    type="checkbox" 
+                    id="exhibitor_rules" 
+                    name="exhibitor_rules" 
+                    value="1"
+                    required>
+                <label class="form-check-label" for="exhibitor_rules">
+                    I Agree To The <a href="{{ route('rules-for-exhibitors') }}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();" style="color: #c7d2fe; text-decoration: underline;">Important Rules for Exhibitors</a>
+                </label>
+            </div>
+            @error('exhibitor_rules')
+                <div class="text-danger">{{ $message }}</div>
+            @enderror
+        </div>
+        
+        <!-- Refund and Cancellation Policy -->
+        <div class="form-group">
+            <div class="form-check">
+                <input 
+                    class="form-check-input @error('refund_cancellation_policy') is-invalid @enderror" 
+                    type="checkbox" 
+                    id="refund_cancellation_policy" 
+                    name="refund_cancellation_policy" 
+                    value="1"
+                    required>
+                <label class="form-check-label" for="refund_cancellation_policy">
+                    I Agree To The <a href="{{ route('refund-and-cancellation-policy') }}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();" style="color: #c7d2fe; text-decoration: underline;">Refund and cancellation policy</a>
+                </label>
+            </div>
+            @error('refund_cancellation_policy')
                 <div class="text-danger">{{ $message }}</div>
             @enderror
         </div>
@@ -1050,6 +1214,34 @@ $(function() {
         }
     });
 
+    // GST yes/no toggle (fields remain optional)
+    function toggleGstDetails() {
+        const hasGst = document.querySelector('input[name="has_gst_number"]:checked');
+        const details = document.getElementById('gstDetailsSection');
+        if (!details) return;
+        if (hasGst && hasGst.value === 'yes') {
+            details.style.display = '';
+        } else {
+            details.style.display = 'none';
+        }
+    }
+    
+    document.querySelectorAll('input[name=\"has_gst_number\"]').forEach(function(radio) {
+        radio.addEventListener('change', toggleGstDetails);
+    });
+    toggleGstDetails();
+
+    // jQuery Validate custom rule for GST number (Indian GSTIN)
+    if (typeof $.validator !== 'undefined') {
+        $.validator.addMethod('validGst', function(value, element) {
+            if (!value) {
+                return true; // optional
+            }
+            const re = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i;
+            return re.test(value);
+        }, 'Please enter a valid GST number');
+    }
+
     $('#registerForm').validate({
         ignore: [],
         errorElement: 'div',
@@ -1069,7 +1261,12 @@ $(function() {
             state: { required: true },
             zip_code: { required: true },
             industry_category: { required: true },
-            terms: { required: true }
+            is_member: { required: true },
+            terms: { required: true },
+            privacy_policy: { required: true },
+            refund_cancellation_policy: { required: true },
+            exhibitor_rules: { required: true },
+            gst_number: { validGst: true }
         },
         messages: {
             company_name: { required: 'Company name is required' },
@@ -1085,7 +1282,12 @@ $(function() {
             state: { required: 'Select a state' },
             zip_code: { required: 'Zip code is required' },
             industry_category: { required: 'Select an industry category' },
-            terms: { required: 'You must agree to the terms' }
+            is_member: { required: 'Please select Yes or No' },
+            gst_number: { validGst: 'Please enter a valid GST number' },
+            terms: { required: 'You must agree to the terms' },
+            privacy_policy: { required: 'You must agree to the Privacy Policy' },
+            refund_cancellation_policy: { required: 'You must agree to the Refund and Cancellation Policy' },
+            exhibitor_rules: { required: 'You must agree to the Rules for Exhibitors' }
         },
         highlight: function(element) {
             $(element).addClass('is-invalid');

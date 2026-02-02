@@ -1,0 +1,6 @@
+title,code,type,amount,status,email
+Early Bird Discount,EARLY2026,percentage,10,active,user@example.com
+Fixed Discount,FIXED500,fixed,500,active,user@example.com
+Summer Sale,SUMMER25,percentage,25,active,vip@example.com
+VIP Discount,VIP1000,fixed,1000,active,vip@example.com
+New Year Offer,NY2026,percentage,15,active,user@example.com

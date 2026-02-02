@@ -286,10 +286,79 @@
             </div>
         </div>
         
+        <!-- Is Member -->
+        <div class="profile-card">
+            <h5 class="section-title">Is Member</h5>
+            <div class="form-group">
+                <label class="form-label d-block">Are you a member?</label>
+                <div class="d-flex" style="gap: 20px;">
+                    <div class="form-check">
+                        <input
+                            class="form-check-input"
+                            type="radio"
+                            name="is_member"
+                            id="profile_is_member_yes"
+                            value="yes"
+                            {{ old('is_member', auth()->user()->is_member ? 'yes' : 'no') === 'yes' ? 'checked' : '' }}
+                        >
+                        <label class="form-check-label" for="profile_is_member_yes">
+                            Yes
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input
+                            class="form-check-input"
+                            type="radio"
+                            name="is_member"
+                            id="profile_is_member_no"
+                            value="no"
+                            {{ old('is_member', auth()->user()->is_member ? 'yes' : 'no') === 'no' ? 'checked' : '' }}
+                        >
+                        <label class="form-check-label" for="profile_is_member_no">
+                            No
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <!-- Tax Information -->
         <div class="profile-card">
             <h5 class="section-title">Tax Information</h5>
             
+            <div class="form-group">
+                <label class="form-label d-block">Do you have a GST number?</label>
+                <div class="d-flex" style="gap: 20px;">
+                    <div class="form-check">
+                        <input
+                            class="form-check-input"
+                            type="radio"
+                            name="has_gst_number"
+                            id="profile_has_gst_number_yes"
+                            value="1"
+                            {{ old('has_gst_number', (int) (auth()->user()->has_gst_number ?? (auth()->user()->gst_number ? 1 : 0))) == 1 ? 'checked' : '' }}
+                        >
+                        <label class="form-check-label" for="profile_has_gst_number_yes">
+                            Yes
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input
+                            class="form-check-input"
+                            type="radio"
+                            name="has_gst_number"
+                            id="profile_has_gst_number_no"
+                            value="0"
+                            {{ old('has_gst_number', (int) (auth()->user()->has_gst_number ?? (auth()->user()->gst_number ? 1 : 0))) == 0 ? 'checked' : '' }}
+                        >
+                        <label class="form-check-label" for="profile_has_gst_number_no">
+                            No
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="profileGstDetails" style="{{ old('has_gst_number', (int) (auth()->user()->has_gst_number ?? (auth()->user()->gst_number ? 1 : 0))) == 1 ? '' : 'display:none;' }}">
             <div class="row">
                 <div class="col-md-6">
                     <div class="form-group">
@@ -309,6 +378,26 @@
                         @enderror
                     </div>
                 </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">GST Certificate (optional)</label>
+                        <input type="file" name="gst_certificate" class="form-control">
+                        @if(auth()->user()->gst_certificate)
+                            <small class="d-block mt-2">
+                                <a href="{{ asset('storage/' . auth()->user()->gst_certificate) }}" target="_blank">
+                                    View uploaded GST certificate
+                                </a>
+                            </small>
+                        @endif
+                        @error('gst_certificate')
+                            <small class="text-danger">{{ $message }}</small>
+                        @enderror
+                    </div>
+                </div>
+            </div>
             </div>
         </div>
         
@@ -336,6 +425,23 @@
             reader.readAsDataURL(input.files[0]);
         }
     }
+    
+    // Toggle GST details visibility on profile
+    function toggleProfileGstDetails() {
+        const selected = document.querySelector('input[name="has_gst_number"]:checked');
+        const details = document.getElementById('profileGstDetails');
+        if (!details) return;
+        if (selected && selected.value === '1') {
+            details.style.display = '';
+        } else {
+            details.style.display = 'none';
+        }
+    }
+    
+    document.querySelectorAll('input[name="has_gst_number"]').forEach(function(radio) {
+        radio.addEventListener('change', toggleProfileGstDetails);
+    });
+    toggleProfileGstDetails();
 </script>
 @endpush
 @endsection

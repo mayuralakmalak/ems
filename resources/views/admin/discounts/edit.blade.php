@@ -14,6 +14,21 @@
             @method('PUT')
             <div class="row">
                 <div class="col-md-6 mb-3">
+                    <label class="form-label">Exhibition</label>
+                    <select name="exhibition_id" class="form-select @error('exhibition_id') is-invalid @enderror">
+                        <option value="">All Exhibitions</option>
+                        @foreach($exhibitions as $exhibition)
+                            <option value="{{ $exhibition->id }}" {{ old('exhibition_id', $discount->exhibition_id) == $exhibition->id ? 'selected' : '' }}>
+                                {{ $exhibition->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('exhibition_id')
+                    <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                    <small class="text-muted">Leave empty to apply discount to all exhibitions</small>
+                </div>
+                <div class="col-md-6 mb-3">
                     <label class="form-label">Title <span class="text-danger">*</span></label>
                     <input type="text" name="title" class="form-control @error('title') is-invalid @enderror" value="{{ old('title', $discount->title) }}" required>
                     @error('title')
@@ -51,6 +66,13 @@
                         <option value="inactive" {{ old('status', $discount->status) === 'inactive' ? 'selected' : '' }}>Inactive</option>
                     </select>
                     @error('status')
+                    <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Email ID <span class="text-danger">*</span></label>
+                    <input type="email" name="email" class="form-control @error('email') is-invalid @enderror" value="{{ old('email', $discount->email) }}" placeholder="user@example.com" required>
+                    @error('email')
                     <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
                 </div>

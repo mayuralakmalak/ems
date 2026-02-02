@@ -54,8 +54,25 @@ class RegisteredUserController extends Controller
             'zip_code' => ['required', 'string', 'max:20'],
             'state' => ['required', 'exists:states,id'],
             
+            // Is Member
+            'is_member' => ['required', 'in:yes,no'],
+            
+            // Tax
+            'has_gst_number' => ['nullable', 'in:yes,no'],
+            'gst_number' => [
+                'nullable',
+                'string',
+                'max:15',
+                // Indian GSTIN format: 15 chars, 2 digits + PAN + 1 entity code + Z + 1 checksum
+                'regex:/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/',
+            ],
+            'gst_certificate' => ['nullable', 'file', 'max:5120'],
+            
             // Terms
             'terms' => ['required', 'accepted'],
+            'privacy_policy' => ['required', 'accepted'],
+            'refund_cancellation_policy' => ['required', 'accepted'],
+            'exhibitor_rules' => ['required', 'accepted'],
         ]);
 
         // Get country and state names from IDs
@@ -93,6 +110,12 @@ class RegisteredUserController extends Controller
         // Format full phone for backward compatibility (with code)
         $fullMobileNumber = $mobilePhoneCode && $mobileNumber ? '+' . $mobilePhoneCode . $mobileNumber : ($mobileNumber ? $mobileNumber : null);
         $fullPhoneNumber = $phonePhoneCode && $phoneNumber ? '+' . $phonePhoneCode . $phoneNumber : ($phoneNumber ? $phoneNumber : null);
+
+        // Handle GST certificate upload (optional)
+        $gstCertificatePath = null;
+        if ($request->hasFile('gst_certificate')) {
+            $gstCertificatePath = $request->file('gst_certificate')->store('gst-certificates', 'public');
+        }
         
         $user = User::create([
             'name' => $request->name,
@@ -110,6 +133,10 @@ class RegisteredUserController extends Controller
             'state' => $state ? $state->name : $request->state,
             'country' => $country ? $country->name : $request->country,
             'pincode' => $request->zip_code,
+            'gst_number' => $request->gst_number,
+            'has_gst_number' => $request->has_gst_number === 'yes',
+            'gst_certificate' => $gstCertificatePath,
+            'is_member' => $request->input('is_member', 'no') === 'yes',
         ]);
 
         // Assign Exhibitor role by default

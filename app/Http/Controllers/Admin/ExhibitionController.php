@@ -18,10 +18,20 @@ use Illuminate\Support\Facades\Storage;
 
 class ExhibitionController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         // Show 10 exhibitions per page for manageable server-side pagination
         $exhibitions = Exhibition::latest()->paginate(10);
+        
+        if ($request->ajax() || $request->wantsJson()) {
+            $html = view('admin.exhibitions.partials.table', compact('exhibitions'))->render();
+            $pagination = view('admin.exhibitions.partials.pagination', compact('exhibitions'))->render();
+            return response()->json([
+                'html' => $html,
+                'pagination' => $pagination
+            ]);
+        }
+        
         return view('admin.exhibitions.index', compact('exhibitions'));
     }
 
@@ -457,6 +467,9 @@ class ExhibitionController extends Controller
             'parts' => 'required|array',
             'parts.*.percentage' => 'required|numeric|min:0|max:100',
             'parts.*.due_date' => 'required|date',
+            'full_payment_discount_percent' => 'nullable|numeric|min:0|max:100',
+            'member_discount_percent' => 'nullable|numeric|min:0|max:100',
+            'maximum_discount_apply_percent' => 'nullable|numeric|min:0|max:100',
             'addon_services_cutoff_date' => 'nullable|date',
             'document_upload_deadline' => 'nullable|date',
             'floorplan_images' => 'nullable|array',
@@ -479,9 +492,12 @@ class ExhibitionController extends Controller
             ]);
         }
 
-        // Update cut-off dates - always update these on the exhibition
+        // Update cut-off dates and full payment discount - always update these on the exhibition
         // Convert empty strings to null to properly handle form submissions
         $updateData = [
+            'full_payment_discount_percent' => $request->full_payment_discount_percent ?: null,
+            'member_discount_percent' => $request->member_discount_percent ?: null,
+            'maximum_discount_apply_percent' => $request->maximum_discount_apply_percent ?: null,
             'addon_services_cutoff_date' => $request->addon_services_cutoff_date ?: null,
             'document_upload_deadline' => $request->document_upload_deadline ?: null,
         ];

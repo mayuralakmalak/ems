@@ -21,6 +21,12 @@
                 <li class="nav-item"><a class="nav-link {{ request()->routeIs('exhibitions.*') || request()->routeIs('exhibitions.list') ? 'active' : '' }}" href="{{ route('exhibitions.list') }}">Exhibitions</a></li>
                 <li class="nav-item"><a class="nav-link {{ request()->is('#about') ? 'active' : '' }}" href="#about">About</a></li>
                 <li class="nav-item"><a class="nav-link {{ request()->is('#contact') ? 'active' : '' }}" href="#contact">Contact Us</a></li>
+                @php
+                    $cmsHeaderPages = \App\Models\CmsPage::active()->showInHeader()->orderBy('title')->get();
+                @endphp
+                @foreach($cmsHeaderPages as $cmsPage)
+                    <li class="nav-item"><a class="nav-link {{ request()->routeIs('cms-page') && request()->route('slug') == $cmsPage->slug ? 'active' : '' }}" href="{{ route('cms-page', $cmsPage->slug) }}">{{ $cmsPage->title }}</a></li>
+                @endforeach
             </ul>
         </div>
         <div class="d-none d-lg-block">

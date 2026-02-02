@@ -197,7 +197,7 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="form-group">
+                        <!-- <div class="form-group">
                             <label>Discount (optional):</label>
                             <select id="boothDiscount">
                                 <option value="">No Discount</option>
@@ -209,8 +209,8 @@
                                     </option>
                                 @endforeach
                             </select>
-                        </div>
-                        <div class="form-group">
+                        </div> -->
+                        <!-- <div class="form-group">
                             <label>Special Price For User (optional):</label>
                             <select id="boothDiscountUser">
                                 <option value="">All Users</option>
@@ -219,7 +219,7 @@
                                 @endforeach
                             </select>
                             <small class="text-muted d-block mt-1">If selected, the discount will apply only when this exhibitor books the booth.</small>
-                        </div>
+                        </div> -->
                         <div class="button-group">
                         <button type="button" id="saveBooth" class="btn-primary">Save Booth</button>
                         <button type="button" id="deleteBooth" class="btn-danger">Delete Booth</button>
@@ -431,6 +431,32 @@
         </div>
     </div>
 
+    <!-- Discount Configuration -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h6 class="mb-0">Discount Configuration</h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Full Payment Discount Percentage (%):</label>
+                    <input type="number" name="full_payment_discount_percent" class="form-control" step="0.01" min="0" max="100" 
+                           value="{{ $exhibition->full_payment_discount_percent ?? '' }}" placeholder="e.g., 10">
+                    <small class="text-muted d-block mt-1">Enter discount percentage for full payment (e.g., 10 for 10% discount)</small>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Member Discount Percentage (%):</label>
+                    <input type="number" name="member_discount_percent" class="form-control" step="0.01" min="0" max="100" 
+                           value="{{ $exhibition->member_discount_percent ?? '' }}" placeholder="e.g., 5">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Maximum Discount Apply Percentage (%):</label>
+                    <input type="number" name="maximum_discount_apply_percent" class="form-control" step="0.01" min="0" max="100" 
+                           value="{{ $exhibition->maximum_discount_apply_percent ?? '' }}" placeholder="e.g., 25">
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Cut-off Dates -->
     <div class="card mb-4">

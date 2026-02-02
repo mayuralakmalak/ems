@@ -24,6 +24,10 @@ use Illuminate\Support\Facades\Route;
 
 // Public Routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/privacy-policy', [HomeController::class, 'privacyPolicy'])->name('privacy-policy');
+Route::get('/terms-and-conditions', [HomeController::class, 'termsAndConditions'])->name('terms-and-conditions');
+Route::get('/refund-and-cancellation-policy', [HomeController::class, 'refundAndCancellationPolicy'])->name('refund-and-cancellation-policy');
+Route::get('/rules-for-exhibitors', [HomeController::class, 'rulesForExhibitors'])->name('rules-for-exhibitors');
 Route::get('/exhibitions', [FrontendExhibitionController::class, 'list'])->name('exhibitions.list');
 Route::get('/exhibitions/{id}', [FrontendExhibitionController::class, 'show'])->name('exhibitions.show');
 Route::get('/exhibitions/{id}/floorplan', [\App\Http\Controllers\Frontend\FloorplanController::class, 'show'])->name('floorplan.show.public');
@@ -148,6 +152,10 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     // Document Categories Management (CRUD)
     Route::resource('document-categories', \App\Http\Controllers\Admin\DocumentCategoryController::class);
     
+    // CMS Pages Management
+    Route::post('cms-pages/bulk-delete', [\App\Http\Controllers\Admin\CmsPageController::class, 'bulkDelete'])->name('cms-pages.bulk-delete');
+    Route::resource('cms-pages', \App\Http\Controllers\Admin\CmsPageController::class)->except(['show']);
+    
     // Floorplan Management
         Route::get('/exhibitions/{id}/floorplan', [\App\Http\Controllers\Admin\FloorplanController::class, 'show'])->name('floorplan.show');
         Route::get('/exhibitions/{id}/floorplan/config', [\App\Http\Controllers\Admin\FloorplanController::class, 'loadConfig'])->name('floorplan.config.load');
@@ -168,6 +176,10 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     Route::post('/booth-requests/{id}/reject', [\App\Http\Controllers\Admin\BoothRequestController::class, 'reject'])->name('booth-requests.reject');
     
     // Discount Management (Wireframe 30)
+    // Custom routes must come before resource route to avoid route conflicts
+    Route::get('/discounts/import', [\App\Http\Controllers\Admin\DiscountController::class, 'import'])->name('discounts.import');
+    Route::post('/discounts/import', [\App\Http\Controllers\Admin\DiscountController::class, 'processImport'])->name('discounts.process-import');
+    Route::post('/discounts/bulk-delete', [\App\Http\Controllers\Admin\DiscountController::class, 'bulkDelete'])->name('discounts.bulk-delete');
     Route::resource('discounts', \App\Http\Controllers\Admin\DiscountController::class);
     
     // Checklist Management (Wireframe 31)
@@ -254,6 +266,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/payments/{paymentId}/confirmation', [PaymentController::class, 'confirmation'])->name('payments.confirmation');
     Route::post('/payments/{paymentId}/upload-proof', [PaymentController::class, 'uploadProof'])->name('payments.upload-proof');
     Route::get('/payments/{paymentId}/download', [PaymentController::class, 'download'])->name('payments.download');
+    // Payment discount routes (part payment only)
+    Route::post('/payments/apply-discount', [PaymentController::class, 'applyDiscount'])->name('payments.apply-discount');
+    Route::post('/payments/remove-discount', [PaymentController::class, 'removeDiscount'])->name('payments.remove-discount');
     
     // Documents
     Route::resource('documents', DocumentController::class);
@@ -334,3 +349,13 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__.'/auth.php';
+
+// CMS Pages (pretty URL)
+// Must be defined after auth.php to avoid catching /login, /register, etc.
+Route::get('/cms-page/{slug}', function (string $slug) {
+    return redirect('/' . $slug, 301);
+})->name('cms-page.old');
+
+Route::get('/{slug}', [HomeController::class, 'cmsPage'])
+    ->where('slug', '[A-Za-z0-9\-]+')
+    ->name('cms-page');

@@ -121,48 +121,65 @@ class RoleController extends Controller
     public function editPermissions($id)
     {
         $role = Role::findOrFail($id);
-        
-        // Ensure all permissions exist
-        $allPermissions = [
-            'Admin Access',
-            'Exhibition Management',
-            'Booking Management',
-            'Booth Management',
-            'Floorplan Management',
-            'Payment Management',
-            'Financial Management',
-            'User Management',
-            'Role & Permission Management',
-            'Document Management',
-            'Document Category Management',
-            'Badge Management',
-            'Sponsorship Management',
-            'Sponsorship Booking Management',
-            'Category Management',
-            'Settings Management',
-            'Booth Request Management',
-            'Discount Management',
-            'Checklist Management',
-            'Service Configuration Management',
-            'Analytics Management',
-            'Exhibitor Management',
-            'Communication Management',
-            'Email Management',
-            'Notification Management',
-            'Additional Service Request Management',
-            'Report Generation'
+
+        // Define modules (currently used sections in the admin / exhibitor panels)
+        $modules = [
+            'admin_access' => 'Admin Access',
+            'exhibitions' => 'Exhibition Management',
+            'bookings' => 'Booking Management',
+            'booths' => 'Booth Management',
+            'floorplan' => 'Floorplan Management',
+            'payments' => 'Payment Management',
+            'financial' => 'Financial Management',
+            'users' => 'User Management',
+            'roles' => 'Role & Permission Management',
+            'documents' => 'Document Management',
+            'document_categories' => 'Document Category Management',
+            'badges' => 'Badge Management',
+            'sponsorships' => 'Sponsorship Management',
+            'sponsorship_bookings' => 'Sponsorship Booking Management',
+            'categories' => 'Category Management',
+            'settings' => 'Settings Management',
+            'booth_requests' => 'Booth Request Management',
+            'discounts' => 'Discount Management',
+            'checklists' => 'Checklist Management',
+            'service_configuration' => 'Service Configuration Management',
+            'analytics' => 'Analytics Management',
+            'exhibitors' => 'Exhibitor Management',
+            'communications' => 'Communication Management',
+            'emails' => 'Email Management',
+            'notifications' => 'Notification Management',
+            'additional_service_requests' => 'Additional Service Request Management',
+            'reports' => 'Report Generation',
         ];
-        
-        foreach ($allPermissions as $permName) {
-            Permission::firstOrCreate(
-                ['name' => $permName, 'guard_name' => 'web']
-            );
+
+        // Standard actions per module
+        $actions = ['Create', 'View', 'Delete', 'Modify', 'Download'];
+
+        // Ensure all permissions exist and group them by module & action
+        $permissionsByModule = [];
+
+        foreach ($modules as $moduleKey => $moduleLabel) {
+            foreach ($actions as $action) {
+                $permissionName = $moduleLabel . ' - ' . $action;
+
+                $permission = Permission::firstOrCreate(
+                    ['name' => $permissionName, 'guard_name' => 'web']
+                );
+
+                $permissionsByModule[$moduleKey][$action] = $permission;
+            }
         }
-        
-        $permissions = Permission::orderBy('name')->get();
+
         $rolePermissions = $role->permissions->pluck('id')->toArray();
 
-        return view('admin.roles.edit-permissions', compact('role', 'permissions', 'rolePermissions'));
+        return view('admin.roles.edit-permissions', [
+            'role' => $role,
+            'modules' => $modules,
+            'actions' => $actions,
+            'permissionsByModule' => $permissionsByModule,
+            'rolePermissions' => $rolePermissions,
+        ]);
     }
 
     public function updatePermissions(Request $request, $id)

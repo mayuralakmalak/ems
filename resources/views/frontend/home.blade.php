@@ -70,7 +70,7 @@ body {
     margin: 0 12px;
     font-size: 0.95rem;
 }
-.nav-link.active { font-weight: 700; border-bottom: 2px solid #333; }
+.nav-link.active { font-weight: 700; }
 .nav-link:hover { color: var(--primary-purple); }
 
 /* --- Hero Section --- */

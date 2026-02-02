@@ -416,6 +416,11 @@
                 </a>
             </li>
             <li>
+                <a href="{{ route('admin.cms-pages.index') }}" class="{{ request()->routeIs('admin.cms-pages.*') ? 'active' : '' }}">
+                    <i class="bi bi-file-earmark-text"></i>CMS Pages
+                </a>
+            </li>
+            <li>
                 <a href="{{ route('admin.categories.index') }}" class="{{ request()->routeIs('admin.categories.*') ? 'active' : '' }}">
                     <i class="bi bi-tags"></i>Categories
                 </a>
