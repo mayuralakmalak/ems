@@ -13,3 +13,9 @@ Schedule::command('payments:send-due-reminders')
     ->daily()
     ->at('09:00')
     ->description('Send payment due reminder emails to exhibitors 1 day before payment due date');
+
+// Schedule 3-day-before part payment reminders (BCC asadm@alakmalak.com for testing)
+Schedule::command('payments:send-3day-reminders')
+    ->daily()
+    ->at('09:00')
+    ->description('Send payment due reminder emails 3 days before part payment due date');

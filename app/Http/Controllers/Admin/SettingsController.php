@@ -14,11 +14,14 @@ class SettingsController extends Controller
     {
         // Load all general settings
         $generalSettings = Setting::getByGroup('general');
-        
+        $emailSmsSettings = Setting::getByGroup('email_sms');
+        $otpDltSettings = Setting::getByGroup('otp_dlt');
+        $whatsappSettings = Setting::getByGroup('whatsapp');
+
         // Load countries for dropdown
         $countries = Country::active()->ordered()->get();
-        
-        return view('admin.settings.index', compact('generalSettings', 'countries'));
+
+        return view('admin.settings.index', compact('generalSettings', 'countries', 'emailSmsSettings', 'otpDltSettings', 'whatsappSettings'));
     }
     
     public function saveGeneralSettings(Request $request)
@@ -118,19 +121,59 @@ class SettingsController extends Controller
             'sms_sender_id' => 'nullable|string',
             'sms_route' => 'nullable|string',
         ]);
-        
+
+        $fields = [
+            'smtp_host', 'smtp_port', 'smtp_user', 'from_name', 'from_email',
+            'admin_email', 'admin_phone', 'sms_gateway', 'sms_api_key', 'sms_sender_id', 'sms_route',
+        ];
+        foreach ($fields as $field) {
+            Setting::set($field, $request->input($field) ?? '', 'email_sms');
+        }
+        if ($request->filled('smtp_pass')) {
+            Setting::set('smtp_pass', $request->input('smtp_pass'), 'email_sms');
+        }
+
         return back()->with('success', 'Email/SMS settings saved successfully.');
     }
-    
+
     public function saveOtpDlt(Request $request)
     {
         $request->validate([
             'dlt_registered_no' => 'nullable|string',
             'dlt_template_id_otp' => 'nullable|string',
             'dlt_template_id_sms' => 'nullable|string',
+            'dlt_template_id_payment_reminder' => 'nullable|string',
         ]);
-        
+
+        $fields = ['dlt_registered_no', 'dlt_template_id_otp', 'dlt_template_id_sms', 'dlt_template_id_payment_reminder'];
+        foreach ($fields as $field) {
+            Setting::set($field, $request->input($field) ?? '', 'otp_dlt');
+        }
+
         return back()->with('success', 'OTP/DLT settings saved successfully.');
+    }
+
+    public function saveWhatsApp(Request $request)
+    {
+        $request->validate([
+            'whatsapp_enabled' => 'nullable|in:0,1',
+            'whatsapp_provider' => 'nullable|string|max:100',
+            'whatsapp_api_key' => 'nullable|string',
+            'whatsapp_phone_number_id' => 'nullable|string|max:100',
+            'whatsapp_template_reminder_1day' => 'nullable|string|max:200',
+            'whatsapp_template_reminder_3days' => 'nullable|string|max:200',
+            'whatsapp_template_summary_sent' => 'nullable|string|max:200',
+        ]);
+
+        $fields = [
+            'whatsapp_enabled', 'whatsapp_provider', 'whatsapp_api_key', 'whatsapp_phone_number_id',
+            'whatsapp_template_reminder_1day', 'whatsapp_template_reminder_3days', 'whatsapp_template_summary_sent',
+        ];
+        foreach ($fields as $field) {
+            Setting::set($field, $request->input($field) ?? '', 'whatsapp');
+        }
+
+        return back()->with('success', 'WhatsApp settings saved successfully.');
     }
     
     public function saveDefaultPricing(Request $request)

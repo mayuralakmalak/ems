@@ -534,6 +534,11 @@
                     <i class="bi bi-chat-dots"></i>Community Center
                 </a>
             </li>
+            <li>
+                <a href="{{ route('admin.send-user-summary.index') }}" class="{{ request()->routeIs('admin.send-user-summary.*') ? 'active' : '' }}">
+                    <i class="bi bi-envelope-paper"></i>Send User Summary
+                </a>
+            </li>
             @if(request()->routeIs('admin.booths.*'))
             <li>
                 <a href="#" class="active">

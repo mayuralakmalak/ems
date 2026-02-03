@@ -55,7 +55,12 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     // User Management
     Route::resource('users', UserController::class);
     Route::post('/users/bulk-delete', [UserController::class, 'bulkDelete'])->name('users.bulk-delete');
-    
+
+    // Send User Summary Email (super admin)
+    Route::get('/send-user-summary', [\App\Http\Controllers\Admin\UserSummaryEmailController::class, 'index'])->name('send-user-summary.index');
+    Route::get('/send-user-summary/users', [\App\Http\Controllers\Admin\UserSummaryEmailController::class, 'getUsers'])->name('send-user-summary.users');
+    Route::post('/send-user-summary', [\App\Http\Controllers\Admin\UserSummaryEmailController::class, 'send'])->name('send-user-summary.send');
+
     // Booth Management
     Route::get('/exhibitions/{exhibitionId}/booths', [\App\Http\Controllers\Admin\BoothController::class, 'index'])->name('booths.index');
     Route::get('/exhibitions/{exhibitionId}/booths/create', [\App\Http\Controllers\Admin\BoothController::class, 'create'])->name('booths.create');
@@ -138,6 +143,7 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     Route::post('/settings/payment-gateway', [\App\Http\Controllers\Admin\SettingsController::class, 'savePaymentGateway'])->name('settings.save-payment-gateway');
     Route::post('/settings/email-sms', [\App\Http\Controllers\Admin\SettingsController::class, 'saveEmailSms'])->name('settings.save-email-sms');
     Route::post('/settings/otp-dlt', [\App\Http\Controllers\Admin\SettingsController::class, 'saveOtpDlt'])->name('settings.save-otp-dlt');
+    Route::post('/settings/whatsapp', [\App\Http\Controllers\Admin\SettingsController::class, 'saveWhatsApp'])->name('settings.save-whatsapp');
     Route::post('/settings/default-pricing', [\App\Http\Controllers\Admin\SettingsController::class, 'saveDefaultPricing'])->name('settings.save-default-pricing');
     Route::post('/settings/cancellation-charges', [\App\Http\Controllers\Admin\SettingsController::class, 'saveCancellationCharges'])->name('settings.save-cancellation-charges');
     Route::post('/settings/payment-methods', [\App\Http\Controllers\Admin\SettingsController::class, 'savePaymentMethods'])->name('settings.save-payment-methods');

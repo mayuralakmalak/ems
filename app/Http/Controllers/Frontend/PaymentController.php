@@ -445,21 +445,9 @@ class PaymentController extends Controller
         $user = auth()->user();
         $paymentTypeOption = $request->payment_type_option ?? 'part'; // Default to part payment
         
-        // Handle full payment with discount (cap total discount by maximum_discount_apply_percent)
+        // Handle full payment: booking total_amount is already the final amount (priority: full payment + member + coupon applied at apply-discount)
         if ($paymentTypeOption === 'full') {
-            $baseTotal = $booking->total_amount;
-            $memberPercent = (float) ($booking->member_discount_percent ?? 0);
-            $couponPercent = (float) ($booking->coupon_discount_percent ?? 0);
-            $maxPercent = $booking->exhibition->maximum_discount_apply_percent !== null
-                ? (float) $booking->exhibition->maximum_discount_apply_percent
-                : 100.0;
-            $fullPaymentDiscountPercentRaw = (float) ($booking->exhibition->full_payment_discount_percent ?? 0);
-            $maxFullPaymentPercent = max(0, $maxPercent - $memberPercent - $couponPercent);
-            $fullPaymentDiscountPercent = min($fullPaymentDiscountPercentRaw, $maxFullPaymentPercent);
-            $fullPaymentDiscountAmount = ($baseTotal * $fullPaymentDiscountPercent) / 100;
-            $fullPaymentAmount = $baseTotal - $fullPaymentDiscountAmount;
-            
-            // Gateway charge on discounted amount (2.5%)
+            $fullPaymentAmount = $booking->total_amount;
             $fullPaymentGatewayCharge = ($fullPaymentAmount * 2.5) / 100;
             $fullPaymentTotal = $fullPaymentAmount + $fullPaymentGatewayCharge;
             
@@ -526,7 +514,7 @@ class PaymentController extends Controller
             }
             
             return redirect()->route('payments.confirmation', $lastPayment->id ?? $allPayments->first()->id)
-                ->with('success', 'Full payment completed successfully! You saved ₹' . number_format($fullPaymentDiscountAmount, 2) . ' with the discount.');
+                ->with('success', 'Full payment completed successfully!');
         }
         $boothIds = collect($booking->selected_booth_ids ?? [$booking->booth_id])
             ->map(function($entry) {
@@ -888,6 +876,7 @@ class PaymentController extends Controller
         $request->validate([
             'booking_id' => 'required|exists:bookings,id',
             'discount_code' => 'required|string|max:255',
+            'payment_type_option' => 'nullable|in:full,part',
         ]);
 
         $booking = Booking::with(['exhibition', 'payments'])
@@ -948,16 +937,20 @@ class PaymentController extends Controller
             return back()->with('error', $message);
         }
 
-        // Calculate coupon discount amount and percent (from coupon code)
-        $couponDiscountAmount = 0;
-        $couponDiscountPercent = 0;
+        // Original base (before any discount) for priority allocation
+        $memberDiscountPercent = (float) ($booking->member_discount_percent ?? ($booking->discount_percent > 0 ? $booking->discount_percent : 0));
+        $hasMemberDiscount = $discountType === 'member' || ($discountType === null && $booking->discount_percent > 0);
+        $originalBase = $hasMemberDiscount && $memberDiscountPercent > 0
+            ? $baseTotal / (1 - ($memberDiscountPercent / 100))
+            : $baseTotal;
 
+        // Calculate coupon discount from code (percentage or fixed on original base)
+        $couponDiscountPercentFromCode = 0;
         if ($discount->type === 'percentage') {
-            $couponDiscountPercent = min((float) $discount->amount, 100.0);
-            $couponDiscountAmount = ($baseTotal * $couponDiscountPercent) / 100;
+            $couponDiscountPercentFromCode = min((float) $discount->amount, 100.0);
         } elseif ($discount->type === 'fixed') {
-            $couponDiscountAmount = min((float) $discount->amount, $baseTotal);
-            $couponDiscountPercent = $couponDiscountAmount > 0 ? ($couponDiscountAmount / $baseTotal) * 100 : 0;
+            $fixedAmount = min((float) $discount->amount, $originalBase);
+            $couponDiscountPercentFromCode = $originalBase > 0 ? ($fixedAmount / $originalBase) * 100 : 0;
         } else {
             $message = 'Invalid discount type configured.';
             if ($request->expectsJson()) {
@@ -966,13 +959,83 @@ class PaymentController extends Controller
             return back()->with('error', $message);
         }
 
-        if ($couponDiscountAmount <= 0) {
+        if ($couponDiscountPercentFromCode <= 0) {
             $message = 'Discount amount calculated as zero. Please check the discount configuration.';
             if ($request->expectsJson()) {
                 return response()->json(['status' => 'error', 'message' => $message], 400);
             }
             return back()->with('error', $message);
         }
+
+        // Always compute BOTH full and part coupon so switching payment type shows correct breakdown
+        $paymentTypeOption = strtolower(trim((string) $request->input('payment_type_option', 'full'))) === 'part' ? 'part' : 'full';
+        $maxPercent = $booking->exhibition->maximum_discount_apply_percent !== null
+            ? (float) $booking->exhibition->maximum_discount_apply_percent
+            : 100.0;
+        $fullPaymentReserved = min(
+            (float) ($booking->exhibition->full_payment_discount_percent ?? 0),
+            $maxPercent
+        );
+
+        // Coupon effective in full context (remaining after full + member) and in part context (remaining after member only)
+        $remainingForCouponFull = max(0, $maxPercent - $fullPaymentReserved - $memberDiscountPercent);
+        $remainingForCouponPart = max(0, $maxPercent - $memberDiscountPercent);
+        $couponEffectiveForFull = min($couponDiscountPercentFromCode, $remainingForCouponFull);
+        $couponEffectiveForPart = min($couponDiscountPercentFromCode, $remainingForCouponPart);
+
+        if ($paymentTypeOption === 'part') {
+            if ($couponEffectiveForPart <= 0) {
+                $maxFormatted = number_format($maxPercent, 0);
+                $message = 'Maximum discount already applied for part payment. You have reached the allowed limit of ' . $maxFormatted . '%';
+                if ($memberDiscountPercent > 0) {
+                    $message .= ' (Member ' . number_format($memberDiscountPercent, 0) . '%)';
+                }
+                $message .= '. Coupon cannot be applied.';
+                if ($request->expectsJson()) {
+                    return response()->json(['status' => 'error', 'message' => $message], 400);
+                }
+                return back()->with('error', $message);
+            }
+        } else {
+            if ($couponEffectiveForFull <= 0) {
+                $maxFormatted = number_format($maxPercent, 0);
+                $alreadyAppliedPercent = $fullPaymentReserved + $memberDiscountPercent;
+                if ($alreadyAppliedPercent >= $maxPercent) {
+                    $message = 'Maximum discount already applied. You have reached the allowed limit of ' . $maxFormatted . '%';
+                    if ($fullPaymentReserved > 0 && $memberDiscountPercent > 0) {
+                        $message .= ' (Full payment ' . number_format($fullPaymentReserved, 0) . '% + Member ' . number_format($memberDiscountPercent, 0) . '%)';
+                    } elseif ($fullPaymentReserved > 0) {
+                        $message .= ' (Full payment ' . number_format($fullPaymentReserved, 0) . '%)';
+                    } elseif ($memberDiscountPercent > 0) {
+                        $message .= ' (Member ' . number_format($memberDiscountPercent, 0) . '%)';
+                    }
+                    $message .= '. Coupon cannot be applied.';
+                } else {
+                    $message = 'Total discount cannot exceed the maximum allowed (' . $maxFormatted . '%). Coupon cannot be applied.';
+                }
+                if ($request->expectsJson()) {
+                    return response()->json(['status' => 'error', 'message' => $message], 400);
+                }
+                return back()->with('error', $message);
+            }
+        }
+
+        // Store BOTH: coupon_discount_percent = for full display, coupon_discount_percent_part = for part display
+        // Total discount is same: full+member+coupon_full = member+coupon_part (both = max when capped)
+        $totalDiscountPercent = $fullPaymentReserved + $memberDiscountPercent + $couponEffectiveForFull;
+        $totalDiscountFromPart = $memberDiscountPercent + $couponEffectiveForPart;
+        $totalDiscountPercent = max($totalDiscountPercent, $totalDiscountFromPart);
+        $totalDiscountPercent = min($totalDiscountPercent, $maxPercent);
+        $newTotalAmount = round($originalBase * (1 - ($totalDiscountPercent / 100)), 2);
+        $couponDiscountAmount = round($originalBase * (($paymentTypeOption === 'part' ? $couponEffectiveForPart : $couponEffectiveForFull) / 100), 2);
+
+        $booking->discount_type = $hasMemberDiscount ? 'both' : 'coupon';
+        $booking->member_discount_percent = $hasMemberDiscount ? round($memberDiscountPercent, 2) : null;
+        $booking->coupon_discount_percent = round($couponEffectiveForFull, 2);
+        $booking->coupon_discount_percent_part = round($couponEffectiveForPart, 2);
+        $booking->discount_percent = round($totalDiscountPercent, 2);
+        $booking->total_amount = $newTotalAmount;
+        $booking->save();
 
         $paymentSchedules = $booking->exhibition->paymentSchedules()
             ->orderBy('part_number', 'asc')
@@ -999,51 +1062,6 @@ class PaymentController extends Controller
             return back()->with('error', $message);
         }
 
-        $memberDiscountPercent = (float) ($booking->member_discount_percent ?? ($booking->discount_percent > 0 ? $booking->discount_percent : 0));
-        $hasMemberDiscount = $discountType === 'member' || ($discountType === null && $booking->discount_percent > 0);
-
-        if ($hasMemberDiscount && $memberDiscountPercent > 0) {
-            // Stack coupon on top of member discount; cap total by maximum_discount_apply_percent
-            $originalTotal = $baseTotal / (1 - ($memberDiscountPercent / 100));
-            $maxPercent = $booking->exhibition->maximum_discount_apply_percent !== null
-                ? (float) $booking->exhibition->maximum_discount_apply_percent
-                : 100.0;
-            $couponEffectivePercent = min($couponDiscountPercent, $maxPercent - $memberDiscountPercent);
-
-            if ($couponEffectivePercent <= 0) {
-                $message = 'Total discount cannot exceed the maximum allowed (' . ($booking->exhibition->maximum_discount_apply_percent ?? 100) . '%).';
-                if ($request->expectsJson()) {
-                    return response()->json(['status' => 'error', 'message' => $message], 400);
-                }
-                return back()->with('error', $message);
-            }
-
-            $newDiscountPercent = $memberDiscountPercent + $couponEffectivePercent;
-            $newTotalAmount = $originalTotal * (1 - ($newDiscountPercent / 100));
-            $couponDiscountAmount = $originalTotal * ($couponEffectivePercent / 100);
-
-            $booking->discount_type = 'both';
-            $booking->member_discount_percent = round($memberDiscountPercent, 2);
-            $booking->coupon_discount_percent = round($couponEffectivePercent, 2);
-            $booking->discount_percent = round($newDiscountPercent, 2);
-            $booking->total_amount = round($newTotalAmount, 2);
-            $booking->save();
-        } else {
-            // No existing discount: apply coupon only; cap by maximum_discount_apply_percent
-            $maxPercent = $booking->exhibition->maximum_discount_apply_percent !== null
-                ? (float) $booking->exhibition->maximum_discount_apply_percent
-                : 100.0;
-            $couponEffectivePercent = min($couponDiscountPercent, $maxPercent);
-            $couponDiscountAmount = ($baseTotal * $couponEffectivePercent) / 100;
-            $newTotalAmount = $baseTotal - $couponDiscountAmount;
-            $booking->discount_type = 'coupon';
-            $booking->member_discount_percent = null;
-            $booking->coupon_discount_percent = round($couponEffectivePercent, 2);
-            $booking->discount_percent = round($couponEffectivePercent, 2);
-            $booking->total_amount = round($newTotalAmount, 2);
-            $booking->save();
-        }
-
         // Recalculate payment amounts so they sum to the new total
         $newTotalAmount = $booking->total_amount;
         $paymentIndex = 0;
@@ -1057,24 +1075,40 @@ class PaymentController extends Controller
             $paymentIndex++;
         }
 
-        $memberDiscountAmount = 0;
-        if ($booking->member_discount_percent > 0) {
-            $origTotal = $booking->total_amount / (1 - ($booking->discount_percent / 100));
-            $memberDiscountAmount = $origTotal * ($booking->member_discount_percent / 100);
-        }
+        // Amounts for display (all based on original base; priority: full → member → coupon)
+        $fullPaymentDisplayPercent = min(
+            (float) ($booking->exhibition->full_payment_discount_percent ?? 0),
+            max(0, $booking->discount_percent - ($booking->member_discount_percent ?? 0) - ($booking->coupon_discount_percent ?? 0))
+        );
+        $memberDiscountAmount = $booking->member_discount_percent > 0
+            ? round($originalBase * ($booking->member_discount_percent / 100), 2)
+            : 0;
+        $fullPaymentDiscountAmount = $fullPaymentDisplayPercent > 0
+            ? round($originalBase * ($fullPaymentDisplayPercent / 100), 2)
+            : 0;
         $displayCouponAmount = round($couponDiscountAmount, 2);
+        $effectivePct = $paymentTypeOption === 'part' ? $couponEffectiveForPart : $couponEffectiveForFull;
+        $remainingUsed = $paymentTypeOption === 'part' ? $remainingForCouponPart : $remainingForCouponFull;
+        $successMessage = 'Discount code applied successfully!';
+        if ($effectivePct < $couponDiscountPercentFromCode && $remainingUsed > 0) {
+            $successMessage = 'Coupon applied. You received ' . number_format($effectivePct, 1) . '% discount (remaining allowance up to max ' . number_format($maxPercent, 0) . '%).';
+        }
 
         if ($request->expectsJson()) {
             return response()->json([
                 'status' => 'success',
-                'message' => 'Discount code applied successfully!',
+                'message' => $successMessage,
                 'discount_type' => $booking->discount_type,
                 'discount_percent' => $booking->discount_percent,
                 'member_discount_percent' => $booking->member_discount_percent,
                 'coupon_discount_percent' => $booking->coupon_discount_percent,
-                'member_discount_amount' => round($memberDiscountAmount, 2),
+                'coupon_discount_percent_part' => $booking->coupon_discount_percent_part,
+                'full_payment_discount_percent' => round($fullPaymentDisplayPercent, 2),
+                'member_discount_amount' => $memberDiscountAmount,
                 'discount_amount' => $displayCouponAmount,
                 'coupon_discount_amount' => $displayCouponAmount,
+                'full_payment_discount_amount' => $fullPaymentDiscountAmount,
+                'original_base' => round($originalBase, 2),
                 'total_amount' => $booking->total_amount,
                 'payments' => $payments->map(function ($payment) {
                     return [
@@ -1087,7 +1121,7 @@ class PaymentController extends Controller
 
         return back()->with(
             'success',
-            'Discount code applied successfully! You saved ₹' . number_format($displayCouponAmount, 2) . '.'
+            $successMessage . ' You saved ₹' . number_format($displayCouponAmount, 2) . '.'
         );
     }
 
@@ -1181,6 +1215,7 @@ class PaymentController extends Controller
 
             $booking->discount_type = 'member';
             $booking->coupon_discount_percent = null;
+            $booking->coupon_discount_percent_part = null;
             $booking->discount_percent = round($memberDiscountPercent, 2);
             $booking->total_amount = round($memberTotal, 2);
             $booking->save();
@@ -1199,6 +1234,13 @@ class PaymentController extends Controller
 
             $removedAmount = round($currentTotal - $newTotalAmount, 2);
 
+            $origBase = $booking->total_amount / (1 - ($booking->discount_percent / 100));
+            $fullPaymentDisplayPct = min(
+                (float) ($booking->exhibition->full_payment_discount_percent ?? 0),
+                max(0, $booking->discount_percent - ($booking->member_discount_percent ?? 0) - 0)
+            );
+            $memberDiscountAmount = $booking->member_discount_percent > 0 ? round($origBase * ($booking->member_discount_percent / 100), 2) : 0;
+
             if ($request->expectsJson()) {
                 return response()->json([
                     'status' => 'success',
@@ -1207,6 +1249,11 @@ class PaymentController extends Controller
                     'discount_percent' => $booking->discount_percent,
                     'member_discount_percent' => $booking->member_discount_percent,
                     'coupon_discount_percent' => 0,
+                    'coupon_discount_percent_part' => 0,
+                    'full_payment_discount_percent' => round($fullPaymentDisplayPct, 2),
+                    'member_discount_amount' => $memberDiscountAmount,
+                    'full_payment_discount_amount' => round($origBase * ($fullPaymentDisplayPct / 100), 2),
+                    'original_base' => round($origBase, 2),
                     'discount_amount' => $removedAmount,
                     'total_amount' => $booking->total_amount,
                     'payments' => $payments->map(function ($payment) {
@@ -1230,6 +1277,7 @@ class PaymentController extends Controller
         $booking->discount_type = null;
         $booking->member_discount_percent = null;
         $booking->coupon_discount_percent = null;
+        $booking->coupon_discount_percent_part = null;
         $booking->discount_percent = 0;
         $booking->total_amount = round($originalTotal, 2);
         $booking->save();
@@ -1253,6 +1301,11 @@ class PaymentController extends Controller
                 'discount_percent' => 0,
                 'member_discount_percent' => null,
                 'coupon_discount_percent' => null,
+                'coupon_discount_percent_part' => null,
+                'full_payment_discount_percent' => 0,
+                'member_discount_amount' => 0,
+                'full_payment_discount_amount' => 0,
+                'original_base' => round($originalTotal, 2),
                 'discount_amount' => round($originalTotal - $currentTotal, 2),
                 'total_amount' => $booking->total_amount,
                 'payments' => $payments->map(function ($payment) {

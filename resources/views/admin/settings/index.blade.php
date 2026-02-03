@@ -411,84 +411,84 @@
 <!-- Email/SMS Settings -->
 <div class="settings-section">
     <h4 class="section-title">Email/SMS Settings</h4>
-    <p class="section-subtitle">Configure email and SMS notification settings.</p>
-    
+    <p class="section-subtitle">Configure email and SMS notification settings. Used for payment reminders and user summary.</p>
+    @php $es = $emailSmsSettings ?? []; @endphp
     <form action="{{ route('admin.settings.save-email-sms') }}" method="POST">
         @csrf
         <div class="row">
             <div class="col-md-6">
                 <div class="form-group">
                     <label class="form-label">SMTP Host</label>
-                    <input type="text" name="smtp_host" class="form-control">
+                    <input type="text" name="smtp_host" class="form-control" value="{{ $es['smtp_host'] ?? '' }}">
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="form-group">
                     <label class="form-label">SMTP Port</label>
-                    <input type="text" name="smtp_port" class="form-control">
+                    <input type="text" name="smtp_port" class="form-control" value="{{ $es['smtp_port'] ?? '' }}">
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="form-group">
                     <label class="form-label">SMTP User</label>
-                    <input type="text" name="smtp_user" class="form-control">
+                    <input type="text" name="smtp_user" class="form-control" value="{{ $es['smtp_user'] ?? '' }}">
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="form-group">
                     <label class="form-label">SMTP Pass</label>
-                    <input type="password" name="smtp_pass" class="form-control">
+                    <input type="password" name="smtp_pass" class="form-control" placeholder="Leave blank to keep existing">
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="form-group">
                     <label class="form-label">From Name</label>
-                    <input type="text" name="from_name" class="form-control">
+                    <input type="text" name="from_name" class="form-control" value="{{ $es['from_name'] ?? '' }}">
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="form-group">
                     <label class="form-label">From Email</label>
-                    <input type="email" name="from_email" class="form-control">
+                    <input type="email" name="from_email" class="form-control" value="{{ $es['from_email'] ?? '' }}">
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="form-group">
                     <label class="form-label">Admin Email</label>
-                    <input type="email" name="admin_email" class="form-control">
+                    <input type="email" name="admin_email" class="form-control" value="{{ $es['admin_email'] ?? '' }}">
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="form-group">
                     <label class="form-label">Admin Phone</label>
-                    <input type="text" name="admin_phone" class="form-control">
+                    <input type="text" name="admin_phone" class="form-control" value="{{ $es['admin_phone'] ?? '' }}">
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="form-group">
                     <label class="form-label">SMS Gateway</label>
                     <select name="sms_gateway" class="form-select">
-                        <option value="AWS SNS" selected>AWS SNS</option>
-                        <option value="Other">Other</option>
+                        <option value="AWS SNS" {{ ($es['sms_gateway'] ?? '') == 'AWS SNS' ? 'selected' : '' }}>AWS SNS</option>
+                        <option value="Other" {{ ($es['sms_gateway'] ?? '') == 'Other' ? 'selected' : '' }}>Other</option>
                     </select>
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="form-group">
                     <label class="form-label">SMS API Key</label>
-                    <input type="text" name="sms_api_key" class="form-control">
+                    <input type="text" name="sms_api_key" class="form-control" value="{{ $es['sms_api_key'] ?? '' }}" placeholder="Add credentials later">
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="form-group">
                     <label class="form-label">SMS Sender ID</label>
-                    <input type="text" name="sms_sender_id" class="form-control">
+                    <input type="text" name="sms_sender_id" class="form-control" value="{{ $es['sms_sender_id'] ?? '' }}">
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="form-group">
                     <label class="form-label">SMS Route</label>
-                    <input type="text" name="sms_route" class="form-control">
+                    <input type="text" name="sms_route" class="form-control" value="{{ $es['sms_route'] ?? '' }}">
                 </div>
             </div>
         </div>
@@ -499,27 +499,33 @@
 <!-- OTP/DLT Registration -->
 <div class="settings-section">
     <h4 class="section-title">OTP/DLT Registration</h4>
-    <p class="section-subtitle">Do you have DLT Registered Number?</p>
-    
+    <p class="section-subtitle">DLT registration for SMS (India). Used for payment reminder SMS when configured.</p>
+    @php $od = $otpDltSettings ?? []; @endphp
     <form action="{{ route('admin.settings.save-otp-dlt') }}" method="POST">
         @csrf
         <div class="row">
             <div class="col-md-6">
                 <div class="form-group">
                     <label class="form-label">DLT Registered No</label>
-                    <input type="text" name="dlt_registered_no" class="form-control">
+                    <input type="text" name="dlt_registered_no" class="form-control" value="{{ $od['dlt_registered_no'] ?? '' }}">
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="form-group">
                     <label class="form-label">DLT Template ID (OTP)</label>
-                    <input type="text" name="dlt_template_id_otp" class="form-control">
+                    <input type="text" name="dlt_template_id_otp" class="form-control" value="{{ $od['dlt_template_id_otp'] ?? '' }}">
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="form-group">
                     <label class="form-label">DLT Template ID (SMS)</label>
-                    <input type="text" name="dlt_template_id_sms" class="form-control">
+                    <input type="text" name="dlt_template_id_sms" class="form-control" value="{{ $od['dlt_template_id_sms'] ?? '' }}">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">DLT Template ID (Payment Reminder)</label>
+                    <input type="text" name="dlt_template_id_payment_reminder" class="form-control" value="{{ $od['dlt_template_id_payment_reminder'] ?? '' }}" placeholder="For 1-day & 3-day reminders">
                 </div>
             </div>
         </div>
@@ -527,6 +533,64 @@
             <button type="submit" class="btn-save">Save OTP/DLT Settings</button>
             <button type="button" class="btn-check">Check DLT Status</button>
         </div>
+    </form>
+</div>
+
+<!-- WhatsApp Settings -->
+<div class="settings-section">
+    <h4 class="section-title">WhatsApp Settings</h4>
+    <p class="section-subtitle">Configure WhatsApp Business API for payment reminders and user summary. Add credentials when ready.</p>
+    @php $wa = $whatsappSettings ?? []; @endphp
+    <form action="{{ route('admin.settings.save-whatsapp') }}" method="POST">
+        @csrf
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Enable WhatsApp</label>
+                    <select name="whatsapp_enabled" class="form-select">
+                        <option value="0" {{ ($wa['whatsapp_enabled'] ?? '0') == '0' ? 'selected' : '' }}>No</option>
+                        <option value="1" {{ ($wa['whatsapp_enabled'] ?? '0') == '1' ? 'selected' : '' }}>Yes</option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Provider</label>
+                    <input type="text" name="whatsapp_provider" class="form-control" value="{{ $wa['whatsapp_provider'] ?? '' }}" placeholder="e.g. Twilio, Gupshup, Meta Cloud API">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">WhatsApp API Key / Token</label>
+                    <input type="text" name="whatsapp_api_key" class="form-control" value="{{ $wa['whatsapp_api_key'] ?? '' }}" placeholder="Add credentials later">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Phone Number ID</label>
+                    <input type="text" name="whatsapp_phone_number_id" class="form-control" value="{{ $wa['whatsapp_phone_number_id'] ?? '' }}" placeholder="Business phone number ID">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Template: Payment Reminder (1 day)</label>
+                    <input type="text" name="whatsapp_template_reminder_1day" class="form-control" value="{{ $wa['whatsapp_template_reminder_1day'] ?? '' }}" placeholder="Template name approved in WhatsApp">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Template: Payment Reminder (3 days)</label>
+                    <input type="text" name="whatsapp_template_reminder_3days" class="form-control" value="{{ $wa['whatsapp_template_reminder_3days'] ?? '' }}" placeholder="Template name approved in WhatsApp">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label">Template: User Summary Sent</label>
+                    <input type="text" name="whatsapp_template_summary_sent" class="form-control" value="{{ $wa['whatsapp_template_summary_sent'] ?? '' }}" placeholder="Template for admin-sent summary notification">
+                </div>
+            </div>
+        </div>
+        <button type="submit" class="btn-save">Save WhatsApp Settings</button>
     </form>
 </div>
 
