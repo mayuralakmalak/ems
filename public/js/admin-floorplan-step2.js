@@ -852,7 +852,7 @@ class AdminFloorplanManager {
                         size: this.getSizeCategory(width, height),
                         area: Math.round((width * height) / (this.gridConfig.size * this.gridConfig.size) * 100), // Approximate sq ft
                         price: 10000,
-                        openSides: 2,
+                        openSides: 1,
                         category: 'Standard',
                         includedItems: ['Table', '2 Chairs', 'Power Outlet']
                     };
@@ -983,21 +983,60 @@ class AdminFloorplanManager {
         booth.status = status; // Update the booth object to ensure consistency
 
         const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('class', `booth-admin booth-rect ${status}`);
         rect.setAttribute('x', booth.x);
         rect.setAttribute('y', booth.y);
         rect.setAttribute('width', booth.width);
         rect.setAttribute('height', booth.height);
-        rect.setAttribute('class', `booth-admin ${status}`);
         rect.setAttribute('rx', '4');
-
-        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        label.setAttribute('x', booth.x + booth.width / 2);
-        label.setAttribute('y', booth.y + booth.height / 2);
-        label.setAttribute('class', 'booth-label');
-        label.textContent = booth.id;
-
         group.appendChild(rect);
-        group.appendChild(label);
+
+        const labelHeight = 14;
+        const hasLogo = booth.logo && (booth.status === 'booked' || booth.status === 'reserved');
+
+        if (hasLogo) {
+            // Label strip at top (number above image)
+            const labelRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            labelRect.setAttribute('class', 'booth-label-rect');
+            labelRect.setAttribute('x', booth.x);
+            labelRect.setAttribute('y', booth.y);
+            labelRect.setAttribute('width', booth.width);
+            labelRect.setAttribute('height', labelHeight);
+            labelRect.setAttribute('fill', 'rgba(0,0,0,0.4)');
+            labelRect.setAttribute('rx', '2');
+            group.appendChild(labelRect);
+
+            // Company logo fills rest of booth (same size as box below label)
+            const img = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+            img.setAttribute('class', 'booth-logo-img');
+            img.setAttribute('x', booth.x);
+            img.setAttribute('y', booth.y + labelHeight);
+            img.setAttribute('width', booth.width);
+            img.setAttribute('height', Math.max(0, booth.height - labelHeight));
+            img.setAttribute('href', booth.logo);
+            img.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+            group.appendChild(img);
+
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('class', 'booth-label');
+            label.setAttribute('x', booth.x + booth.width / 2);
+            label.setAttribute('y', booth.y + 10);
+            label.setAttribute('text-anchor', 'middle');
+            label.setAttribute('font-size', '10');
+            label.setAttribute('fill', 'white');
+            label.textContent = booth.id;
+            group.appendChild(label);
+        } else {
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('class', 'booth-label');
+            label.setAttribute('x', booth.x + booth.width / 2);
+            label.setAttribute('y', booth.y + booth.height / 2);
+            label.setAttribute('text-anchor', 'middle');
+            label.setAttribute('dominant-baseline', 'middle');
+            label.textContent = booth.id;
+            group.appendChild(label);
+        }
+
         this.boothsGroup.appendChild(group);
     }
 
@@ -1005,22 +1044,47 @@ class AdminFloorplanManager {
     updateBoothElement(booth) {
         const group = this.getBoothElement(booth.id);
         if (group) {
-            const rect = group.querySelector('rect');
-            const label = group.querySelector('text');
+            const rect = group.querySelector('rect.booth-rect') || group.querySelector('rect');
+            const label = group.querySelector('text.booth-label') || group.querySelector('text');
+            const labelRect = group.querySelector('rect.booth-label-rect');
+            const img = group.querySelector('image.booth-logo-img');
 
             // Ensure status is set (default to 'available' if not set)
             const status = booth.status || 'available';
             booth.status = status; // Update the booth object to ensure consistency
 
-            rect.setAttribute('x', booth.x);
-            rect.setAttribute('y', booth.y);
-            rect.setAttribute('width', booth.width);
-            rect.setAttribute('height', booth.height);
-            rect.setAttribute('class', `booth-admin ${status}`);
+            if (rect) {
+                rect.setAttribute('x', booth.x);
+                rect.setAttribute('y', booth.y);
+                rect.setAttribute('width', booth.width);
+                rect.setAttribute('height', booth.height);
+                rect.setAttribute('class', `booth-admin booth-rect ${status}`);
+            }
 
-            label.setAttribute('x', booth.x + booth.width / 2);
-            label.setAttribute('y', booth.y + booth.height / 2);
-            label.textContent = booth.id;
+            const labelHeight = 14;
+            const hasLogo = booth.logo && (booth.status === 'booked' || booth.status === 'reserved');
+
+            if (hasLogo && labelRect && img) {
+                labelRect.setAttribute('x', booth.x);
+                labelRect.setAttribute('y', booth.y);
+                labelRect.setAttribute('width', booth.width);
+                labelRect.setAttribute('height', labelHeight);
+                img.setAttribute('x', booth.x);
+                img.setAttribute('y', booth.y + labelHeight);
+                img.setAttribute('width', booth.width);
+                img.setAttribute('height', Math.max(0, booth.height - labelHeight));
+                img.setAttribute('href', booth.logo);
+                if (label) {
+                    label.setAttribute('x', booth.x + booth.width / 2);
+                    label.setAttribute('y', booth.y + 10);
+                    label.textContent = booth.id;
+                }
+            } else if (label) {
+                label.setAttribute('x', booth.x + booth.width / 2);
+                label.setAttribute('y', booth.y + booth.height / 2);
+                label.setAttribute('dominant-baseline', 'middle');
+                label.textContent = booth.id;
+            }
         }
     }
 
@@ -1118,6 +1182,11 @@ class AdminFloorplanManager {
         document.getElementById('boothStatus').value = booth.status;
         document.getElementById('boothSize').value = booth.size;
         document.getElementById('boothArea').value = booth.area;
+        const sidesOpenEl = document.getElementById('boothSidesOpen');
+        if (sidesOpenEl) {
+            const sides = Math.max(1, parseInt(booth.openSides, 10) || 1);
+            sidesOpenEl.value = String(Math.min(4, sides));
+        }
         const sizeSqftSelect = document.getElementById('boothSizeSqft');
         if (sizeSqftSelect) {
             // Prefer existing explicit sizeId; also check exhibition_booth_size_id; otherwise default to first non-empty option
@@ -1175,6 +1244,10 @@ class AdminFloorplanManager {
             booth.status = document.getElementById('boothStatus').value;
             booth.size = document.getElementById('boothSize').value;
             booth.area = parseInt(document.getElementById('boothArea').value);
+            const sidesOpenEl = document.getElementById('boothSidesOpen');
+            if (sidesOpenEl) {
+                booth.openSides = Math.max(1, Math.min(4, parseInt(sidesOpenEl.value, 10) || 1));
+            }
             const sizeSqftSelect = document.getElementById('boothSizeSqft');
             if (sizeSqftSelect) {
                 // If nothing selected, default to first non-empty option
@@ -1307,7 +1380,10 @@ class AdminFloorplanManager {
                     return sizeSelect ? (parseInt(sizeSelect.value) || null) : null;
                 })(),
                 price: 0,
-                openSides: 0,
+                openSides: (() => {
+                    const sidesEl = document.getElementById('boothSidesOpen');
+                    return sidesEl ? Math.max(1, Math.min(4, parseInt(sidesEl.value, 10) || 1)) : 1;
+                })(),
                 category: 'Standard',
                 includedItems: []
             };
@@ -1567,7 +1643,7 @@ class AdminFloorplanManager {
             size: this.getSizeCategory(mergedWidth, mergedHeight),
             area: Math.round((mergedWidth * mergedHeight) / (this.gridConfig.size * this.gridConfig.size) * 100),
             price: booth1.price + booth2.price, // Combine prices
-            openSides: Math.max(booth1.openSides, booth2.openSides),
+            openSides: Math.max(1, Math.min(4, Math.max(booth1.openSides || 1, booth2.openSides || 1))),
             category: booth1.category === booth2.category ? booth1.category : 'Premium',
             includedItems: [...new Set([...booth1.includedItems, ...booth2.includedItems])] // Combine unique items
         };
@@ -1757,7 +1833,7 @@ class AdminFloorplanManager {
                     size: this.getSizeCategory(boothWidth, boothHeight),
                     area: selectedSizeSqft || area, // Use selected size sqft if available, otherwise calculated
                     price: 5000 + Math.floor(Math.random() * 15000),
-                    openSides: 2,
+                    openSides: 1,
                     category: selectedCategory || 'Standard', // Use selected category if available
                     includedItems: ['Table', '2 Chairs', 'Power Outlet']
                 };
@@ -1978,7 +2054,10 @@ class AdminFloorplanManager {
             if (config.grid) {
                 this.gridConfig = config.grid;
             }
-            this.booths = config.booths || [];
+            this.booths = (config.booths || []).map(b => ({
+                ...b,
+                openSides: Math.max(1, Math.min(4, parseInt(b.openSides, 10) || 1))
+            }));
 
             // Update UI - preserve floor dimensions if they exist
             // If floor dimensions are set, recalculate from meters; otherwise keep loaded config

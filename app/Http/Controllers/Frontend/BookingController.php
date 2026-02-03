@@ -197,6 +197,49 @@ class BookingController extends Controller
         }
         $bookedBoothIds = array_values(array_unique(array_filter($bookedBoothIds)));
 
+        // Map booth_id => company logo URL for booked/reserved booths (for floor plan display)
+        $boothLogos = [];
+        $collectBoothIdsFromBooking = function (Booking $booking) {
+            $ids = [];
+            if ($booking->booth_id) {
+                $ids[] = $booking->booth_id;
+            }
+            $selectedBoothIds = $booking->selected_booth_ids;
+            if ($selectedBoothIds && is_array($selectedBoothIds) && !empty($selectedBoothIds)) {
+                $firstItem = reset($selectedBoothIds);
+                if (is_array($firstItem) && isset($firstItem['id'])) {
+                    foreach ($selectedBoothIds as $item) {
+                        if (isset($item['id'])) {
+                            $ids[] = $item['id'];
+                        }
+                    }
+                } else {
+                    foreach ($selectedBoothIds as $boothId) {
+                        if ($boothId) {
+                            $ids[] = $boothId;
+                        }
+                    }
+                }
+            }
+            return array_unique(array_filter($ids));
+        };
+        foreach ($reservedBookings as $booking) {
+            if ($booking->logo && Storage::disk('public')->exists($booking->logo)) {
+                $url = asset('storage/' . ltrim($booking->logo, '/'));
+                foreach ($collectBoothIdsFromBooking($booking) as $bid) {
+                    $boothLogos[$bid] = $url;
+                }
+            }
+        }
+        foreach ($bookedBookings as $booking) {
+            if ($booking->logo && Storage::disk('public')->exists($booking->logo)) {
+                $url = asset('storage/' . ltrim($booking->logo, '/'));
+                foreach ($collectBoothIdsFromBooking($booking) as $bid) {
+                    $boothLogos[$bid] = $url;
+                }
+            }
+        }
+
         // If no booths in DB, try to hydrate from saved floorplan JSON
         if ($exhibition->booths->isEmpty()) {
             $this->syncBoothsFromFloorplan($exhibition);
@@ -253,6 +296,7 @@ class BookingController extends Controller
             'exhibition' => $exhibition,
             'reservedBoothIds' => $reservedBoothIds,
             'bookedBoothIds' => $bookedBoothIds,
+            'boothLogos' => $boothLogos,
             'floors' => $exhibition->floors ?? collect(),
             'selectedFloor' => $selectedFloor,
             'selectedFloorId' => $selectedFloorId,
@@ -311,7 +355,7 @@ class BookingController extends Controller
             $booth->category = $boothData['category'] ?? $booth->category ?? 'Standard';
             $booth->booth_type = $booth->booth_type ?? 'Raw';
             $booth->size_sqft = $boothData['area'] ?? $booth->size_sqft ?? 0;
-            $booth->sides_open = $boothData['openSides'] ?? $booth->sides_open ?? 1;
+            $booth->sides_open = max(1, (int)($boothData['openSides'] ?? $booth->sides_open ?? 1));
             $booth->price = $boothData['price'] ?? $booth->price ?? 0;
             $booth->is_free = $booth->is_free ?? false;
             $booth->is_available = true;
@@ -354,7 +398,7 @@ class BookingController extends Controller
                 ->with('error', 'Selected booths are not available. Please choose again.');
         }
 
-        // Map client selection (type/sides) and recompute prices server-side
+        // Map client selection (type) and recompute prices server-side. Sides open is set by admin per booth.
         $selectionMeta = json_decode($request->query('booth_meta', '{}'), true) ?: [];
         $boothSelections = [];
         $boothTotal = 0;
@@ -362,7 +406,7 @@ class BookingController extends Controller
         foreach ($booths as $booth) {
             $meta = $selectionMeta[$booth->id] ?? [];
             $type = $meta['type'] ?? 'Raw';
-            $sides = isset($meta['sides']) ? (int) $meta['sides'] : ($booth->sides_open ?? 1);
+            $sides = max(1, (int)($booth->sides_open ?? 1));
 
             // Price without discount (for display) and with discount (for totals)
             $originalPrice = $this->calculateBoothPrice($booth, $exhibition, $type, $sides, null);
@@ -623,7 +667,7 @@ class BookingController extends Controller
                 foreach ($booths as $booth) {
                     $selection = $request->input("booth_selections.{$booth->id}", []);
                     $type = $selection['type'] ?? 'Raw';
-                    $sides = isset($selection['sides']) ? (int) $selection['sides'] : ($booth->sides_open ?? 1);
+                    $sides = max(1, (int)($booth->sides_open ?? 1));
                     $price = $this->calculateBoothPrice($booth, $exhibition, $type, $sides, $user->id);
 
                     $boothSelections[] = [

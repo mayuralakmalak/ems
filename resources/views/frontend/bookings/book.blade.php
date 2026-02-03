@@ -215,6 +215,38 @@
         z-index: 20;
     }
     
+    /* Company logo on booked/reserved booths - logo same size as booth box, number above image */
+    .booth-item .booth-inner {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: stretch;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+    }
+    .booth-item .booth-name {
+        flex: 0 0 auto;
+        font-size: 11px;
+        line-height: 1.15;
+        text-align: center;
+        padding: 1px 2px;
+        background: rgba(0,0,0,0.35);
+        text-shadow: 0 0 2px rgba(0,0,0,0.8);
+    }
+    .booth-item .booth-logo {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: block;
+        overflow: hidden;
+    }
+    .booth-item .booth-logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+    
     .booth-available {
         background-color: #28a745;
         border-color: #1e7e34;
@@ -1106,6 +1138,13 @@
                     if ($sizeConfig && $sizeConfig->sizeType) {
                         $sizeTypeText = $sizeConfig->sizeType->length . ' x ' . $sizeConfig->sizeType->width;
                     }
+
+                    // Company logo URL for booked/reserved booths
+                    $boothLogoUrl = null;
+                    $boothLogosList = $boothLogos ?? [];
+                    if (($status === 'booked' || $status === 'reserved') && isset($boothLogosList[$booth->id]) && $boothLogosList[$booth->id]) {
+                        $boothLogoUrl = $boothLogosList[$booth->id];
+                    }
                 @endphp
                 <div class="booth-item {{ $statusClass }}" 
                      data-booth-id="{{ $booth->id }}"
@@ -1118,7 +1157,7 @@
                      data-orphan-price="{{ $orphanPriceForBooth }}"
                      data-booth-category="{{ $normalizedCategory }}"
                      data-booth-type="{{ $booth->booth_type }}"
-                     data-booth-sides="{{ $booth->sides_open }}"
+                     data-booth-sides="{{ $booth->sides_open ?? 1 }}"
                      data-booth-status="{{ $status }}"
                      data-booth-merged="{{ $booth->is_merged ? 'true' : 'false' }}"
                      data-merged-originals="{{ $mergedNames }}"
@@ -1127,6 +1166,19 @@
                             top: {{ $booth->position_y ?? floor($loop->index / 5) * 100 }}px; 
                             width: {{ $booth->width ?? 100 }}px; 
                             height: {{ $booth->height ?? 80 }}px;">
+                    @if($boothLogoUrl)
+                    <div class="booth-inner">
+                        <div class="booth-name">
+                            {{ $booth->name }}{{ $booth->is_merged ? ' (Merged)' : '' }}
+                            @if($mergedNames)
+                            <div style="font-size: 9px; opacity: 0.95;">Original: {{ $mergedNames }}</div>
+                            @endif
+                        </div>
+                        <div class="booth-logo">
+                            <img src="{{ $boothLogoUrl }}" alt="Company logo">
+                        </div>
+                    </div>
+                    @else
                     <div class="text-center">
                         <div>{{ $booth->name }}{{ $booth->is_merged ? ' (Merged)' : '' }}</div>
                         {{-- <div style="font-size: 10px;">{{ $booth->size_sqft }} </div> --}}
@@ -1134,6 +1186,7 @@
                         <div style="font-size: 9px; color: #0f172a;">Original: {{ $mergedNames }}</div>
                         @endif
                     </div>
+                    @endif
                 </div>
                 @endforeach
             </div>
@@ -1290,10 +1343,7 @@
                     <!-- Radios injected via JS -->
                 </div>
 
-                <h6 style="margin-top: 12px;">Choose Open Sides</h6>
-                <div class="checkbox-inline" id="boothSideOptions">
-                    <!-- Checkboxes injected via JS -->
-                </div>
+                <!-- Sides open is set by admin per booth; no user selection -->
 
                 <div class="detail-row" style="margin-top: 12px;">
                     <span class="detail-label">Calculated Price</span>
@@ -1554,7 +1604,6 @@ function ensureBoothSelection(boothId) {
 function renderBoothSelectionControls(boothId) {
     const selection = boothSelections[boothId];
     const typeContainer = document.getElementById('boothTypeOptions');
-    const sideContainer = document.getElementById('boothSideOptions');
     const controls = document.getElementById('boothSelectionControls');
 
     if (!typeContainer || !controls) return;
@@ -1563,15 +1612,6 @@ function renderBoothSelectionControls(boothId) {
         <label><input type="radio" name="boothType-${boothId}" value="Raw"> Raw</label>
         <label><input type="radio" name="boothType-${boothId}" value="Orphand">Shell</label>
     `;
-
-    if (sideContainer) {
-        sideContainer.innerHTML = `
-            <label><input type="radio" name="boothSides-${boothId}" value="1"> 1 Side</label>
-            <label><input type="radio" name="boothSides-${boothId}" value="2"> 2 Sides</label>
-            <label><input type="radio" name="boothSides-${boothId}" value="3"> 3 Sides</label>
-            <label><input type="radio" name="boothSides-${boothId}" value="4"> 4 Sides</label>
-        `;
-    }
 
     controls.style.display = 'block';
 
@@ -1584,15 +1624,7 @@ function renderBoothSelectionControls(boothId) {
         });
     });
 
-    const sideInputs = document.querySelectorAll(`input[name="boothSides-${boothId}"]`);
-    sideInputs.forEach(input => {
-        input.checked = parseInt(input.value) === selection.sides;
-        input.addEventListener('change', () => {
-            boothSelections[boothId].sides = parseInt(input.value);
-            syncBoothSelectionDisplay(boothId);
-        });
-    });
-
+    // Sides open is fixed per booth (set by admin); selection.sides is set from data-booth-sides in ensureBoothSelection
     syncBoothSelectionDisplay(boothId);
 }
 
@@ -1704,6 +1736,10 @@ function showBoothDetails(boothId) {
         <div class="detail-row">
             <span class="detail-label">Type</span>
             <span class="detail-value" id="boothDetailType">${selection.type === 'Orphand' ? 'Shell' : selection.type}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Sides Open</span>
+            <span class="detail-value" id="boothDetailSides">${selection.sides}</span>
         </div>
     `;
     

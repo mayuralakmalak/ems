@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Booking;
 use App\Models\Exhibition;
 use App\Models\Booth;
 use App\Models\Floor;
@@ -320,7 +321,7 @@ class FloorplanController extends Controller
                 $booth->category = $boothData['category'] ?? $booth->category ?? 'Standard';
                 $booth->booth_type = $booth->booth_type ?? 'Raw';
                 $booth->size_sqft = $boothData['area'] ?? $booth->size_sqft ?? 0;
-                $booth->sides_open = $boothData['openSides'] ?? $booth->sides_open ?? 1;
+                $booth->sides_open = max(1, (int)($boothData['openSides'] ?? $booth->sides_open ?? 1));
                 $booth->price = $boothData['price'] ?? $booth->price ?? 0;
                 $booth->is_free = $booth->is_free ?? false;
                 // Preserve existing status from database (don't overwrite with defaults)
@@ -635,6 +636,25 @@ class FloorplanController extends Controller
             }
         }
         $bookedBoothIds = array_values(array_unique(array_filter($bookedBoothIds)));
+
+        // Map booth_id => company logo URL for booked/reserved booths (for admin floorplan display)
+        $boothLogos = [];
+        foreach ($reservedBookings as $booking) {
+            if ($booking->logo && Storage::disk('public')->exists($booking->logo)) {
+                $url = asset('storage/' . ltrim($booking->logo, '/'));
+                foreach ($this->extractBoothIdsFromBooking($booking) as $bid) {
+                    $boothLogos[$bid] = $url;
+                }
+            }
+        }
+        foreach ($bookedBookings as $booking) {
+            if ($booking->logo && Storage::disk('public')->exists($booking->logo)) {
+                $url = asset('storage/' . ltrim($booking->logo, '/'));
+                foreach ($this->extractBoothIdsFromBooking($booking) as $bid) {
+                    $boothLogos[$bid] = $url;
+                }
+            }
+        }
         
         // Debug logging (remove in production if not needed)
         if (config('app.debug')) {
@@ -693,6 +713,9 @@ class FloorplanController extends Controller
                 
                 if ($isInBookedList || $isMarkedBooked) {
                     $boothData['status'] = 'booked';
+                    if (!empty($boothLogos[$boothId])) {
+                        $boothData['logo'] = $boothLogos[$boothId];
+                    }
                     
                     // Debug logging (remove in production if not needed)
                     if (config('app.debug') && !$isInBookedList && $isMarkedBooked) {
@@ -707,6 +730,9 @@ class FloorplanController extends Controller
                 // Check if reserved (second priority)
                 elseif (in_array($boothId, $reservedBoothIds, true) || (!$dbBooth->is_available && !$dbBooth->is_booked)) {
                     $boothData['status'] = 'reserved';
+                    if (!empty($boothLogos[$boothId])) {
+                        $boothData['logo'] = $boothLogos[$boothId];
+                    }
                 } 
                 // Check if merged
                 elseif ($dbBooth->is_merged) {
@@ -737,8 +763,14 @@ class FloorplanController extends Controller
                     $boothId = (int) $boothByName->id;
                     if (in_array($boothId, $bookedBoothIds, true) || $boothByName->is_booked) {
                         $boothData['status'] = 'booked';
+                        if (!empty($boothLogos[$boothId])) {
+                            $boothData['logo'] = $boothLogos[$boothId];
+                        }
                     } elseif (in_array($boothId, $reservedBoothIds, true) || (!$boothByName->is_available && !$boothByName->is_booked)) {
                         $boothData['status'] = 'reserved';
+                        if (!empty($boothLogos[$boothId])) {
+                            $boothData['logo'] = $boothLogos[$boothId];
+                        }
                     } elseif ($boothByName->is_merged) {
                         $boothData['status'] = 'merged';
                     } else {

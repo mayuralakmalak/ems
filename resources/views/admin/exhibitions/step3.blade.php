@@ -177,6 +177,16 @@
                             <input type="number" id="boothArea" name="boothArea" value="100">
                         </div>
                         <div class="form-group">
+                            <label>Sides Open:</label>
+                            <select id="boothSidesOpen" name="boothSidesOpen">
+                                <option value="1">1 Side</option>
+                                <option value="2">2 Sides</option>
+                                <option value="3">3 Sides</option>
+                                <option value="4">4 Sides</option>
+                            </select>
+                            <small class="text-muted d-block mt-1">Price on frontend is calculated based on this. Default: 1 Side.</small>
+                        </div>
+                        <div class="form-group">
                             <label>Size (sq meter):</label>
                             <select id="boothSizeSqft" name="boothSizeSqft">
                                 <option value="">Select size</option>

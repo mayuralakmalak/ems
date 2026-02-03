@@ -72,7 +72,7 @@ class BoothController extends Controller
                 'category' => $request->input('category', 'Standard'),
                 'booth_type' => 'Raw', // Default
                 'size_sqft' => $request->input('area', 100),
-                'sides_open' => $request->input('open_sides', 2),
+                'sides_open' => max(1, (int)($request->input('open_sides') ?? $request->input('sides_open') ?? 1)),
                 'price' => $request->input('price', 10000),
                 'position_x' => $request->input('x', 0),
                 'position_y' => $request->input('y', 0),

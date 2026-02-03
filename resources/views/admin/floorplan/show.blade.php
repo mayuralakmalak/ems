@@ -412,7 +412,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Sides Open</label>
-                        <input type="number" class="form-control" name="sides_open" min="1" max="4" required>
+                        <input type="number" class="form-control" name="sides_open" min="1" max="4" value="1" required>
                     </div>
                 </div>
                 <div class="modal-footer">
