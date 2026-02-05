@@ -79,9 +79,9 @@ class RegisteredUserController extends Controller
         $country = Country::find($request->country);
         $state = State::find($request->state);
         
-        // Get phone codes from separate dropdowns
-        $mobilePhoneCode = $request->mobile_phone_code ?? '';
-        $phonePhoneCode = $request->phone_phone_code ?? '';
+        // Get phone codes from separate dropdowns (normalize: strip + so we store single "+91")
+        $mobilePhoneCode = $request->mobile_phone_code ? ltrim(trim($request->mobile_phone_code), '+') : '';
+        $phonePhoneCode = $request->phone_phone_code ? ltrim(trim($request->phone_phone_code), '+') : '';
         
         // Process mobile number - store only the number part (without code)
         $mobileNumber = $request->mobile_number;
@@ -93,6 +93,10 @@ class RegisteredUserController extends Controller
         } elseif (!empty($mobileNumber)) {
             // If no country code provided, try to extract it or keep as is
             $mobileNumber = preg_replace('/[^0-9]/', '', $mobileNumber);
+        }
+        // Normalize Indian-style 11-digit with leading 0 to 10 digits
+        if (!empty($mobileNumber) && strlen($mobileNumber) === 11 && str_starts_with($mobileNumber, '0')) {
+            $mobileNumber = ltrim($mobileNumber, '0');
         }
         
         // Process phone number - store only the number part (without code)
@@ -107,9 +111,9 @@ class RegisteredUserController extends Controller
             $phoneNumber = preg_replace('/[^0-9]/', '', $phoneNumber);
         }
         
-        // Format full phone for backward compatibility (with code)
-        $fullMobileNumber = $mobilePhoneCode && $mobileNumber ? '+' . $mobilePhoneCode . $mobileNumber : ($mobileNumber ? $mobileNumber : null);
-        $fullPhoneNumber = $phonePhoneCode && $phoneNumber ? '+' . $phonePhoneCode . $phoneNumber : ($phoneNumber ? $phoneNumber : null);
+        // Format full phone for backward compatibility (with code); store phone code with single "+"
+        $fullMobileNumber = $mobilePhoneCode !== '' && $mobileNumber !== '' ? '+' . $mobilePhoneCode . $mobileNumber : ($mobileNumber !== '' ? $mobileNumber : null);
+        $fullPhoneNumber = $phonePhoneCode !== '' && $phoneNumber !== '' ? '+' . $phonePhoneCode . $phoneNumber : ($phoneNumber !== '' ? $phoneNumber : null);
 
         // Handle GST certificate upload (optional)
         $gstCertificatePath = null;
@@ -122,9 +126,9 @@ class RegisteredUserController extends Controller
             'email' => $request->email,
             'phone' => $fullMobileNumber, // Keep for backward compatibility
             'mobile_number' => $mobileNumber, // Store only number part
-            'mobile_number_phone_code' => $mobilePhoneCode ? '+' . $mobilePhoneCode : null, // Store code separately
+            'mobile_number_phone_code' => $mobilePhoneCode !== '' ? '+' . $mobilePhoneCode : null, // Store code with single "+"
             'phone_number' => $phoneNumber, // Store only number part
-            'phone_number_phone_code' => $phonePhoneCode ? '+' . $phonePhoneCode : null, // Store code separately
+            'phone_number_phone_code' => $phonePhoneCode !== '' ? '+' . $phonePhoneCode : null, // Store code with single "+"
             'password' => Hash::make($request->password),
             'company_name' => $request->company_name,
             'website' => $request->company_website,

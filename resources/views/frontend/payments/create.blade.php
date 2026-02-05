@@ -1357,18 +1357,23 @@ document.getElementById('paymentForm').addEventListener('submit', function(e) {
     document.getElementById('selectedPaymentMethod').value = methodMap[selectedMethod] || selectedMethod;
     
     // Calculate final payment amount
-    // For online methods: gateway fee is already included in the recalculated amount
-    // For wallet/neft/rtgs: use original amount without gateway fee
+    // IMPORTANT:
+    // - Backend expects the submitted "amount" to be the BASE booking/payment amount (without gateway fee)
+    // - Gateway fee (2.5%) is handled separately on the server and only applied for online payments
+    // - So we NEVER include gateway fee inside the hidden "amount" field
     const isOnlineMethod = ['card', 'upi', 'netbanking'].includes(selectedMethod);
+    const paymentTypeOption = document.getElementById('paymentTypeOption').value;
     let finalAmount;
     
-    if (isOnlineMethod && totalGatewayFee > 0) {
-        // Gateway fee is already included in the recalculated amount shown on button
-        // Get the amount from the payment button (which shows the recalculated amount)
-        const buttonAmountText = document.getElementById('paymentButtonAmount').textContent;
-        finalAmount = parseFloat(buttonAmountText.replace(/[₹,]/g, '')) || initialAmount;
+    if (paymentTypeOption === 'full') {
+        // Full payment: always send the booking total AFTER all discounts, WITHOUT gateway fee
+        // This is exactly what the backend uses as $fullPaymentAmount
+        const fullAmountInput = document.getElementById('fullPaymentAmount');
+        finalAmount = fullAmountInput ? parseFloat(fullAmountInput.value) : parseFloat(initialAmount);
     } else {
-        // For wallet, neft, rtgs: use original amount without gateway fee
+        // Part payment:
+        // - For online methods, gateway fee is only for display; backend still expects base scheduled amount
+        // - For wallet/neft/rtgs, we also send the base scheduled amount
         finalAmount = parseFloat(initialAmount);
     }
     

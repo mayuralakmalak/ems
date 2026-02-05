@@ -25,17 +25,46 @@ class OtpController extends Controller
 
         // Clean the mobile number (remove any non-digit characters)
         $mobileNumber = preg_replace('/[^0-9]/', '', $request->mobile_number);
-        $phoneCode = $request->mobile_phone_code;
-        
-        // Format phone code with + if not present
-        if (!str_starts_with($phoneCode, '+')) {
-            $phoneCode = '+' . $phoneCode;
+        $phoneCode = trim($request->mobile_phone_code);
+        $phoneCode = ltrim($phoneCode, '+');
+        $phoneCode = $phoneCode !== '' ? '+' . $phoneCode : '';
+
+        // Normalize stored phone code for comparison (DB may have "+91" or "91")
+        $normalizedCodeForQuery = $phoneCode;
+
+        // Find user: try mobile_number + mobile_number_phone_code first
+        $user = User::where('mobile_number', $mobileNumber)
+            ->where(function ($q) use ($normalizedCodeForQuery) {
+                $q->where('mobile_number_phone_code', $normalizedCodeForQuery)
+                    ->orWhere('mobile_number_phone_code', ltrim($normalizedCodeForQuery, '+'))
+                    ->orWhereRaw("REPLACE(REPLACE(mobile_number_phone_code, ' ', ''), '+', '') = ?", [ltrim($normalizedCodeForQuery, '+')]);
+            })
+            ->first();
+
+        // If not found, try without leading zero (e.g. 09876543210 vs 9876543210)
+        if (!$user && strlen($mobileNumber) === 11 && str_starts_with($mobileNumber, '0')) {
+            $user = User::where('mobile_number', ltrim($mobileNumber, '0'))
+                ->where(function ($q) use ($normalizedCodeForQuery) {
+                    $q->where('mobile_number_phone_code', $normalizedCodeForQuery)
+                        ->orWhere('mobile_number_phone_code', ltrim($normalizedCodeForQuery, '+'))
+                        ->orWhereRaw("REPLACE(REPLACE(mobile_number_phone_code, ' ', ''), '+', '') = ?", [ltrim($normalizedCodeForQuery, '+')]);
+                })
+                ->first();
         }
 
-        // Find user by mobile_number and mobile_number_phone_code
-        $user = User::where('mobile_number', $mobileNumber)
-            ->where('mobile_number_phone_code', $phoneCode)
-            ->first();
+        // Fallback: find by legacy full "phone" column (e.g. old users or different format)
+        if (!$user) {
+            $fullDigits = preg_replace('/[^0-9]/', '', $phoneCode . $mobileNumber);
+            $user = User::whereNotNull('phone')
+                ->whereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '+', ''), '-', '') = ?", [$fullDigits])
+                ->first();
+        }
+        if (!$user && strlen($mobileNumber) === 11 && str_starts_with($mobileNumber, '0')) {
+            $fullDigits = preg_replace('/[^0-9]/', '', $phoneCode . ltrim($mobileNumber, '0'));
+            $user = User::whereNotNull('phone')
+                ->whereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '+', ''), '-', '') = ?", [$fullDigits])
+                ->first();
+        }
 
         if (!$user) {
             return back()->withInput()->withErrors(['mobile_number' => 'Mobile number not found. Please check your number or register first.']);

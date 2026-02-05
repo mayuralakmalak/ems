@@ -444,6 +444,20 @@ class PaymentController extends Controller
         $amount = (float) $request->amount;
         $user = auth()->user();
         $paymentTypeOption = $request->payment_type_option ?? 'part'; // Default to part payment
+        // Normalize booth IDs once so both full and part payment flows can use them
+        $boothIds = collect($booking->selected_booth_ids ?? [$booking->booth_id])
+            ->map(function($entry) {
+                if (is_array($entry)) {
+                    return $entry['id'] ?? null;
+                }
+                return $entry;
+            })
+            ->filter()
+            ->values()
+            ->all();
+        if (empty($boothIds)) {
+            $boothIds = [$booking->booth_id];
+        }
         
         // Handle full payment: booking total_amount is already the final amount (priority: full payment + member + coupon applied at apply-discount)
         if ($paymentTypeOption === 'full') {
@@ -512,25 +526,33 @@ class PaymentController extends Controller
                     Log::error('Failed to send payment receipt email: ' . $e->getMessage());
                 }
             }
+
+            // Ensure a booth request exists for full payment flows as well
+            $existingRequest = BoothRequest::where('request_type', 'booking')
+                ->where('exhibition_id', $booking->exhibition_id)
+                ->where('user_id', $user->id)
+                ->where('request_data->booking_id', $booking->id)
+                ->first();
+
+            if (!$existingRequest) {
+                BoothRequest::create([
+                    'exhibition_id' => $booking->exhibition_id,
+                    'user_id' => $user->id,
+                    'request_type' => 'booking',
+                    'booth_ids' => $boothIds,
+                    'status' => 'pending',
+                    'request_data' => [
+                        'booking_id' => $booking->id,
+                        'total_amount' => $booking->total_amount,
+                        'paid_amount' => $booking->paid_amount,
+                        'payment_method' => $request->payment_method,
+                    ],
+                ]);
+            }
             
             return redirect()->route('payments.confirmation', $lastPayment->id ?? $allPayments->first()->id)
                 ->with('success', 'Full payment completed successfully!');
         }
-        $boothIds = collect($booking->selected_booth_ids ?? [$booking->booth_id])
-            ->map(function($entry) {
-                if (is_array($entry)) {
-                    return $entry['id'] ?? null;
-                }
-                return $entry;
-            })
-            ->filter()
-            ->values()
-            ->all();
-        if (empty($boothIds)) {
-            $boothIds = [$booking->booth_id];
-        }
-
-
         // Handle wallet payment
         if ($request->payment_method === 'wallet') {
             $walletBalance = $user->wallet_balance;

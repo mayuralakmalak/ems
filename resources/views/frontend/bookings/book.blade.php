@@ -465,15 +465,6 @@
         background: #7c3aed;
     }
     
-    .btn-split {
-        background: #f59e0b;
-        color: white;
-    }
-    
-    .btn-split:hover:not(:disabled) {
-        background: #d97706;
-    }
-    
     .selected-booths {
         display: flex;
         flex-direction: column;
@@ -1355,9 +1346,6 @@
                 <button class="btn-action btn-select" id="selectBoothBtn">
                     <i class="bi bi-check-circle me-1"></i>Select Booth
                 </button>
-                <button class="btn-action btn-split" id="splitBoothBtn" disabled>
-                    <i class="bi bi-scissors me-1"></i>Request Split
-                </button>
             </div>
         </div>
 
@@ -1531,7 +1519,6 @@ document.addEventListener('DOMContentLoaded', function() {
     setupBoothSelection();
     setupFilters();
     setupZoom();
-    setupSplit();
     setupPriceRange();
     toggleServicesCard();
     setupFloorSelection();
@@ -1760,7 +1747,6 @@ function showBoothDetails(boothId) {
     // Update button states
     const isSelected = selectedBooths.includes(boothId);
     document.getElementById('selectBoothBtn').textContent = isSelected ? 'Deselect Booth' : 'Select Booth';
-    document.getElementById('splitBoothBtn').disabled = selectedBooths.length !== 1;
 }
 
 function hideBoothDetails() {
@@ -2557,64 +2543,6 @@ function initializeBoothPrices() {
     document.querySelectorAll('.booth-item').forEach(booth => {
         const boothId = booth.getAttribute('data-booth-id');
         ensureBoothSelection(boothId);
-    });
-}
-
-// Split
-function setupSplit() {
-    document.getElementById('splitBoothBtn').addEventListener('click', function() {
-        if (selectedBooths.length !== 1) {
-            alert('Please select exactly 1 booth to split');
-            return;
-        }
-        requestSplit();
-    });
-}
-
-function requestSplit() {
-    const splitCount = prompt('Split into how many booths? (2-4):');
-    if (!splitCount || splitCount < 2 || splitCount > 4) return;
-    
-    const names = [];
-    for (let i = 0; i < splitCount; i++) {
-        const name = prompt(`Enter name for booth ${i + 1}:`);
-        if (!name) return;
-        names.push(name);
-    }
-    
-    const boothId = selectedBooths[0];
-    const formData = new FormData();
-    formData.append('_token', document.querySelector('meta[name="csrf-token"]').content);
-    formData.append('split_count', parseInt(splitCount));
-    names.forEach(name => {
-        formData.append('new_names[]', name);
-    });
-    
-    fetch(`{{ url('/exhibitions/' . $exhibition->id . '/booths') }}/${boothId}/split-request`, {
-        method: 'POST',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            'Accept': 'application/json'
-        },
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('Booth split successfully! New booths are now available for booking.');
-            selectedBooths = [];
-            if (data.redirect) {
-                window.location.href = data.redirect;
-            } else {
-                location.reload();
-            }
-        } else {
-            alert(data.message || 'Split request failed');
-        }
-    })
-    .catch(error => {
-        alert('Error submitting split request');
-        console.error(error);
     });
 }
 
