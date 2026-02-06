@@ -38,7 +38,7 @@
         <h5 class="mb-0"><i class="bi bi-funnel"></i> Filters</h5>
     </div>
     <div class="card-body">
-        <form method="GET" action="{{ route('admin.payments.history') }}" class="row g-3">
+        <form method="GET" action="{{ route('admin.payments.history') }}" class="row g-3 align-items-end">
             <div class="col-md-3">
                 <label for="search" class="form-label">Search</label>
                 <input type="text" class="form-control" id="search" name="search" 
@@ -77,21 +77,28 @@
                 <input type="date" class="form-control" id="date_to" name="date_to" 
                        value="{{ request('date_to') }}">
             </div>
-            <div class="col-md-1">
-                <label class="form-label">&nbsp;</label>
-                <div class="d-grid">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-search"></i> Filter
-                    </button>
-                </div>
+            <div class="col-md-3">
+                <label class="form-label">Exhibition</label>
+                <select name="exhibition_id" class="form-select">
+                    <option value="">All Exhibitions</option>
+                    @foreach($exhibitions as $exhibition)
+                        <option value="{{ $exhibition->id }}" {{ (string) $exhibition->id === request('exhibition_id') ? 'selected' : '' }}>
+                            {{ $exhibition->name }}
+                        </option>
+                    @endforeach
+                </select>
             </div>
-            @if(request()->hasAny(['search', 'payment_method', 'payment_type', 'date_from', 'date_to']))
-            <div class="col-md-12">
-                <a href="{{ route('admin.payments.history') }}" class="btn btn-sm btn-outline-secondary">
+            <div class="col-12 d-flex justify-content-start gap-2 mt-2">
+                <a href="{{ route('admin.payments.history') }}" class="btn btn-outline-secondary btn-sm text-nowrap">
                     <i class="bi bi-x-circle"></i> Clear Filters
                 </a>
+                <button type="submit" class="btn btn-primary btn-sm text-nowrap">
+                    <i class="bi bi-search"></i> Filter
+                </button>
+                <button type="submit" name="export" value="1" class="btn btn-success btn-sm text-nowrap">
+                    <i class="bi bi-download"></i> Export
+                </button>
             </div>
-            @endif
         </form>
     </div>
 </div>

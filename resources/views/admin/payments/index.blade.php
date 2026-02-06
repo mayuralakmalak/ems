@@ -25,7 +25,7 @@
     </div>
 </div>
 
-<div class="card">
+<div class="card mb-3">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Payment Approvals</h5>
         <div class="d-flex gap-2">
@@ -40,6 +40,54 @@
         </div>
     </div>
     <div class="card-body">
+        <form method="GET" action="{{ route('admin.payments.index') }}" class="row g-3 mb-3">
+            <input type="hidden" name="approval_status" value="{{ request('approval_status', 'pending') }}">
+            <div class="col-md-3">
+                <label class="form-label">Search</label>
+                <input type="text" name="search" class="form-control" placeholder="Payment #, Transaction, Exhibitor, Exhibition..." value="{{ request('search') }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Exhibition</label>
+                <select name="exhibition_id" class="form-select">
+                    <option value="">All Exhibitions</option>
+                    @foreach($exhibitions as $exhibition)
+                        <option value="{{ $exhibition->id }}" {{ (string) $exhibition->id === request('exhibition_id') ? 'selected' : '' }}>
+                            {{ $exhibition->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Payment Method</label>
+                <select name="payment_method" class="form-select">
+                    <option value="">All Methods</option>
+                    <option value="online" {{ request('payment_method') == 'online' ? 'selected' : '' }}>Online</option>
+                    <option value="offline" {{ request('payment_method') == 'offline' ? 'selected' : '' }}>Offline</option>
+                    <option value="rtgs" {{ request('payment_method') == 'rtgs' ? 'selected' : '' }}>RTGS</option>
+                    <option value="neft" {{ request('payment_method') == 'neft' ? 'selected' : '' }}>NEFT</option>
+                    <option value="wallet" {{ request('payment_method') == 'wallet' ? 'selected' : '' }}>Wallet</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Date From</label>
+                <input type="date" name="date_from" class="form-control" value="{{ request('date_from') }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Date To</label>
+                <input type="date" name="date_to" class="form-control" value="{{ request('date_to') }}">
+            </div>
+            <div class="col-12 d-flex justify-content-start gap-2">
+                <a href="{{ route('admin.payments.index', ['approval_status' => request('approval_status', 'pending')]) }}" class="btn btn-outline-secondary btn-sm text-nowrap">
+                    Reset
+                </a>
+                <button type="submit" class="btn btn-primary btn-sm text-nowrap">
+                    Filter
+                </button>
+                <button type="submit" name="export" value="1" class="btn btn-success btn-sm text-nowrap">
+                    Export
+                </button>
+            </div>
+        </form>
         <div class="table-responsive">
             <table class="table table-hover">
                 <thead>

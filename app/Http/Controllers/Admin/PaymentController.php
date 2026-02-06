@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Models\Booking;
+use App\Models\Exhibition;
 use App\Mail\PaymentReceiptMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -15,22 +16,68 @@ class PaymentController extends Controller
     public function index(Request $request)
     {
         $query = Payment::with(['booking.user', 'booking.exhibition', 'booking.booth']);
-        
-        // Filter by approval status
+
+        // Filter by approval status (defaults to pending)
         if ($request->has('approval_status') && $request->approval_status) {
             $query->where('approval_status', $request->approval_status);
         } else {
-            // Default: show pending approvals
             $query->where('approval_status', 'pending');
         }
-        
-        $payments = $query->latest()->paginate(20);
-        
+
+        // Free-text search (payment #, transaction ID, exhibitor, exhibition)
+        if ($request->filled('search')) {
+            $search = $request->get('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('payment_number', 'like', '%' . $search . '%')
+                    ->orWhere('transaction_id', 'like', '%' . $search . '%')
+                    ->orWhereHas('booking.user', function ($userQuery) use ($search) {
+                        $userQuery->where('name', 'like', '%' . $search . '%')
+                            ->orWhere('email', 'like', '%' . $search . '%');
+                    })
+                    ->orWhereHas('booking.exhibition', function ($exhibitionQuery) use ($search) {
+                        $exhibitionQuery->where('name', 'like', '%' . $search . '%');
+                    });
+            });
+        }
+
+        // Filter by exhibition
+        if ($request->filled('exhibition_id')) {
+            $exhibitionId = $request->get('exhibition_id');
+            $query->whereHas('booking', function ($q) use ($exhibitionId) {
+                $q->where('exhibition_id', $exhibitionId);
+            });
+        }
+
+        // Filter by payment method
+        if ($request->filled('payment_method')) {
+            $query->where('payment_method', $request->get('payment_method'));
+        }
+
+        // Filter by created date range
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->get('date_from'));
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->get('date_to'));
+        }
+
+        // Statistics (overall)
         $pendingCount = Payment::where('approval_status', 'pending')->count();
         $approvedCount = Payment::where('approval_status', 'approved')->count();
         $rejectedCount = Payment::where('approval_status', 'rejected')->count();
-        
-        return view('admin.payments.index', compact('payments', 'pendingCount', 'approvedCount', 'rejectedCount'));
+
+        $exhibitions = Exhibition::all();
+
+        // Export branch: download CSV for current filters (or default pending list)
+        if ($request->get('export') === '1') {
+            $payments = $query->latest()->get();
+            return $this->exportPayments($payments);
+        }
+
+        $payments = $query->latest()->paginate(20)->appends($request->query());
+
+        return view('admin.payments.index', compact('payments', 'pendingCount', 'approvedCount', 'rejectedCount', 'exhibitions'));
     }
 
     public function create()
@@ -209,8 +256,24 @@ class PaymentController extends Controller
         if ($request->has('date_to') && $request->date_to) {
             $query->whereDate('paid_at', '<=', $request->date_to);
         }
-        
-        $payments = $query->latest('paid_at')->paginate(20);
+
+        // Filter by exhibition
+        if ($request->filled('exhibition_id')) {
+            $exhibitionId = $request->get('exhibition_id');
+            $query->whereHas('booking', function ($q) use ($exhibitionId) {
+                $q->where('exhibition_id', $exhibitionId);
+            });
+        }
+
+        $exhibitions = Exhibition::all();
+
+        // Export branch: download CSV for current filters (approved history)
+        if ($request->get('export') === '1') {
+            $payments = $query->latest('paid_at')->get();
+            return $this->exportPayments($payments);
+        }
+
+        $payments = $query->latest('paid_at')->paginate(20)->appends($request->query());
         
         // Statistics
         $totalApproved = Payment::where('approval_status', 'approved')->count();
@@ -227,7 +290,83 @@ class PaymentController extends Controller
             'totalApproved', 
             'totalAmount', 
             'todayApproved', 
-            'todayAmount'
+            'todayAmount',
+            'exhibitions'
         ));
+    }
+
+    /**
+     * Export payments (for approvals or history) as CSV.
+     */
+    private function exportPayments($payments)
+    {
+        $fileName = 'payments-' . now()->format('YmdHis') . '.csv';
+
+        return response()->streamDownload(function () use ($payments) {
+            $handle = fopen('php://output', 'w');
+
+            // CSV header
+            fputcsv($handle, [
+                'Payment #',
+                'Exhibitor',
+                'Exhibitor Email',
+                'Exhibition',
+                'Booth(s)',
+                'Amount',
+                'Payment Method',
+                'Payment Type',
+                'Approval Status',
+                'Status',
+                'Transaction ID',
+                'Created At',
+                'Paid At',
+            ]);
+
+            foreach ($payments as $payment) {
+                $booking = $payment->booking;
+
+                // Determine booth names (primary booth or from selected_booth_ids)
+                $boothNames = '';
+                if ($booking) {
+                    if ($booking->booth) {
+                        $boothNames = $booking->booth->name;
+                    } elseif ($booking->selected_booth_ids) {
+                        $selected = $booking->selected_booth_ids;
+                        $ids = [];
+                        if (is_array($selected)) {
+                            $first = reset($selected);
+                            if (is_array($first) && isset($first['id'])) {
+                                $ids = collect($selected)->pluck('id')->filter()->values()->all();
+                            } else {
+                                $ids = collect($selected)->filter()->values()->all();
+                            }
+                        }
+                        if (!empty($ids)) {
+                            $boothNames = \App\Models\Booth::whereIn('id', $ids)->pluck('name')->implode(', ');
+                        }
+                    }
+                }
+
+                fputcsv($handle, [
+                    $payment->payment_number,
+                    optional(optional($booking)->user)->name,
+                    optional(optional($booking)->user)->email,
+                    optional(optional($booking)->exhibition)->name,
+                    $boothNames,
+                    $payment->amount,
+                    $payment->payment_method,
+                    $payment->payment_type,
+                    $payment->approval_status,
+                    $payment->status,
+                    $payment->transaction_id,
+                    optional($payment->created_at)->format('Y-m-d H:i:s'),
+                    optional($payment->paid_at)->format('Y-m-d H:i:s'),
+                ]);
+            }
+
+            fclose($handle);
+        }, $fileName, [
+            'Content-Type' => 'text/csv',
+        ]);
     }
 }

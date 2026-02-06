@@ -10,11 +10,13 @@
     </div>
     <div class="card-body">
         <form method="GET" class="mb-3">
-            <div class="row g-2">
+            <div class="row g-2 align-items-end">
                 <div class="col-md-3">
+                    <label class="form-label">Search (Name / Email / Company)</label>
                     <input type="text" name="search" class="form-control" placeholder="Search..." value="{{ request('search') }}">
                 </div>
                 <div class="col-md-3">
+                    <label class="form-label">Payment Status</label>
                     <select name="payment_status" class="form-select">
                         <option value="">All Payment Status</option>
                         <option value="paid" {{ request('payment_status') == 'paid' ? 'selected' : '' }}>Paid</option>
@@ -22,11 +24,30 @@
                     </select>
                 </div>
                 <div class="col-md-3">
+                    <label class="form-label">Min Booth Area (sq meter)</label>
                     <input type="number" name="booth_area" class="form-control" placeholder="Min Booth Area (sq meter)" value="{{ request('booth_area') }}">
                 </div>
-                <div class="col-md-12">
-                    <button type="submit" class="btn btn-primary">Filter</button>
-                    <a href="{{ route('admin.exhibitors.index') }}" class="btn btn-secondary">Reset</a>
+                <div class="col-md-3">
+                    <label class="form-label">Exhibition</label>
+                    <select name="exhibition_id" class="form-select">
+                        <option value="">All Exhibitions</option>
+                        @foreach($exhibitions as $exhibition)
+                            <option value="{{ $exhibition->id }}" {{ (string) $exhibition->id === request('exhibition_id') ? 'selected' : '' }}>
+                                {{ $exhibition->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-12 d-flex justify-content-start gap-2 mt-2">
+                    <a href="{{ route('admin.exhibitors.index') }}" class="btn btn-outline-secondary btn-sm text-nowrap">
+                        Reset
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-sm text-nowrap">
+                        Filter
+                    </button>
+                    <button type="submit" name="export" value="1" class="btn btn-success btn-sm text-nowrap">
+                        Export
+                    </button>
                 </div>
             </div>
         </form>

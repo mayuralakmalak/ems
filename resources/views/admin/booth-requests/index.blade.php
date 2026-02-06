@@ -9,8 +9,53 @@
         <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Pending Requests</h5>
     </div>
     <div class="card-body">
+        <form method="GET" action="{{ route('admin.booth-requests.index') }}" class="row g-3 mb-4">
+            <div class="col-md-3">
+                <label class="form-label">Exhibition</label>
+                <select name="exhibition_id" class="form-select">
+                    <option value="">All Exhibitions</option>
+                    @foreach($exhibitions as $exhibition)
+                        <option value="{{ $exhibition->id }}" {{ (string) $exhibition->id === request('exhibition_id') ? 'selected' : '' }}>
+                            {{ $exhibition->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    @php
+                        $currentStatus = request('status', 'pending');
+                    @endphp
+                    <option value="all" {{ $currentStatus === 'all' ? 'selected' : '' }}>All</option>
+                    <option value="pending" {{ $currentStatus === 'pending' ? 'selected' : '' }}>Pending</option>
+                    <option value="approved" {{ $currentStatus === 'approved' ? 'selected' : '' }}>Approved</option>
+                    <option value="rejected" {{ $currentStatus === 'rejected' ? 'selected' : '' }}>Rejected</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">User Name</label>
+                <input type="text" name="user_name" class="form-control" value="{{ request('user_name') }}" placeholder="Search by user name">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Booth Number</label>
+                <input type="text" name="booth_number" class="form-control" value="{{ request('booth_number') }}" placeholder="Search by booth no.">
+            </div>
+            <div class="col-md-2 d-flex align-items-end justify-content-end gap-2">
+                <a href="{{ route('admin.booth-requests.index') }}" class="btn btn-outline-secondary btn-sm text-nowrap">
+                    Reset
+                </a>
+                <button type="submit" class="btn btn-primary btn-sm text-nowrap">
+                    Filter
+                </button>
+                <button type="submit" name="export" value="1" class="btn btn-success btn-sm text-nowrap">
+                    Export
+                </button>
+            </div>
+        </form>
+
         @if($requests->isEmpty())
-            <p class="text-muted text-center">No pending requests</p>
+            <p class="text-muted text-center">No booth requests found</p>
         @else
             <div class="table-responsive">
                 <table class="table table-hover">

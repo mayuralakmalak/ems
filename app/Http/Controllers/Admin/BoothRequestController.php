@@ -7,17 +7,66 @@ use App\Models\BoothRequest;
 use App\Models\Booth;
 use App\Models\Booking;
 use App\Models\ExhibitionBoothSizeItem;
+use App\Models\Exhibition;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class BoothRequestController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $requests = BoothRequest::with(['exhibition', 'user'])
-            ->where('status', 'pending')
-            ->latest()
-            ->paginate(20);
+        $status = $request->get('status', 'pending');
+
+        $query = BoothRequest::with(['exhibition', 'user'])
+            ->latest();
+
+        // Status filter (defaults to pending for backwards compatibility)
+        if ($status && $status !== 'all') {
+            $query->where('status', $status);
+        }
+
+        // Exhibition filter (by ID from dropdown)
+        if ($request->filled('exhibition_id')) {
+            $query->where('exhibition_id', $request->get('exhibition_id'));
+        }
+
+        // User name filter (partial match)
+        if ($request->filled('user_name')) {
+            $userName = $request->get('user_name');
+            $query->whereHas('user', function ($q) use ($userName) {
+                $q->where('name', 'like', '%' . $userName . '%');
+            });
+        }
+
+        // Booth number filter (by booth name, via booth_ids JSON column)
+        if ($request->filled('booth_number')) {
+            $boothNumber = $request->get('booth_number');
+
+            $boothIds = Booth::where('name', 'like', '%' . $boothNumber . '%')
+                ->pluck('id')
+                ->all();
+
+            if (!empty($boothIds)) {
+                $query->where(function ($q) use ($boothIds) {
+                    foreach ($boothIds as $boothId) {
+                        $q->orWhereJsonContains('booth_ids', $boothId);
+                    }
+                });
+            } else {
+                // If no booth matches the search term, force empty result set
+                $query->whereRaw('1 = 0');
+            }
+        }
+
+        $exhibitions = Exhibition::orderBy('name')->get();
+
+        // Export branch: download CSV for current filters (or all if none)
+        if ($request->get('export') === '1') {
+            $requests = $query->get();
+            return $this->exportRequests($requests);
+        }
+
+        $requests = $query->paginate(20)->appends($request->query());
 
         // Attach related booking details (latest matching booking) for quick view,
         // including its payments so we can show payment status information in the
@@ -34,7 +83,54 @@ class BoothRequestController extends Controller
             return $request;
         });
         
-        return view('admin.booth-requests.index', compact('requests'));
+        return view('admin.booth-requests.index', compact('requests', 'exhibitions'));
+    }
+
+    /**
+     * Export booth requests (filtered or all) as CSV.
+     */
+    private function exportRequests($requests)
+    {
+        $fileName = 'booth-requests-' . now()->format('YmdHis') . '.csv';
+
+        return response()->streamDownload(function () use ($requests) {
+            $handle = fopen('php://output', 'w');
+
+            // CSV header
+            fputcsv($handle, [
+                'ID',
+                'Request Type',
+                'Exhibition',
+                'User',
+                'Booths',
+                'Description',
+                'Status',
+                'Requested At',
+                'Approved At',
+                'Approved By',
+            ]);
+
+            foreach ($requests as $request) {
+                $boothNames = $request->booths()->pluck('name')->implode(', ');
+
+                fputcsv($handle, [
+                    $request->id,
+                    ucfirst($request->request_type),
+                    optional($request->exhibition)->name,
+                    optional($request->user)->name,
+                    $boothNames,
+                    $request->description,
+                    ucfirst($request->status),
+                    optional($request->created_at)->format('Y-m-d H:i:s'),
+                    optional($request->approved_at)->format('Y-m-d H:i:s'),
+                    optional($request->approver)->name,
+                ]);
+            }
+
+            fclose($handle);
+        }, $fileName, [
+            'Content-Type' => 'text/csv',
+        ]);
     }
 
     public function show($id)

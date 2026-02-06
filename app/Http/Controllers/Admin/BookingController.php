@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Document;
+use App\Models\Exhibition;
+use App\Models\Booth;
 use App\Models\Wallet;
 use App\Models\Notification;
 use App\Models\Badge;
@@ -26,15 +28,137 @@ class BookingController extends Controller
     public function index(Request $request)
     {
         $query = Booking::with(['exhibition', 'booth', 'user', 'payments']);
-        
-        // Filter by status
-        if ($request->has('status') && $request->status) {
-            $query->where('status', $request->status);
+
+        // Exhibition filter
+        if ($request->filled('exhibition_id')) {
+            $query->where('exhibition_id', $request->get('exhibition_id'));
         }
-        
-        $bookings = $query->latest()->paginate(20);
-        
-        return view('admin.bookings.index', compact('bookings'));
+
+        // Status filter (blank or "all" means no filter)
+        $status = $request->get('status');
+        if ($status && $status !== 'all') {
+            $query->where('status', $status);
+        }
+
+        // User filter (by name or email, partial match)
+        if ($request->filled('user_name')) {
+            $userSearch = $request->get('user_name');
+            $query->whereHas('user', function ($q) use ($userSearch) {
+                $q->where('name', 'like', '%' . $userSearch . '%')
+                    ->orWhere('email', 'like', '%' . $userSearch . '%');
+            });
+        }
+
+        // Booth number filter (by booth name / number)
+        if ($request->filled('booth_number')) {
+            $boothNumber = $request->get('booth_number');
+
+            $boothIds = Booth::where('name', 'like', '%' . $boothNumber . '%')
+                ->pluck('id')
+                ->all();
+
+            if (!empty($boothIds)) {
+                $query->where(function ($q) use ($boothIds) {
+                    // Match primary booth_id
+                    $q->whereIn('booth_id', $boothIds);
+
+                    // Match any ID inside selected_booth_ids JSON (supports both simple and object formats)
+                    foreach ($boothIds as $boothId) {
+                        $q->orWhereJsonContains('selected_booth_ids', $boothId)
+                          ->orWhereJsonContains('selected_booth_ids->id', $boothId);
+                    }
+                });
+            } else {
+                // No booths matched the search term, force empty result
+                $query->whereRaw('1 = 0');
+            }
+        }
+
+        $exhibitions = Exhibition::orderBy('name')->get();
+        $availableStatuses = ['pending', 'confirmed', 'cancelled', 'replaced'];
+
+        // Export branch: when export=1, return CSV for current filters
+        if ($request->get('export') === '1') {
+            $bookings = $query->latest()->get();
+            return $this->exportBookings($bookings);
+        }
+
+        $bookings = $query->latest()->paginate(20)->appends($request->query());
+
+        return view('admin.bookings.index', compact('bookings', 'exhibitions', 'availableStatuses'));
+    }
+
+    /**
+     * Export filtered (or all) bookings as CSV.
+     */
+    private function exportBookings($bookings)
+    {
+        $fileName = 'bookings-' . now()->format('YmdHis') . '.csv';
+
+        return response()->streamDownload(function () use ($bookings) {
+            $handle = fopen('php://output', 'w');
+
+            // CSV header
+            fputcsv($handle, [
+                'Booking #',
+                'Exhibition',
+                'User',
+                'User Email',
+                'Booths',
+                'Status',
+                'Approval Status',
+                'Total Amount',
+                'Paid Amount',
+                'Created At',
+            ]);
+
+            foreach ($bookings as $booking) {
+                // Build booth names list (supports multi-booth bookings)
+                $boothEntries = collect($booking->selected_booth_ids ?? []);
+
+                if ($boothEntries->isEmpty() && $booking->booth_id) {
+                    // Fallback to primary booth if no selected_booth_ids
+                    $boothEntries = collect([[
+                        'id' => $booking->booth_id,
+                        'name' => optional($booking->booth)->name,
+                    ]]);
+                }
+
+                $boothIds = $boothEntries->map(function ($entry) {
+                    return is_array($entry) ? ($entry['id'] ?? null) : $entry;
+                })->filter()->values();
+
+                $booths = Booth::whereIn('id', $boothIds)->get()->keyBy('id');
+
+                $boothNames = $boothEntries->map(function ($entry) use ($booths) {
+                    $isArray = is_array($entry);
+                    $id = $isArray ? ($entry['id'] ?? null) : $entry;
+                    $model = $id ? ($booths[$id] ?? null) : null;
+                    return $isArray
+                        ? ($entry['name'] ?? optional($model)->name ?? 'N/A')
+                        : (optional($model)->name ?? 'N/A');
+                })->filter(function ($name) {
+                    return $name !== 'N/A';
+                })->implode(', ');
+
+                fputcsv($handle, [
+                    $booking->booking_number,
+                    optional($booking->exhibition)->name,
+                    optional($booking->user)->name,
+                    optional($booking->user)->email,
+                    $boothNames,
+                    ucfirst($booking->status),
+                    $booking->approval_status ? ucfirst($booking->approval_status) : '',
+                    $booking->total_amount,
+                    $booking->paid_amount,
+                    optional($booking->created_at)->format('Y-m-d H:i:s'),
+                ]);
+            }
+
+            fclose($handle);
+        }, $fileName, [
+            'Content-Type' => 'text/csv',
+        ]);
     }
 
     public function edit($id)

@@ -18,6 +18,7 @@ class ExhibitorManagementController extends Controller
     {
         $query = User::role('Exhibitor')->with(['bookings', 'bookings.exhibition', 'bookings.booth']);
 
+        // General search (name, email, company)
         if ($request->has('search') && $request->search) {
             $query->where(function($q) use ($request) {
                 $q->where('name', 'like', '%' . $request->search . '%')
@@ -29,6 +30,7 @@ class ExhibitorManagementController extends Controller
         // 'industry' column does not exist on users table in current schema,
         // so skip industry-based filtering to avoid SQL errors.
 
+        // Filter by payment status (has any completed payment or not)
         if ($request->has('payment_status') && $request->payment_status) {
             if ($request->payment_status === 'paid') {
                 $query->whereHas('bookings.payments', function($q) {
@@ -41,16 +43,79 @@ class ExhibitorManagementController extends Controller
             }
         }
 
+        // Filter by minimum booth area across bookings
         if ($request->has('booth_area') && $request->booth_area) {
             $query->whereHas('bookings.booth', function($q) use ($request) {
                 $q->where('size_sqft', '>=', $request->booth_area);
             });
         }
 
-        $exhibitors = $query->latest()->paginate(20);
+        // Filter by exhibition (any booking in that exhibition)
+        if ($request->filled('exhibition_id')) {
+            $exhibitionId = $request->get('exhibition_id');
+            $query->whereHas('bookings', function ($q) use ($exhibitionId) {
+                $q->where('exhibition_id', $exhibitionId);
+            });
+        }
+
+        // Export branch: when export=1, return CSV for current filters
+        if ($request->get('export') === '1') {
+            $exhibitors = $query->latest()->get();
+            return $this->exportExhibitors($exhibitors);
+        }
+
+        $exhibitors = $query->latest()->paginate(20)->appends($request->query());
         $exhibitions = Exhibition::all();
 
         return view('admin.exhibitors.index', compact('exhibitors', 'exhibitions'));
+    }
+
+    /**
+     * Export filtered (or all) exhibitors as CSV.
+     */
+    private function exportExhibitors($exhibitors)
+    {
+        $fileName = 'exhibitors-' . now()->format('YmdHis') . '.csv';
+
+        return response()->streamDownload(function () use ($exhibitors) {
+            $handle = fopen('php://output', 'w');
+
+            // CSV header
+            fputcsv($handle, [
+                'Name',
+                'Company',
+                'Email',
+                'Phone',
+                'Total Bookings',
+                'Completed Payments (Count)',
+                'Total Paid Amount',
+            ]);
+
+            foreach ($exhibitors as $exhibitor) {
+                $bookings = $exhibitor->bookings ?? collect();
+                $allPayments = $bookings->flatMap(function ($booking) {
+                    return $booking->payments ?? collect();
+                });
+
+                $completedPayments = $allPayments->where('status', 'completed');
+                $completedCount = $completedPayments->count();
+                $totalPaid = $completedPayments->sum('amount');
+
+                fputcsv($handle, [
+                    $exhibitor->name,
+                    $exhibitor->company_name,
+                    $exhibitor->email,
+                    $exhibitor->phone,
+                    $bookings->count(),
+                    $completedCount,
+                    $totalPaid,
+                ]);
+            }
+
+            fclose($handle);
+        }, $fileName, [
+            'Content-Type' => 'text/csv',
+        ]);
     }
 
     public function show($id)
