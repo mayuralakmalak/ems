@@ -444,6 +444,49 @@ class PaymentController extends Controller
         $amount = (float) $request->amount;
         $user = auth()->user();
         $paymentTypeOption = $request->payment_type_option ?? 'part'; // Default to part payment
+
+        // If user chooses full payment and no coupon-based discount has been applied yet,
+        // apply the exhibition full payment discount on top of any member discount,
+        // respecting the maximum discount cap. This ensures the full payment discount
+        // actually reduces the booking total (and the amount the user pays).
+        if ($paymentTypeOption === 'full') {
+            $discountType = $booking->discount_type ?? ($booking->discount_percent > 0 ? 'member' : null);
+            $couponPercentBooking = (float) ($booking->coupon_discount_percent ?? 0);
+            $hasCoupon = $discountType === 'coupon' || $discountType === 'both' || $couponPercentBooking > 0;
+
+            if (! $hasCoupon) {
+                $memberDiscountPercent = (float) ($booking->member_discount_percent
+                    ?? ($discountType === 'member' ? $booking->discount_percent : 0));
+
+                $maxPercent = $booking->exhibition->maximum_discount_apply_percent !== null
+                    ? (float) $booking->exhibition->maximum_discount_apply_percent
+                    : 100.0;
+
+                $fullPaymentDiscountPercentRaw = (float) ($booking->exhibition->full_payment_discount_percent ?? 0);
+                $fullPaymentEffectivePercent = min(
+                    $fullPaymentDiscountPercentRaw,
+                    max(0.0, $maxPercent - $memberDiscountPercent)
+                );
+
+                if ($fullPaymentEffectivePercent > 0) {
+                    $currentTotal = (float) $booking->total_amount;
+                    $originalBase = $memberDiscountPercent > 0
+                        ? $currentTotal / (1 - ($memberDiscountPercent / 100))
+                        : $currentTotal;
+
+                    $newTotalDiscountPercent = min($memberDiscountPercent + $fullPaymentEffectivePercent, $maxPercent);
+                    $newTotalAmount = round($originalBase * (1 - ($newTotalDiscountPercent / 100)), 2);
+
+                    $booking->discount_type = $memberDiscountPercent > 0 ? 'member' : null;
+                    $booking->discount_percent = $newTotalDiscountPercent;
+                    $booking->member_discount_percent = $memberDiscountPercent > 0 ? $memberDiscountPercent : null;
+                    $booking->coupon_discount_percent = null;
+                    $booking->coupon_discount_percent_part = null;
+                    $booking->total_amount = $newTotalAmount;
+                    $booking->save();
+                }
+            }
+        }
         // Normalize booth IDs once so both full and part payment flows can use them
         $boothIds = collect($booking->selected_booth_ids ?? [$booking->booth_id])
             ->map(function($entry) {
@@ -464,20 +507,19 @@ class PaymentController extends Controller
             $fullPaymentAmount = $booking->total_amount;
             $fullPaymentGatewayCharge = ($fullPaymentAmount * 2.5) / 100;
             $fullPaymentTotal = $fullPaymentAmount + $fullPaymentGatewayCharge;
-            
-            // Verify the amount matches
+
+            // Verify the amount matches (user should pay exactly the discounted booking total)
             if (abs($amount - $fullPaymentAmount) > 0.01) {
                 return back()->with('error', 'Payment amount mismatch. Please refresh and try again.');
             }
-            
-            // Handle wallet payment for full payment
+
+            // Handle wallet payment for full payment (deduct, but keep payment pending for admin approval)
             if ($request->payment_method === 'wallet') {
                 $walletBalance = $user->wallet_balance;
                 if ($walletBalance < $fullPaymentTotal) {
                     return back()->with('error', 'Insufficient wallet balance. Your balance is ₹' . number_format($walletBalance, 2) . '. Required: ₹' . number_format($fullPaymentTotal, 2));
                 }
-                
-                // Deduct from wallet
+
                 Wallet::create([
                     'user_id' => $user->id,
                     'balance' => $walletBalance - $fullPaymentTotal,
@@ -488,44 +530,53 @@ class PaymentController extends Controller
                     'description' => 'Full payment for booking #' . $booking->booking_number,
                 ]);
             }
-            
-            // Mark all pending payments as completed
-            $allPayments = Payment::where('booking_id', $booking->id)
-                ->where('status', 'pending')
-                ->get();
-            
-            $gatewayCharge = 0;
-            if ($request->payment_method === 'online') {
-                $gatewayCharge = $fullPaymentGatewayCharge;
-            }
-            
-            foreach ($allPayments as $payment) {
-                $payment->update([
+
+            $gatewayChargeToStore = $request->payment_method === 'online' ? $fullPaymentGatewayCharge : 0;
+
+            // If there are no completed payments yet, collapse all scheduled installments into a single full payment
+            $hasCompleted = $booking->payments()
+                ->where('status', 'completed')
+                ->exists();
+
+            if (! $hasCompleted) {
+                // Remove all existing pending scheduled payments for this booking
+                Payment::where('booking_id', $booking->id)
+                    ->where('status', 'pending')
+                    ->delete();
+
+                // Create a single pending payment record representing the full payment
+                $payment = Payment::create([
+                    'booking_id' => $booking->id,
+                    'user_id' => $user->id,
+                    'payment_number' => 'PM' . now()->format('YmdHis') . str_pad($booking->id, 6, '0', STR_PAD_LEFT) . '00' . rand(10, 99),
+                    'payment_type' => 'full',
                     'payment_method' => $request->payment_method,
-                    'status' => 'completed',
-                    'approval_status' => 'approved',
-                    'gateway_charge' => ($payment->payment_type === 'initial' ? $gatewayCharge : 0), // Only charge gateway on first payment
-                    'paid_at' => now(),
-                    'transaction_id' => $request->transaction_id ?? null,
+                    'status' => 'pending',
+                    'approval_status' => 'pending',
+                    'amount' => $fullPaymentAmount,
+                    'gateway_charge' => $gatewayChargeToStore,
+                    'due_date' => now(),
                 ]);
-            }
-            
-            // Update booking paid_amount to full amount (without gateway charge)
-            $booking->paid_amount = $fullPaymentAmount;
-            $booking->save();
-            
-            // Reload payment with relationships for email
-            $lastPayment = $allPayments->first();
-            if ($lastPayment) {
-                $lastPayment->load(['booking.exhibition', 'booking.booth', 'booking.bookingServices.service', 'user']);
-                
-                // Send payment receipt email
-                try {
-                    Mail::to($user->email)->send(new PaymentReceiptMail($lastPayment));
-                } catch (\Exception $e) {
-                    Log::error('Failed to send payment receipt email: ' . $e->getMessage());
+            } else {
+                // Fallback: if some payments are already completed, update remaining pending ones
+                $allPayments = Payment::where('booking_id', $booking->id)
+                    ->where('status', 'pending')
+                    ->get();
+
+                foreach ($allPayments as $p) {
+                    $p->update([
+                        'payment_method' => $request->payment_method,
+                        'status' => 'pending',
+                        'approval_status' => 'pending',
+                        'gateway_charge' => ($p->payment_type === 'initial' ? $gatewayChargeToStore : 0),
+                        'transaction_id' => $request->transaction_id ?? null,
+                    ]);
                 }
+
+                $payment = $allPayments->first();
             }
+
+            // Booking paid_amount will be updated only after admin approval (Admin\PaymentController@approve)
 
             // Ensure a booth request exists for full payment flows as well
             $existingRequest = BoothRequest::where('request_type', 'booking')
@@ -534,7 +585,7 @@ class PaymentController extends Controller
                 ->where('request_data->booking_id', $booking->id)
                 ->first();
 
-            if (!$existingRequest) {
+            if (! $existingRequest) {
                 BoothRequest::create([
                     'exhibition_id' => $booking->exhibition_id,
                     'user_id' => $user->id,
@@ -549,9 +600,9 @@ class PaymentController extends Controller
                     ],
                 ]);
             }
-            
-            return redirect()->route('payments.confirmation', $lastPayment->id ?? $allPayments->first()->id)
-                ->with('success', 'Full payment completed successfully!');
+
+            return redirect()->route('payments.confirmation', $payment?->id ?? $booking->payments()->latest('id')->value('id'))
+                ->with('success', 'Full payment submitted successfully and is pending admin approval.');
         }
         // Handle wallet payment
         if ($request->payment_method === 'wallet') {

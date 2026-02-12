@@ -1033,6 +1033,10 @@ try {
 }
 // Base total: after discount = booking total; raw = booth + services + extras (actual pre-discount)
 let baseTotal = {{ $baseTotal }};
+// Preserve the booking total before applying any dynamic full-payment discount in the UI
+let baseTotalBeforeFull = baseTotal;
+// Track the currently calculated full-payment amount separately so it doesn't leak into part-payment math
+let currentFullPaymentAmount = null;
 let baseTotalRaw = {{ $baseTotalRaw ?? $baseTotal }};
 let initialAmount = {{ $initialAmount }};
 let gatewayCharge = {{ number_format($gatewayCharge ?? 0, 2, '.', '') }}; // Gateway fee for current payment
@@ -1157,14 +1161,19 @@ function updatePaymentAmount() {
     const paymentButtonAmount = document.getElementById('paymentButtonAmount');
     const paymentTypeOption = document.getElementById('paymentTypeOption').value;
     
-    // Full payment: baseTotal is already the amount after all discounts (priority: full → member → coupon)
+    // Full payment: by default, baseTotal is the booking total after member/coupon.
+    // When a full-payment discount is active, we use currentFullPaymentAmount instead
+    // so that the extra full-payment discount does not leak into part-payment math.
     let calculatedBaseTotal = baseTotal;
+    if (paymentTypeOption === 'full' && currentFullPaymentAmount !== null) {
+        calculatedBaseTotal = currentFullPaymentAmount;
+    }
     
     // Show/hide gateway fee based on payment method
     let gatewayFeeToUse = totalGatewayFee;
     if (isOnlineMethod && totalGatewayFee > 0) {
         if (paymentTypeOption === 'full') {
-            gatewayFeeToUse = (baseTotal * 2.5) / 100;
+            gatewayFeeToUse = (calculatedBaseTotal * 2.5) / 100;
         }
         
         // Calculate new total with gateway fee
@@ -1435,14 +1444,34 @@ function selectPaymentType(type) {
     const totalDueAmount = document.getElementById('totalDueAmount');
     
     if (type === 'full') {
+        // Start from the booking total before any dynamic full-payment discount.
+        // Important: do NOT permanently change baseTotal/bookingTotalAmount here,
+        // otherwise the full-payment discount will leak into part-payment calculations.
+        baseTotal = baseTotalBeforeFull;
+        bookingTotalAmount = baseTotalBeforeFull;
+
         document.getElementById('fullPaymentSection').style.display = 'block';
         document.getElementById('partPaymentSection').style.display = 'none';
         
         // Priority: Full Payment → Member → Coupon. baseTotal is already the amount after all discounts.
         fullPaymentDiscountPercent = getEffectiveFullPaymentPercent();
         fullPaymentDiscountAmount = (originalBase * fullPaymentDiscountPercent) / 100;
-        const fullAmount = baseTotal;
+
+        // By default, use the booking total as the base for full payment
+        let fullAmount = baseTotal;
+
+        // When no coupon is applied, actually apply the full payment discount on top of any member discount
+        if (!discountApplied && fullPaymentDiscountPercent > 0) {
+            const memberPercentForCalc = memberDiscountPercentCurrent || 0;
+            const combinedPercent = memberPercentForCalc + fullPaymentDiscountPercent;
+            const effectivePercent = Math.min(combinedPercent, maximumDiscountApplyPercent);
+            // originalBase represents the actual pre-discount total (booth + services + extras)
+            fullAmount = originalBase * (1 - (effectivePercent / 100));
+        }
+
         const fullGatewayCharge = (fullAmount * 2.5) / 100;
+        // Remember the effective full payment amount for later recalculations (gateway, button text, etc.)
+        currentFullPaymentAmount = fullAmount;
         document.getElementById('fullPaymentAmount').value = fullAmount;
         document.getElementById('fullPaymentGatewayCharge').value = fullGatewayCharge;
         const fullPaymentSectionBaseTotal = document.getElementById('fullPaymentSectionBaseTotal');
@@ -1456,7 +1485,8 @@ function selectPaymentType(type) {
         const fullPaymentSectionDiscountAmtValue = document.getElementById('fullPaymentSectionDiscountAmtValue');
         const fullPaymentAmountAfterRow = document.getElementById('fullPaymentAmountAfterRow');
         const fullPaymentSectionAmountAfter = document.getElementById('fullPaymentSectionAmountAfter');
-        if (fullPaymentSectionBaseTotal) fullPaymentSectionBaseTotal.textContent = '₹' + baseTotalRaw.toFixed(2);
+        // Show the true pre-discount total for the full-payment section
+        if (fullPaymentSectionBaseTotal) fullPaymentSectionBaseTotal.textContent = '₹' + originalBase.toFixed(2);
         const memberPctEl = document.getElementById('memberDiscountPercentLabel');
         const memberAmtEl = document.getElementById('memberDiscountAmountValue');
         const couponPctEl = document.getElementById('couponDiscountPercentLabel');
@@ -1497,7 +1527,8 @@ function selectPaymentType(type) {
         if (discountRowCouponMain) discountRowCouponMain.style.display = (couponDiscountPercentCurrent > 0) ? 'flex' : 'none';
         
         if (totalDueAmount) {
-            totalDueAmount.textContent = '₹' + baseTotal.toFixed(2);
+            // For full payment, show the actual full-payment amount (with its own discount)
+            totalDueAmount.textContent = '₹' + fullAmount.toFixed(2);
         }
         
         document.getElementById('paymentAmount').value = fullAmount;
@@ -1532,6 +1563,8 @@ function selectPaymentType(type) {
     } else {
         document.getElementById('fullPaymentSection').style.display = 'none';
         document.getElementById('partPaymentSection').style.display = 'block';
+        // Clear any cached full-payment amount when switching back to part-payment
+        currentFullPaymentAmount = null;
         
         // Part payment: hide full payment discount row; show member + coupon (part) in main breakdown
         if (fullPaymentDiscountItem) {
@@ -1634,6 +1667,8 @@ function applyDiscountCode() {
         if (typeof data.total_amount === 'number') {
             baseTotal = data.total_amount;
             bookingTotalAmount = data.total_amount;
+            // Snapshot for non-full-payment mode so we can apply/remove full-payment discount cleanly
+            baseTotalBeforeFull = baseTotal;
         }
         const fullPct = typeof data.full_payment_discount_percent === 'number' ? data.full_payment_discount_percent : (data.full_payment_discount_percent != null ? parseFloat(data.full_payment_discount_percent) : 0);
         const memberPct = typeof data.member_discount_percent === 'number' ? data.member_discount_percent : (data.member_discount_percent != null ? parseFloat(data.member_discount_percent) : 0);
@@ -1818,6 +1853,8 @@ function removeDiscountCode() {
         if (typeof data.total_amount === 'number') {
             baseTotal = data.total_amount;
             bookingTotalAmount = data.total_amount;
+            // Snapshot for non-full-payment mode so we can re-apply full discount cleanly if needed
+            baseTotalBeforeFull = baseTotal;
         }
         const fullPctR = (data.full_payment_discount_percent != null ? parseFloat(data.full_payment_discount_percent) : 0);
         const memberPctR = (data.member_discount_percent != null ? parseFloat(data.member_discount_percent) : 0);
