@@ -2445,14 +2445,17 @@ function setupFilters() {
 
 function applyFilters() {
     const categoryFilter = document.getElementById('filterCategory')?.value || 'all';
-    const priceMax = document.getElementById('priceRange').value;
-    const showAvailable = document.getElementById('statusAvailable').checked;
-    const showReserved = document.getElementById('statusReserved').checked;
-    const showBooked = document.getElementById('statusBooked').checked;
+    const priceRangeEl = document.getElementById('priceRange');
+    const priceMax = priceRangeEl ? parseFloat(priceRangeEl.value) || Infinity : Infinity;
+    const showAvailable = document.getElementById('statusAvailable')?.checked ?? true;
+    const showReserved = document.getElementById('statusReserved')?.checked ?? true;
+    const showBooked = document.getElementById('statusBooked')?.checked ?? true;
     
     document.querySelectorAll('.booth-item').forEach(booth => {
         const category = booth.getAttribute('data-booth-category') || '';
-        const price = parseFloat(booth.getAttribute('data-booth-price'));
+        let price = parseFloat(booth.getAttribute('data-booth-price'));
+        const rowPrice = parseFloat(booth.getAttribute('data-row-price')) || 0;
+        const orphanPrice = parseFloat(booth.getAttribute('data-orphan-price')) || 0;
         const status = booth.getAttribute('data-booth-status');
         
         let show = true;
@@ -2478,8 +2481,15 @@ function applyFilters() {
             }
         }
         
-        // Price filter
-        if (price > priceMax) show = false;
+        // Derive a usable booth price for filtering
+        if (isNaN(price) || price <= 0) {
+            price = Math.max(rowPrice, orphanPrice);
+        }
+        
+        // Price filter (only when we have a finite max)
+        if (Number.isFinite(priceMax) && !isNaN(price) && price > priceMax) {
+            show = false;
+        }
         
         // Status filter
         if (status === 'available' && !showAvailable) show = false;
@@ -2495,8 +2505,39 @@ function setupPriceRange() {
     const range = document.getElementById('priceRange');
     const value = document.getElementById('priceRangeValue');
     
+    if (!range || !value) return;
+
+    // Initialize slider range based on actual booth prices so that
+    // the initial filters never hide all booths just because prices
+    // are higher than a hard-coded default.
+    let maxPrice = 0;
+    document.querySelectorAll('.booth-item').forEach(booth => {
+        let price = parseFloat(booth.getAttribute('data-booth-price'));
+        const rowPrice = parseFloat(booth.getAttribute('data-row-price')) || 0;
+        const orphanPrice = parseFloat(booth.getAttribute('data-orphan-price')) || 0;
+
+        if (isNaN(price) || price <= 0) {
+            price = Math.max(rowPrice, orphanPrice);
+        }
+
+        if (!isNaN(price) && price > maxPrice) {
+            maxPrice = price;
+        }
+    });
+
+    if (maxPrice > 0) {
+        const roundedMax = Math.ceil(maxPrice / 1000) * 1000;
+        range.max = roundedMax;
+        range.value = roundedMax;
+        value.textContent = `Up to ₹${roundedMax.toLocaleString()}`;
+    } else {
+        // Fallback when we cannot determine prices
+        value.textContent = 'All prices';
+    }
+    
     range.addEventListener('input', function() {
-        value.textContent = `Up to ₹${parseInt(this.value).toLocaleString()}`;
+        const val = parseInt(this.value, 10) || 0;
+        value.textContent = `Up to ₹${val.toLocaleString()}`;
         applyFilters();
     });
 }

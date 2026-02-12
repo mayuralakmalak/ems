@@ -68,24 +68,24 @@
                 <div class="booking-block">
                     <h3>{{ $booking->exhibition->name ?? 'Exhibition' }} — {{ $booking->booking_number ?? 'N/A' }}</h3>
                     <div class="detail-row">
-                        <span class="detail-label">Booking Number</span>
-                        <span class="detail-value">{{ $booking->booking_number ?? 'N/A' }}</span>
+                        <span class="detail-label">Booking Number: </span>
+                        <span class="detail-value"> {{ $booking->booking_number ?? 'N/A' }}</span>
                     </div>
                     <div class="detail-row">
-                        <span class="detail-label">Status</span>
-                        <span class="detail-value">{{ ucfirst($booking->status ?? 'N/A') }}</span>
+                        <span class="detail-label">Status: </span>
+                        <span class="detail-value"> {{ ucfirst($booking->status ?? 'N/A') }}</span>
                     </div>
                     <div class="detail-row">
-                        <span class="detail-label">Payment Total</span>
-                        <span class="detail-value">₹{{ number_format($bookingTotal, 2) }}</span>
+                        <span class="detail-label">Payment Total: </span>
+                        <span class="detail-value"> ₹{{ number_format($bookingTotal, 2) }}</span>
                     </div>
                     <div class="detail-row">
-                        <span class="detail-label">Paid</span>
-                        <span class="detail-value">₹{{ number_format($bookingPaid, 2) }}</span>
+                        <span class="detail-label">Paid: </span>
+                        <span class="detail-value"> ₹{{ number_format($bookingPaid, 2) }}</span>
                     </div>
                     <div class="detail-row">
-                        <span class="detail-label">Pending</span>
-                        <span class="detail-value">₹{{ number_format($bookingPending, 2) }}</span>
+                        <span class="detail-label">Pending: </span>
+                        <span class="detail-value"> ₹{{ number_format($bookingPending, 2) }}</span>
                     </div>
                     @if($payments->isNotEmpty())
                         <table class="payments">
@@ -123,20 +123,20 @@
             <div class="section-title">Overall Summary</div>
             <div class="summary-box">
                 <div class="row">
-                    <span class="detail-label">Payment Total (all bookings)</span>
-                    <span class="detail-value"><strong>₹{{ number_format($grandTotal, 2) }}</strong></span>
+                    <span class="detail-label">Payment Total (all bookings): </span>
+                    <span class="detail-value"><strong> ₹{{ number_format($grandTotal, 2) }}</strong></span>
                 </div>
                 <div class="row">
-                    <span class="detail-label">Paid</span>
-                    <span class="detail-value" style="color: #059669;">₹{{ number_format($grandPaid, 2) }}</span>
+                    <span class="detail-label">Paid: </span>
+                    <span class="detail-value" style="color: #059669;"> ₹{{ number_format($grandPaid, 2) }}</span>
                 </div>
                 <div class="row">
-                    <span class="detail-label">Pending</span>
-                    <span class="detail-value" style="color: #b45309;">₹{{ number_format($grandPending, 2) }}</span>
+                    <span class="detail-label">Pending: </span>
+                    <span class="detail-value" style="color: #b45309;"> ₹{{ number_format($grandPending, 2) }}</span>
                 </div>
                 <div class="row total">
-                    <span>Balance Due</span>
-                    <span>₹{{ number_format($grandPending, 2) }}</span>
+                    <span>Balance Due: </span>
+                    <span> ₹{{ number_format($grandPending, 2) }}</span>
                 </div>
             </div>
 

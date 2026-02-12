@@ -13,6 +13,7 @@ use App\Models\Notification;
 use App\Models\User;
 use App\Models\Payment;
 use App\Mail\BookingConfirmationMail;
+use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -1126,6 +1127,27 @@ class BookingController extends Controller
             ->findOrFail($id);
 
         return view('frontend.bookings.show', compact('booking'));
+    }
+
+    /**
+     * Display a professional invoice view for a specific booking.
+     */
+    public function invoice(string $id)
+    {
+        $booking = Booking::with([
+                'exhibition',
+                'booth',
+                'bookingServices.service',
+                'payments',
+                'user',
+            ])
+            ->where('user_id', auth()->id())
+            ->findOrFail($id);
+
+        // General/company settings for logo and header details
+        $generalSettings = Setting::getByGroup('general');
+
+        return view('frontend.bookings.invoice', compact('booking', 'generalSettings'));
     }
 
     public function edit(string $id)

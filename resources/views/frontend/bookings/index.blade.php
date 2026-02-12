@@ -170,6 +170,15 @@
     .btn-cancel:hover {
         background: #fecaca;
     }
+
+    .btn-invoice {
+        background: #f97316;
+        color: #ffffff;
+    }
+
+    .btn-invoice:hover {
+        background: #ea580c;
+    }
     
     .exhibition-name {
         font-weight: 600;
@@ -289,6 +298,7 @@
                 <td>₹{{ number_format($booking->total_amount, 2) }}</td>
                 <td>
                     <a href="{{ route('bookings.show', $booking->id) }}" class="btn-action btn-view">View Details</a>
+                    <a href="{{ route('bookings.invoice', $booking->id) }}" class="btn-action btn-invoice">View Invoice</a>
                     @if($booking->exhibition && $booking->exhibition->requiredDocuments && $booking->exhibition->requiredDocuments->count() > 0)
                         <a href="{{ route('bookings.required-documents', $booking->id) }}" class="btn-action" style="background: #10b981; color: white;">
                             <i class="bi bi-file-earmark-text me-1"></i>Required Documents
