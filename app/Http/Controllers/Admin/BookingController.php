@@ -27,6 +27,7 @@ class BookingController extends Controller
 {
     public function index(Request $request)
     {
+        abort_unless(auth()->user()->can('Booking Management - View'), 403);
         $query = Booking::with(['exhibition', 'booth', 'user', 'payments']);
 
         // Exhibition filter
@@ -79,6 +80,7 @@ class BookingController extends Controller
 
         // Export branch: when export=1, return CSV for current filters
         if ($request->get('export') === '1') {
+            abort_unless(auth()->user()->can('Booking Management - Download'), 403);
             $bookings = $query->latest()->get();
             return $this->exportBookings($bookings);
         }
@@ -163,6 +165,7 @@ class BookingController extends Controller
 
     public function edit($id)
     {
+        abort_unless(auth()->user()->can('Booking Management - Modify'), 403);
         $booking = Booking::with(['exhibition', 'booth', 'user'])->findOrFail($id);
         $statuses = ['pending', 'confirmed', 'cancelled', 'replaced'];
 
@@ -171,6 +174,7 @@ class BookingController extends Controller
 
     public function update(Request $request, $id)
     {
+        abort_unless(auth()->user()->can('Booking Management - Modify'), 403);
         $booking = Booking::with('booth')->findOrFail($id);
 
         $request->validate([
@@ -215,6 +219,7 @@ class BookingController extends Controller
 
     public function bookedByExhibition($exhibitionId)
     {
+        abort_unless(auth()->user()->can('Booking Management - View'), 403);
         $bookings = Booking::with(['exhibition', 'booth', 'user'])
             ->where('exhibition_id', $exhibitionId)
             ->latest()
@@ -225,6 +230,7 @@ class BookingController extends Controller
     
     public function cancellations()
     {
+        abort_unless(auth()->user()->can('Booking Management - View'), 403);
         $cancellationRequests = Booking::with(['exhibition', 'booth', 'user', 'payments'])
             ->where('status', 'cancelled')
             ->orWhereNotNull('cancellation_reason')
@@ -252,6 +258,7 @@ class BookingController extends Controller
     
     public function manageCancellation($id)
     {
+        abort_unless(auth()->user()->can('Booking Management - Modify'), 403);
         $booking = Booking::with(['exhibition', 'booth', 'user', 'payments', 'documents'])
             ->findOrFail($id);
         
@@ -264,6 +271,7 @@ class BookingController extends Controller
     
     public function approveCancellation(Request $request, $id)
     {
+        abort_unless(auth()->user()->can('Booking Management - Modify'), 403);
         $booking = Booking::with(['user', 'booth'])->findOrFail($id);
         
         $request->validate([
@@ -317,6 +325,7 @@ class BookingController extends Controller
     
     public function rejectCancellation(Request $request, $id)
     {
+        abort_unless(auth()->user()->can('Booking Management - Modify'), 403);
         $booking = Booking::findOrFail($id);
         
         $request->validate([
@@ -335,6 +344,7 @@ class BookingController extends Controller
 
     public function show($id)
     {
+        abort_unless(auth()->user()->can('Booking Management - View'), 403);
         $booking = Booking::with(['exhibition', 'booth', 'user', 'payments', 'documents', 'badges', 'bookingServices.service', 'additionalServiceRequests.service', 'additionalServiceRequests.approver'])
             ->findOrFail($id);
         
@@ -343,6 +353,7 @@ class BookingController extends Controller
 
     public function processCancellation(Request $request, $id)
     {
+        abort_unless(auth()->user()->can('Booking Management - Modify'), 403);
         $booking = Booking::with(['user', 'booth', 'exhibition'])->findOrFail($id);
         
         $request->validate([
@@ -456,6 +467,7 @@ class BookingController extends Controller
 
     public function destroy($id)
     {
+        abort_unless(auth()->user()->can('Booking Management - Delete'), 403);
         $booking = Booking::with('booth')->findOrFail($id);
 
         DB::transaction(function () use ($booking) {
@@ -473,6 +485,7 @@ class BookingController extends Controller
 
     public function approveDocument($documentId)
     {
+        abort_unless(auth()->user()->can('Booking Management - Modify'), 403);
         $document = Document::with(['booking', 'user', 'booking.exhibition', 'requiredDocument'])->findOrFail($documentId);
         $document->update([
             'status' => 'approved',
@@ -509,6 +522,7 @@ class BookingController extends Controller
 
     public function rejectDocument(Request $request, $documentId)
     {
+        abort_unless(auth()->user()->can('Booking Management - Modify'), 403);
         $document = Document::with(['booking', 'user', 'booking.exhibition', 'requiredDocument'])->findOrFail($documentId);
 
         $request->validate([
@@ -553,6 +567,7 @@ class BookingController extends Controller
      */
     public function approveBadge($badgeId)
     {
+        abort_unless(auth()->user()->can('Badge Management - Modify'), 403);
         $badge = Badge::with(['booking', 'user', 'exhibition'])->findOrFail($badgeId);
 
         $badge->update([
@@ -579,6 +594,7 @@ class BookingController extends Controller
      */
     public function generatePossessionLetter($id)
     {
+        abort_unless(auth()->user()->can('Booking Management - Download'), 403);
         $booking = Booking::with([
             'exhibition', 
             'booth', 
@@ -709,6 +725,7 @@ class BookingController extends Controller
      */
     public function downloadPossessionLetter($id)
     {
+        abort_unless(auth()->user()->can('Booking Management - Download'), 403);
         $booking = Booking::with(['exhibition', 'booth', 'user'])->findOrFail($id);
 
         if (!$booking->possession_letter_issued) {

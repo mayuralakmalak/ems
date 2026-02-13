@@ -395,71 +395,98 @@
             </div>
         </div>
         <ul class="sidebar-menu">
+            @can('Admin Access - View')
             <li>
                 <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
                     <i class="bi bi-speedometer2"></i>Dashboard
                 </a>
             </li>
+            @endcan
+            @can('Exhibition Management - View')
             <li>
                 <a href="{{ route('admin.exhibitions.index') }}" class="{{ request()->routeIs('admin.exhibitions.*') ? 'active' : '' }}">
                     <i class="bi bi-calendar-event"></i>Exhibitions
                 </a>
             </li>
+            @endcan
+            @can('Service Configuration Management - View')
             <li>
                 <a href="{{ route('admin.services.config') }}" class="{{ request()->routeIs('admin.services.config*') ? 'active' : '' }}">
                     <i class="bi bi-gear"></i>Service Configuration
                 </a>
             </li>
+            @endcan
+            @can('Settings Management - View')
             <li>
                 <a href="{{ route('admin.settings.index') }}" class="{{ request()->routeIs('admin.settings.*') ? 'active' : '' }}">
                     <i class="bi bi-sliders"></i>Settings
                 </a>
             </li>
+            @endcan
+            @can('CMS Pages Management - View')
             <li>
                 <a href="{{ route('admin.cms-pages.index') }}" class="{{ request()->routeIs('admin.cms-pages.*') ? 'active' : '' }}">
                     <i class="bi bi-file-earmark-text"></i>CMS Pages
                 </a>
             </li>
+            @endcan
+            @can('Category Management - View')
             <li>
                 <a href="{{ route('admin.categories.index') }}" class="{{ request()->routeIs('admin.categories.*') ? 'active' : '' }}">
                     <i class="bi bi-tags"></i>Categories
                 </a>
             </li>
+            @endcan
+            @can('Size Type Management - View')
             <li>
                 <a href="{{ route('admin.size-types.index') }}" class="{{ request()->routeIs('admin.size-types.*') ? 'active' : '' }}">
                     <i class="bi bi-rulers"></i>Size Type
                 </a>
             </li>
+            @endcan
+            @can('Discount Management - View')
             <li>
                 <a href="{{ route('admin.discounts.index') }}" class="{{ request()->routeIs('admin.discounts.*') ? 'active' : '' }}">
                     <i class="bi bi-percent"></i>Discounts
                 </a>
             </li>
+            @endcan
+            @can('User Management - View')
             <li>
                 <a href="{{ route('admin.users.index') }}" class="{{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
                     <i class="bi bi-people"></i>Users
                 </a>
             </li>
+            @endcan
+            @can('Role & Permission Management - View')
             <li>
                 <a href="{{ route('admin.roles.index') }}" class="{{ request()->routeIs('admin.roles.*') ? 'active' : '' }}">
                     <i class="bi bi-shield-check"></i>Roles & Permissions
                 </a>
             </li>
+            @endcan
+            @can('Exhibitor Management - View')
             <li>
                 <a href="{{ route('admin.exhibitors.index') }}" class="{{ request()->routeIs('admin.exhibitors.*') ? 'active' : '' }}">
                     <i class="bi bi-people-fill"></i>Exhibitors
                 </a>
             </li>
+            @endcan
+            @can('Financial Management - View')
             <li>
                 <a href="{{ route('admin.financial.index') }}" class="{{ request()->routeIs('admin.financial.*') ? 'active' : '' }}">
                     <i class="bi bi-cash-coin"></i>Financial
                 </a>
             </li>
+            @endcan
+            @can('Report Generation - View')
             <li>
                 <a href="{{ route('admin.reports.index') }}" class="{{ request()->routeIs('admin.reports.*') ? 'active' : '' }}">
                     <i class="bi bi-graph-up"></i>Reports
                 </a>
             </li>
+            @endcan
+            @can('Booking Management - View')
             <li>
                 <a href="{{ route('admin.bookings.index') }}" class="{{ request()->routeIs('admin.bookings.*') ? 'active' : '' }}">
                     <i class="bi bi-calendar-check"></i>Bookings
@@ -470,11 +497,15 @@
                     <i class="bi bi-x-octagon"></i>Cancellations
                 </a>
             </li>
+            @endcan
+            @can('Sponsorship Management - View')
             <li>
                 <a href="{{ route('admin.sponsorships.index') }}" class="{{ request()->routeIs('admin.sponsorships.*') ? 'active' : '' }}">
                     <i class="bi bi-trophy"></i>Sponsorships
                 </a>
             </li>
+            @endcan
+            @can('Sponsorship Booking Management - View')
             <li>
                 <a href="{{ route('admin.sponsorship-bookings.index') }}" class="{{ request()->routeIs('admin.sponsorship-bookings.*') ? 'active' : '' }}">
                     <i class="bi bi-trophy-fill"></i>Sponsorship Bookings
@@ -486,6 +517,8 @@
                     @endif
                 </a>
             </li>
+            @endcan
+            @can('Payment Management - View')
             <li>
                 <a href="{{ route('admin.payments.index') }}" class="{{ request()->routeIs('admin.payments.index') || (request()->routeIs('admin.payments.*') && !request()->routeIs('admin.payments.history')) ? 'active' : '' }}">
                     <i class="bi bi-credit-card"></i>Payment Approvals
@@ -502,6 +535,8 @@
                     <i class="bi bi-clock-history"></i>Payment History
                 </a>
             </li>
+            @endcan
+            @can('Booth Request Management - View')
             <li>
                 <a href="{{ route('admin.booth-requests.index') }}" class="{{ request()->routeIs('admin.booth-requests.*') ? 'active' : '' }}">
                     <i class="bi bi-clock-history"></i>Booth Requests
@@ -513,6 +548,8 @@
                     @endif
                 </a>
             </li>
+            @endcan
+            @can('Additional Service Request Management - View')
             <li>
                 <a href="{{ route('admin.additional-service-requests.index') }}" class="{{ request()->routeIs('admin.additional-service-requests.*') ? 'active' : '' }}">
                     <i class="bi bi-plus-circle"></i>Additional Service Requests
@@ -524,21 +561,28 @@
                     @endif
                 </a>
             </li>
+            @endcan
+            @can('Document Management - View')
             <li>
                 <a href="{{ route('admin.documents.index') }}" class="{{ request()->routeIs('admin.documents.*') ? 'active' : '' }}">
                     <i class="bi bi-file-earmark-check"></i>Document Verification
                 </a>
             </li>
+            @endcan
+            @can('Communication Management - View')
             <li>
                 <a href="{{ route('admin.communications.index') }}" class="{{ request()->routeIs('admin.communications.*') ? 'active' : '' }}">
                     <i class="bi bi-chat-dots"></i>Community Center
                 </a>
             </li>
+            @endcan
+            @can('Email Management - View')
             <li>
                 <a href="{{ route('admin.send-user-summary.index') }}" class="{{ request()->routeIs('admin.send-user-summary.*') ? 'active' : '' }}">
                     <i class="bi bi-envelope-paper"></i>Send User Summary
                 </a>
             </li>
+            @endcan
             @if(request()->routeIs('admin.booths.*'))
             <li>
                 <a href="#" class="active">

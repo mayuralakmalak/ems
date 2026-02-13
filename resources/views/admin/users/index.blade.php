@@ -8,9 +8,11 @@
     <a href="{{ route('admin.dashboard') }}" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
     </a>
+    @can('User Management - Create')
     <a href="{{ route('admin.users.create') }}" class="btn btn-primary">
         <i class="bi bi-plus-circle me-1"></i>Add
     </a>
+    @endcan
 </div>
 
 <div class="card">
@@ -20,9 +22,11 @@
             @csrf
             <input type="hidden" name="user_ids" id="bulkDeleteIds">
         </form>
+        @can('User Management - Delete')
         <button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>
             <i class="bi bi-trash me-1"></i>Delete Selected
         </button>
+        @endcan
     </div>
     <div class="card-body">
         <div class="table-responsive">
@@ -65,17 +69,21 @@
                             </small>
                         </td>
                         <td>
+                            @can('User Management - Modify')
                             <a href="{{ route('admin.users.edit', $user->id) }}" class="btn btn-sm btn-primary me-1" title="Edit">
                                 <i class="bi bi-pencil"></i>
                             </a>
+                            @endcan
                             @if(! $user->hasRole('Admin'))
-                            <form action="{{ route('admin.users.destroy', $user->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this user?');">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="btn btn-sm btn-danger" title="Delete">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </form>
+                                @can('User Management - Delete')
+                                <form action="{{ route('admin.users.destroy', $user->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this user?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-danger" title="Delete">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                                @endcan
                             @endif
                         </td>
                     </tr>

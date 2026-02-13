@@ -15,6 +15,7 @@ class PaymentController extends Controller
 {
     public function index(Request $request)
     {
+        abort_unless(auth()->user()->can('Payment Management - View'), 403);
         $query = Payment::with(['booking.user', 'booking.exhibition', 'booking.booth']);
 
         // Filter by approval status (defaults to pending)
@@ -71,6 +72,7 @@ class PaymentController extends Controller
 
         // Export branch: download CSV for current filters (or default pending list)
         if ($request->get('export') === '1') {
+            abort_unless(auth()->user()->can('Payment Management - Download'), 403);
             $payments = $query->latest()->get();
             return $this->exportPayments($payments);
         }
@@ -82,12 +84,14 @@ class PaymentController extends Controller
 
     public function create()
     {
+        abort_unless(auth()->user()->can('Payment Management - Create'), 403);
         $bookings = Booking::with(['user', 'exhibition'])->where('status', 'confirmed')->get();
         return view('admin.payments.create', compact('bookings'));
     }
 
     public function store(Request $request)
     {
+        abort_unless(auth()->user()->can('Payment Management - Create'), 403);
         $validated = $request->validate([
             'booking_id' => 'required|exists:bookings,id',
             'amount' => 'required|numeric|min:0',
@@ -142,12 +146,14 @@ class PaymentController extends Controller
 
     public function show($id)
     {
+        abort_unless(auth()->user()->can('Payment Management - View'), 403);
         $payment = Payment::with(['booking.user', 'booking.exhibition', 'booking.booth'])->findOrFail($id);
         return view('admin.payments.show', compact('payment'));
     }
     
     public function approve($id)
     {
+        abort_unless(auth()->user()->can('Payment Management - Modify'), 403);
         $payment = Payment::with(['booking.exhibition', 'booking.booth', 'booking.bookingServices.service', 'user'])->findOrFail($id);
         
         $payment->update([
@@ -193,6 +199,7 @@ class PaymentController extends Controller
     
     public function reject(Request $request, $id)
     {
+        abort_unless(auth()->user()->can('Payment Management - Modify'), 403);
         $payment = Payment::findOrFail($id);
         
         $request->validate([
@@ -219,6 +226,7 @@ class PaymentController extends Controller
     
     public function history(Request $request)
     {
+        abort_unless(auth()->user()->can('Payment Management - View'), 403);
         $query = Payment::with(['booking.user', 'booking.exhibition', 'booking.booth'])
             ->where('approval_status', 'approved');
         

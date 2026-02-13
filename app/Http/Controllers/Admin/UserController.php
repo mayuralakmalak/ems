@@ -12,6 +12,7 @@ class UserController extends Controller
 {
     public function index()
     {
+        abort_unless(auth()->user()->can('User Management - View'), 403);
         $users = User::with('roles')->latest()->paginate(15);
         $roles = Role::where('status', 'active')->get();
 
@@ -20,12 +21,14 @@ class UserController extends Controller
 
     public function create()
     {
+        abort_unless(auth()->user()->can('User Management - Create'), 403);
         $roles = Role::where('status', 'active')->get();
         return view('admin.users.create', compact('roles'));
     }
 
     public function store(Request $request)
     {
+        abort_unless(auth()->user()->can('User Management - Create'), 403);
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email',
@@ -59,6 +62,7 @@ class UserController extends Controller
 
     public function edit(string $id)
     {
+        abort_unless(auth()->user()->can('User Management - Modify'), 403);
         $user = User::with('roles')->findOrFail($id);
         $roles = Role::where('status', 'active')->get();
 
@@ -67,6 +71,7 @@ class UserController extends Controller
 
     public function update(Request $request, string $id)
     {
+        abort_unless(auth()->user()->can('User Management - Modify'), 403);
         $user = User::findOrFail($id);
 
         $validated = $request->validate([
@@ -91,6 +96,7 @@ class UserController extends Controller
 
     public function destroy(string $id)
     {
+        abort_unless(auth()->user()->can('User Management - Delete'), 403);
         $user = User::findOrFail($id);
 
         if ($user->hasRole('Admin')) {
@@ -104,6 +110,7 @@ class UserController extends Controller
 
     public function bulkDelete(Request $request)
     {
+        abort_unless(auth()->user()->can('User Management - Delete'), 403);
         $request->validate([
             'user_ids' => 'required|string',
         ]);

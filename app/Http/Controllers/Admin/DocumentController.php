@@ -16,6 +16,7 @@ class DocumentController extends Controller
 {
     public function index(Request $request)
     {
+        abort_unless(auth()->user()->can('Document Management - View'), 403);
         $query = Document::with(['user', 'booking.exhibition']);
         
         // Filter by type
@@ -86,6 +87,7 @@ class DocumentController extends Controller
     
     public function show($id)
     {
+        abort_unless(auth()->user()->can('Document Management - View'), 403);
         $document = Document::with(['user', 'booking.exhibition', 'requiredDocument'])->findOrFail($id);
         
         // Return JSON for AJAX requests
@@ -100,6 +102,7 @@ class DocumentController extends Controller
     
     public function approve(Request $request, $id)
     {
+        abort_unless(auth()->user()->can('Document Management - Modify'), 403);
         $document = Document::findOrFail($id);
         
         $request->validate([
@@ -152,6 +155,7 @@ class DocumentController extends Controller
     
     public function reject(Request $request, $id)
     {
+        abort_unless(auth()->user()->can('Document Management - Modify'), 403);
         $document = Document::findOrFail($id);
         
         $request->validate([
@@ -204,6 +208,7 @@ class DocumentController extends Controller
     
     public function bulkApprove(Request $request)
     {
+        abort_unless(auth()->user()->can('Document Management - Modify'), 403);
         // Handle JSON input from AJAX
         $documentIds = $request->input('document_ids', []);
         

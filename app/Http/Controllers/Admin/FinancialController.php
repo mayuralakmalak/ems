@@ -11,6 +11,7 @@ class FinancialController extends Controller
 {
     public function index()
     {
+        abort_unless(auth()->user()->can('Financial Management - View'), 403);
         $totalRevenue = Payment::where('status', 'completed')->sum('amount');
         $pendingAmount = Booking::sum('total_amount') - Booking::sum('paid_amount');
 

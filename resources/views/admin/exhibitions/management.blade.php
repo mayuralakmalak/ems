@@ -95,12 +95,16 @@
                 </small>
             </div>
             <div>
-                <a href="{{ route('admin.exhibitions.edit', $exhibition->id) }}" class="btn btn-primary btn-sm me-2">
-                    Edit
-                </a>
-                <a href="{{ route('admin.exhibitions.show', $exhibition->id) }}" class="btn btn-secondary btn-sm">
-                    View Details
-                </a>
+                @can('Exhibition Management - Modify')
+                    <a href="{{ route('admin.exhibitions.edit', $exhibition->id) }}" class="btn btn-primary btn-sm me-2">
+                        Edit
+                    </a>
+                @endcan
+                @can('Exhibition Management - View')
+                    <a href="{{ route('admin.exhibitions.show', $exhibition->id) }}" class="btn btn-secondary btn-sm">
+                        View Details
+                    </a>
+                @endcan
             </div>
         </div>
         @empty

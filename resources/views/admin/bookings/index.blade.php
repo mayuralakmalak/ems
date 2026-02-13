@@ -50,9 +50,11 @@
                 <button type="submit" class="btn btn-primary btn-sm text-nowrap">
                     Filter
                 </button>
+                @can('Booking Management - Download')
                 <button type="submit" name="export" value="1" class="btn btn-success btn-sm text-nowrap">
                     Export
                 </button>
+                @endcan
             </div>
         </form>
 
@@ -126,9 +128,11 @@
                             </span>
                         </td>
                         <td>
+                            @can('Booking Management - View')
                             <a href="{{ route('admin.bookings.show', $booking->id) }}" class="btn btn-sm btn-info">
                                 <i class="bi bi-eye"></i> View
                             </a>
+                            @endcan
                         </td>
                     </tr>
                     @endforeach

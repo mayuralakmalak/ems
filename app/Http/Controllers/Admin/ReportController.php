@@ -21,6 +21,7 @@ class ReportController extends Controller
 {
     public function index(Request $request)
     {
+        abort_unless(auth()->user()->can('Report Generation - View'), 403);
         $exhibitions = Exhibition::orderBy('start_date', 'desc')->get();
         $selectedExhibitionId = $request->get('exhibition_id');
 

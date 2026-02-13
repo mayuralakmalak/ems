@@ -17,6 +17,7 @@ class AdminDashboardController extends Controller
      */
     public function index()
     {
+        abort_unless(auth()->user()->can('Admin Access - View'), 403);
         // Key Metrics
         $totalApplications = Booking::count();
         $totalListings = Exhibition::count();

@@ -15,6 +15,7 @@ class BoothRequestController extends Controller
 {
     public function index(Request $request)
     {
+        abort_unless(auth()->user()->can('Booth Request Management - View'), 403);
         $status = $request->get('status', 'pending');
 
         $query = BoothRequest::with(['exhibition', 'user'])
@@ -62,6 +63,7 @@ class BoothRequestController extends Controller
 
         // Export branch: download CSV for current filters (or all if none)
         if ($request->get('export') === '1') {
+            abort_unless(auth()->user()->can('Booth Request Management - Download'), 403);
             $requests = $query->get();
             return $this->exportRequests($requests);
         }
@@ -135,6 +137,7 @@ class BoothRequestController extends Controller
 
     public function show($id)
     {
+        abort_unless(auth()->user()->can('Booth Request Management - View'), 403);
         $boothRequest = BoothRequest::with(['exhibition', 'user'])->findOrFail($id);
 
         $booking = Booking::with(['exhibition', 'user', 'booth', 'payments', 'documents', 'bookingServices.service'])
@@ -238,6 +241,7 @@ class BoothRequestController extends Controller
 
     public function approve($id)
     {
+        abort_unless(auth()->user()->can('Booth Request Management - Modify'), 403);
         $boothRequest = BoothRequest::findOrFail($id);
         
         DB::beginTransaction();
@@ -272,6 +276,7 @@ class BoothRequestController extends Controller
 
     public function reject(Request $request, $id)
     {
+        abort_unless(auth()->user()->can('Booth Request Management - Modify'), 403);
         $boothRequest = BoothRequest::findOrFail($id);
         
         $boothRequest->update([

@@ -11,17 +11,20 @@ class RoleController extends Controller
 {
     public function index()
     {
+        abort_unless(auth()->user()->can('Role & Permission Management - View'), 403);
         $roles = Role::latest()->get();
         return view('admin.roles.index', compact('roles'));
     }
 
     public function create()
     {
+        abort_unless(auth()->user()->can('Role & Permission Management - Create'), 403);
         return view('admin.roles.create');
     }
 
     public function store(Request $request)
     {
+        abort_unless(auth()->user()->can('Role & Permission Management - Create'), 403);
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:roles,name',
             'status' => 'required|in:active,inactive',
@@ -37,12 +40,14 @@ class RoleController extends Controller
 
     public function edit($id)
     {
+        abort_unless(auth()->user()->can('Role & Permission Management - Modify'), 403);
         $role = Role::findOrFail($id);
         return view('admin.roles.edit', compact('role'));
     }
 
     public function update(Request $request, $id)
     {
+        abort_unless(auth()->user()->can('Role & Permission Management - Modify'), 403);
         $role = Role::findOrFail($id);
 
         $validated = $request->validate([
@@ -60,6 +65,7 @@ class RoleController extends Controller
 
     public function destroy($id)
     {
+        abort_unless(auth()->user()->can('Role & Permission Management - Delete'), 403);
         $role = Role::findOrFail($id);
 
         // Prevent deletion if role is assigned to users
@@ -75,6 +81,7 @@ class RoleController extends Controller
 
     public function bulkDelete(Request $request)
     {
+        abort_unless(auth()->user()->can('Role & Permission Management - Delete'), 403);
         $request->validate([
             'role_ids' => 'required|string',
         ]);
@@ -120,6 +127,7 @@ class RoleController extends Controller
 
     public function editPermissions($id)
     {
+        abort_unless(auth()->user()->can('Role & Permission Management - Modify'), 403);
         $role = Role::findOrFail($id);
 
         // Define modules (currently used sections in the admin / exhibitor panels)
@@ -139,6 +147,8 @@ class RoleController extends Controller
             'sponsorships' => 'Sponsorship Management',
             'sponsorship_bookings' => 'Sponsorship Booking Management',
             'categories' => 'Category Management',
+            'size_types' => 'Size Type Management',
+            'cms_pages' => 'CMS Pages Management',
             'settings' => 'Settings Management',
             'booth_requests' => 'Booth Request Management',
             'discounts' => 'Discount Management',
@@ -150,6 +160,10 @@ class RoleController extends Controller
             'emails' => 'Email Management',
             'notifications' => 'Notification Management',
             'additional_service_requests' => 'Additional Service Request Management',
+            'wallet' => 'Wallet Management',
+            'messages' => 'Message Management',
+            'services' => 'Additional Services Management',
+            'sponsorship_payments' => 'Sponsorship Payment Management',
             'reports' => 'Report Generation',
         ];
 
@@ -184,6 +198,7 @@ class RoleController extends Controller
 
     public function updatePermissions(Request $request, $id)
     {
+        abort_unless(auth()->user()->can('Role & Permission Management - Modify'), 403);
         $role = Role::findOrFail($id);
 
         $request->validate([

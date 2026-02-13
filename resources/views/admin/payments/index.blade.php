@@ -34,9 +34,11 @@
                 <a href="{{ route('admin.payments.index', ['approval_status' => 'approved']) }}" class="btn btn-sm {{ request('approval_status') == 'approved' ? 'btn-primary' : 'btn-outline-primary' }}">Approved</a>
                 <a href="{{ route('admin.payments.index', ['approval_status' => 'rejected']) }}" class="btn btn-sm {{ request('approval_status') == 'rejected' ? 'btn-primary' : 'btn-outline-primary' }}">Rejected</a>
             </div>
+            @can('Payment Management - View')
             <a href="{{ route('admin.payments.history') }}" class="btn btn-sm btn-success">
                 <i class="bi bi-clock-history"></i> Payment History
             </a>
+            @endcan
         </div>
     </div>
     <div class="card-body">
@@ -83,9 +85,11 @@
                 <button type="submit" class="btn btn-primary btn-sm text-nowrap">
                     Filter
                 </button>
+                @can('Payment Management - Download')
                 <button type="submit" name="export" value="1" class="btn btn-success btn-sm text-nowrap">
                     Export
                 </button>
+                @endcan
             </div>
         </form>
         <div class="table-responsive">
@@ -153,9 +157,11 @@
                         </td>
                         <td>{{ $payment->created_at->format('Y-m-d') }}</td>
                         <td>
+                            @can('Payment Management - View')
                             <a href="{{ route('admin.payments.show', $payment->id) }}" class="btn btn-sm btn-primary">
                                 <i class="bi bi-eye"></i> Details
                             </a>
+                            @endcan
                         </td>
                     </tr>
                     @empty

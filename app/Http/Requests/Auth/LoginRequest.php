@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
@@ -49,9 +50,15 @@ class LoginRequest extends FormRequest
             ]);
         }
 
-        // Check if user's email is verified
+        // Check if user's email is verified.
+        // Admin and Sub Admin users created from the admin panel are allowed
+        // to log in even if their email is not verified.
         $user = Auth::user();
-        if ($user && method_exists($user, 'hasVerifiedEmail') && !$user->hasVerifiedEmail()) {
+        if (
+            $user instanceof User
+            && ! ($user->hasRole('Admin') || $user->hasRole('Sub Admin'))
+            && ! $user->hasVerifiedEmail()
+        ) {
             Auth::logout();
             RateLimiter::hit($this->throttleKey());
 

@@ -20,6 +20,7 @@ class ExhibitionController extends Controller
 {
     public function index(Request $request)
     {
+        abort_unless(auth()->user()->can('Exhibition Management - View'), 403);
         // Show 10 exhibitions per page for manageable server-side pagination
         $exhibitions = Exhibition::latest()->paginate(10);
         
@@ -37,18 +38,21 @@ class ExhibitionController extends Controller
 
     public function management()
     {
+        abort_unless(auth()->user()->can('Exhibition Management - View'), 403);
         $exhibitions = Exhibition::latest()->get();
         return view('admin.exhibitions.management', compact('exhibitions'));
     }
 
     public function create()
     {
+        abort_unless(auth()->user()->can('Exhibition Management - Create'), 403);
         $countries = \App\Models\Country::active()->ordered()->get();
         return view('admin.exhibitions.create', compact('countries'));
     }
 
     public function store(Request $request)
     {
+        abort_unless(auth()->user()->can('Exhibition Management - Create'), 403);
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -88,6 +92,7 @@ class ExhibitionController extends Controller
 
     public function step2($id)
     {
+        abort_unless(auth()->user()->can('Exhibition Management - Modify'), 403);
         $exhibition = Exhibition::with(['stallSchemes', 'booths', 'boothSizes.items', 'addonServices', 'floors'])->findOrFail($id);
         $services = Service::where('is_active', true)->orderBy('name')->get();
         $sizeTypes = \App\Models\SizeType::orderBy('id', 'desc')->get();
@@ -97,6 +102,7 @@ class ExhibitionController extends Controller
 
     public function storeStep2(Request $request, $id)
     {
+        abort_unless(auth()->user()->can('Exhibition Management - Modify'), 403);
         $exhibition = Exhibition::findOrFail($id);
         
         $validated = $request->validate([
@@ -444,6 +450,7 @@ class ExhibitionController extends Controller
 
     public function step3($id)
     {
+        abort_unless(auth()->user()->can('Exhibition Management - Modify'), 403);
         $exhibition = Exhibition::with(['paymentSchedules', 'boothSizes', 'floors'])->findOrFail($id);
 
         // Only active discounts are available for selection on floorplan
@@ -461,6 +468,7 @@ class ExhibitionController extends Controller
 
     public function storeStep3(Request $request, $id)
     {
+        abort_unless(auth()->user()->can('Exhibition Management - Modify'), 403);
         $exhibition = Exhibition::findOrFail($id);
         
         $request->validate([
@@ -596,12 +604,14 @@ class ExhibitionController extends Controller
 
     public function step4($id)
     {
+        abort_unless(auth()->user()->can('Exhibition Management - Modify'), 403);
         $exhibition = Exhibition::with(['badgeConfigurations.exhibitionBoothSize.sizeType', 'boothSizes.sizeType', 'stallVariations', 'requiredDocuments'])->findOrFail($id);
         return view('admin.exhibitions.step4', compact('exhibition'));
     }
 
     public function storeStep4(Request $request, $id)
     {
+        abort_unless(auth()->user()->can('Exhibition Management - Modify'), 403);
         $exhibition = Exhibition::findOrFail($id);
         
         $request->validate([
@@ -732,6 +742,7 @@ class ExhibitionController extends Controller
 
     public function show($id)
     {
+        abort_unless(auth()->user()->can('Exhibition Management - View'), 403);
         try {
             $exhibition = Exhibition::with(['booths', 'bookings'])->findOrFail($id);
             
@@ -752,6 +763,7 @@ class ExhibitionController extends Controller
 
     public function edit($id)
     {
+        abort_unless(auth()->user()->can('Exhibition Management - Modify'), 403);
         $exhibition = Exhibition::findOrFail($id);
         $countries = \App\Models\Country::active()->ordered()->get();
         
@@ -769,6 +781,7 @@ class ExhibitionController extends Controller
 
     public function update(Request $request, $id)
     {
+        abort_unless(auth()->user()->can('Exhibition Management - Modify'), 403);
         $exhibition = Exhibition::findOrFail($id);
         
         $validated = $request->validate([
@@ -796,6 +809,7 @@ class ExhibitionController extends Controller
 
     public function destroy($id)
     {
+        abort_unless(auth()->user()->can('Exhibition Management - Delete'), 403);
         Exhibition::findOrFail($id)->delete();
         return redirect()->route('admin.exhibitions.index')->with('success', 'Exhibition deleted!');
     }
@@ -805,6 +819,7 @@ class ExhibitionController extends Controller
      */
     public function storeFloors(Request $request, $id)
     {
+        abort_unless(auth()->user()->can('Exhibition Management - Modify'), 403);
         $exhibition = Exhibition::findOrFail($id);
         
         $validated = $request->validate([
@@ -864,6 +879,7 @@ class ExhibitionController extends Controller
      */
     public function getFloors($id)
     {
+        abort_unless(auth()->user()->can('Exhibition Management - View'), 403);
         $exhibition = Exhibition::with('floors')->findOrFail($id);
         return response()->json($exhibition->floors);
     }
