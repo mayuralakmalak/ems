@@ -90,9 +90,13 @@
                                     } elseif ($payment->approval_status === 'rejected') {
                                         $statusLabel = 'Rejected';
                                     }
+                                    $gatewayCharge = (float) ($payment->gateway_charge ?? 0);
+                                    $totalWithGateway = $payment->amount + $gatewayCharge;
                                     $paymentsForButton[] = [
                                         'label' => $payment->payment_number ?? ('Payment #'.$payment->id),
                                         'amount' => number_format($payment->amount, 2, '.', ''),
+                                        'gateway_charge' => number_format($gatewayCharge, 2, '.', ''),
+                                        'total_with_gateway' => number_format($totalWithGateway, 2, '.', ''),
                                         'status' => $statusLabel,
                                     ];
                                 }
@@ -236,9 +240,16 @@ function rejectRequest(btn) {
                 html += '<table class="table table-sm table-bordered mb-2">';
                 html += '<thead><tr><th>Payment</th><th>Amount</th><th>Status</th></tr></thead><tbody>';
                 payments.forEach(function (p) {
+                    var amt = parseFloat(p.amount || 0);
+                    var gw = parseFloat(p.gateway_charge || 0);
+                    var total = parseFloat(p.total_with_gateway || 0) || (amt + gw);
+                    var amountText = '₹' + amt.toFixed(2);
+                    if (gw > 0) {
+                        amountText += ' + ₹' + gw.toFixed(2) + ' gateway = ₹' + total.toFixed(2);
+                    }
                     html += '<tr>';
                     html += '<td>' + (p.label || '') + '</td>';
-                    html += '<td>₹' + (parseFloat(p.amount || 0).toFixed(2)) + '</td>';
+                    html += '<td>' + amountText + '</td>';
                     html += '<td>' + (p.status || '') + '</td>';
                     html += '</tr>';
                 });

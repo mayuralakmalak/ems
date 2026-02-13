@@ -295,7 +295,13 @@
                     @endphp
                     <span class="status-badge {{ $statusClass }}">{{ $statusText }}</span>
                 </td>
-                <td>₹{{ number_format($booking->total_amount, 2) }}</td>
+                <td>
+                    @php $totalGatewayFee = (float) $booking->payments->sum('gateway_charge'); @endphp
+                    ₹{{ number_format($booking->total_amount, 2) }}
+                    @if($totalGatewayFee > 0)
+                        <br><small class="text-muted">Gateway: ₹{{ number_format($totalGatewayFee, 2) }} • Total incl.: ₹{{ number_format($booking->total_amount + $totalGatewayFee, 2) }}</small>
+                    @endif
+                </td>
                 <td>
                     <a href="{{ route('bookings.show', $booking->id) }}" class="btn-action btn-view">View Details</a>
                     <a href="{{ route('bookings.invoice', $booking->id) }}" class="btn-action btn-invoice">View Invoice</a>

@@ -26,7 +26,7 @@ class BookingController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $query = Booking::with(['exhibition.requiredDocuments', 'booth'])
+        $query = Booking::with(['exhibition.requiredDocuments', 'booth', 'payments'])
             ->where('user_id', $user->id);
         
         // Filter by status

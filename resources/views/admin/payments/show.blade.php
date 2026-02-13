@@ -27,6 +27,11 @@
                     <div class="col-md-6">
                         <strong>Amount:</strong><br>
                         ₹{{ number_format($payment->amount, 2) }}
+                        @php $gatewayCharge = (float) ($payment->gateway_charge ?? 0); @endphp
+                        @if($gatewayCharge > 0)
+                            <br><strong>Payment Gateway Fee (2.5%):</strong> ₹{{ number_format($gatewayCharge, 2) }}
+                            <br><strong>Total Charged to Customer:</strong> ₹{{ number_format($payment->amount + $gatewayCharge, 2) }}
+                        @endif
                     </div>
                 </div>
                 <div class="row mb-3">
@@ -87,6 +92,9 @@
                         {{ $payment->booking->exhibition->name ?? 'N/A' }}
                     </div>
                 </div>
+                @php
+                    $bookingGatewayTotal = (float) $payment->booking->payments->sum('gateway_charge');
+                @endphp
                 <div class="row mb-3">
                     <div class="col-md-6">
                         <strong>Total Amount:</strong><br>
@@ -97,6 +105,18 @@
                         ₹{{ number_format($payment->booking->paid_amount, 2) }}
                     </div>
                 </div>
+                @if($bookingGatewayTotal > 0)
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Payment Gateway Fee (online):</strong><br>
+                        ₹{{ number_format($bookingGatewayTotal, 2) }}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Total Paid by Customer (incl. gateway):</strong><br>
+                        ₹{{ number_format($payment->booking->paid_amount + $bookingGatewayTotal, 2) }}
+                    </div>
+                </div>
+                @endif
                 @endif
             </div>
         </div>

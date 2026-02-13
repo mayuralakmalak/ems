@@ -465,16 +465,24 @@
                             <th>Transaction ID</th>
                             <th>Date</th>
                             <th>Amount</th>
+                            <th>Gateway Fee (online)</th>
+                            <th>Total Charged</th>
                             <th>Platform</th>
                             <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($booking->payments as $payment)
+                            @php
+                                $gatewayCharge = (float) ($payment->gateway_charge ?? 0);
+                                $totalCharged = $payment->amount + $gatewayCharge;
+                            @endphp
                             <tr>
                                 <td>{{ $payment->payment_number }}</td>
                                 <td>{{ $payment->created_at?->format('Y-m-d') }}</td>
                                 <td>₹{{ number_format($payment->amount, 2) }}</td>
+                                <td>@if($gatewayCharge > 0) ₹{{ number_format($gatewayCharge, 2) }} @else <span class="text-muted">—</span> @endif</td>
+                                <td>₹{{ number_format($totalCharged, 2) }}</td>
                                 <td>{{ ucfirst($payment->payment_method) }}</td>
                                 <td>
                                     <span class="status-badge {{ $payment->status === 'completed' ? 'status-paid' : 'status-pending-pay' }}">
@@ -483,7 +491,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="text-center text-muted py-3">No payments yet</td></tr>
+                            <tr><td colspan="7" class="text-center text-muted py-3">No payments yet</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -561,9 +569,11 @@
                     }
                     
                     $taxes = ($booking->total_amount - $servicesTotal) * 0.1;
-                    $totalAmount = $booking->total_amount;
+                    $baseTotalAmount = $booking->total_amount;
                     $paidAmount = $booking->paid_amount;
-                    $balanceDue = $totalAmount - $paidAmount;
+                    $balanceDue = $baseTotalAmount - $paidAmount;
+                    $gatewayFee = round(($baseTotalAmount * 2.5) / 100, 2);
+                    $totalAmountInclGateway = $baseTotalAmount + $gatewayFee;
                 @endphp
                 <div class="summary-item">
                     <span class="summary-label">Booth/Fee</span>
@@ -586,8 +596,16 @@
                 </div>
                 @endif
                 <div class="summary-item">
-                    <span class="summary-label summary-total">Total Amount</span>
-                    <span class="summary-value summary-total">₹{{ number_format($totalAmount, 2) }}</span>
+                    <span class="summary-label">Booking total (before gateway)</span>
+                    <span class="summary-value">₹{{ number_format($baseTotalAmount, 2) }}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Payment gateway fee (2.5% for online)</span>
+                    <span class="summary-value">₹{{ number_format($gatewayFee, 2) }}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label summary-total">Total Amount (incl. gateway)</span>
+                    <span class="summary-value summary-total">₹{{ number_format($totalAmountInclGateway, 2) }}</span>
                 </div>
                 <div class="summary-item">
                     <span class="summary-label">Amount Paid</span>

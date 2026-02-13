@@ -1439,7 +1439,7 @@ function selectPaymentType(type) {
         discountCodeInput.disabled = false;
     }
     
-    // Update payment breakdown section
+        // Update payment breakdown section
     const fullPaymentDiscountItem = document.getElementById('fullPaymentDiscountItem');
     const totalDueAmount = document.getElementById('totalDueAmount');
     
@@ -1453,21 +1453,26 @@ function selectPaymentType(type) {
         document.getElementById('fullPaymentSection').style.display = 'block';
         document.getElementById('partPaymentSection').style.display = 'none';
         
-        // Priority: Full Payment → Member → Coupon. baseTotal is already the amount after all discounts.
-        fullPaymentDiscountPercent = getEffectiveFullPaymentPercent();
+        // Compute FULL‑payment scenario directly from original base, mirroring backend rules:
+        // total_full = member + coupon_full + full_payment_effective, capped by maximumDiscountApplyPercent
+        const memberPercentForCalc = memberDiscountPercentCurrent || 0;
+        const couponPercentFull = couponDiscountPercentCurrent || 0;
+        const availableForFullJS = Math.max(
+            0,
+            maximumDiscountApplyPercent - memberPercentForCalc - couponPercentFull
+        );
+        const fullEffectivePercent = Math.min(fullPaymentDiscountPercentRaw, availableForFullJS);
+
+        fullPaymentDiscountPercent = fullEffectivePercent;
         fullPaymentDiscountAmount = (originalBase * fullPaymentDiscountPercent) / 100;
 
-        // By default, use the booking total as the base for full payment
-        let fullAmount = baseTotal;
+        const totalFullPercent = Math.min(
+            maximumDiscountApplyPercent,
+            memberPercentForCalc + couponPercentFull + fullPaymentDiscountPercent
+        );
 
-        // When no coupon is applied, actually apply the full payment discount on top of any member discount
-        if (!discountApplied && fullPaymentDiscountPercent > 0) {
-            const memberPercentForCalc = memberDiscountPercentCurrent || 0;
-            const combinedPercent = memberPercentForCalc + fullPaymentDiscountPercent;
-            const effectivePercent = Math.min(combinedPercent, maximumDiscountApplyPercent);
-            // originalBase represents the actual pre-discount total (booth + services + extras)
-            fullAmount = originalBase * (1 - (effectivePercent / 100));
-        }
+        // FULL‑payment amount = original base after member + coupon_full + full_payment discounts
+        let fullAmount = originalBase * (1 - (totalFullPercent / 100));
 
         const fullGatewayCharge = (fullAmount * 2.5) / 100;
         // Remember the effective full payment amount for later recalculations (gateway, button text, etc.)

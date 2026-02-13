@@ -445,47 +445,56 @@ class PaymentController extends Controller
         $user = auth()->user();
         $paymentTypeOption = $request->payment_type_option ?? 'part'; // Default to part payment
 
-        // If user chooses full payment and no coupon-based discount has been applied yet,
-        // apply the exhibition full payment discount on top of any member discount,
-        // respecting the maximum discount cap. This ensures the full payment discount
-        // actually reduces the booking total (and the amount the user pays).
+        // If user chooses full payment, apply the exhibition full payment discount
+        // on top of any member and coupon discount, respecting the maximum discount cap.
+        // IMPORTANT:
+        // - booking->total_amount always stores the PART‑payment scenario
+        //   (member + coupon only, no full‑payment discount)
+        // - Here, for FULL payment, we derive the original base and then apply:
+        //   member + coupon (full context) + full‑payment discount, capped by maximum_discount_apply_percent
         if ($paymentTypeOption === 'full') {
             $discountType = $booking->discount_type ?? ($booking->discount_percent > 0 ? 'member' : null);
-            $couponPercentBooking = (float) ($booking->coupon_discount_percent ?? 0);
-            $hasCoupon = $discountType === 'coupon' || $discountType === 'both' || $couponPercentBooking > 0;
 
-            if (! $hasCoupon) {
-                $memberDiscountPercent = (float) ($booking->member_discount_percent
-                    ?? ($discountType === 'member' ? $booking->discount_percent : 0));
+            // Member discount (if any)
+            $memberDiscountPercent = (float) ($booking->member_discount_percent
+                ?? ($discountType === 'member' || $discountType === 'both' ? $booking->discount_percent : 0));
 
-                $maxPercent = $booking->exhibition->maximum_discount_apply_percent !== null
-                    ? (float) $booking->exhibition->maximum_discount_apply_percent
-                    : 100.0;
+            // Coupon discount for FULL context (stored in coupon_discount_percent)
+            $couponPercentBookingFull = (float) ($booking->coupon_discount_percent ?? 0);
 
-                $fullPaymentDiscountPercentRaw = (float) ($booking->exhibition->full_payment_discount_percent ?? 0);
-                $fullPaymentEffectivePercent = min(
-                    $fullPaymentDiscountPercentRaw,
-                    max(0.0, $maxPercent - $memberDiscountPercent)
-                );
+            $maxPercent = $booking->exhibition->maximum_discount_apply_percent !== null
+                ? (float) $booking->exhibition->maximum_discount_apply_percent
+                : 100.0;
 
-                if ($fullPaymentEffectivePercent > 0) {
-                    $currentTotal = (float) $booking->total_amount;
-                    $originalBase = $memberDiscountPercent > 0
-                        ? $currentTotal / (1 - ($memberDiscountPercent / 100))
-                        : $currentTotal;
+            // Full‑payment discount configured on exhibition
+            $fullPaymentDiscountPercentRaw = (float) ($booking->exhibition->full_payment_discount_percent ?? 0);
 
-                    $newTotalDiscountPercent = min($memberDiscountPercent + $fullPaymentEffectivePercent, $maxPercent);
-                    $newTotalAmount = round($originalBase * (1 - ($newTotalDiscountPercent / 100)), 2);
+            // Reconstruct original base (before member + coupon PART discounts) from stored PART‑payment total
+            // booking->discount_percent always represents the PART‑payment total discount (member + coupon_part)
+            $currentPartTotal = (float) $booking->total_amount;
+            $partDiscountPercent = (float) ($booking->discount_percent ?? 0);
+            $originalBase = $partDiscountPercent > 0
+                ? $currentPartTotal / (1 - ($partDiscountPercent / 100))
+                : $currentPartTotal;
 
-                    $booking->discount_type = $memberDiscountPercent > 0 ? 'member' : null;
-                    $booking->discount_percent = $newTotalDiscountPercent;
-                    $booking->member_discount_percent = $memberDiscountPercent > 0 ? $memberDiscountPercent : null;
-                    $booking->coupon_discount_percent = null;
-                    $booking->coupon_discount_percent_part = null;
-                    $booking->total_amount = $newTotalAmount;
-                    $booking->save();
-                }
-            }
+            // Determine how much full‑payment discount we can still apply without exceeding the cap
+            $availableForFull = max(0.0, $maxPercent - $memberDiscountPercent - $couponPercentBookingFull);
+            $fullPaymentEffectivePercent = min($fullPaymentDiscountPercentRaw, $availableForFull);
+
+            $newTotalDiscountPercent = min(
+                $memberDiscountPercent + $couponPercentBookingFull + $fullPaymentEffectivePercent,
+                $maxPercent
+            );
+
+            $newTotalAmount = round($originalBase * (1 - ($newTotalDiscountPercent / 100)), 2);
+
+            // Persist the FULL‑payment scenario on the booking for this flow
+            $booking->discount_type = $discountType ?: ($newTotalDiscountPercent > 0 ? 'coupon' : null);
+            $booking->discount_percent = $newTotalDiscountPercent;
+            $booking->member_discount_percent = $memberDiscountPercent > 0 ? $memberDiscountPercent : null;
+            // Keep coupon_discount_percent and coupon_discount_percent_part as already calculated by applyDiscount
+            $booking->total_amount = $newTotalAmount;
+            $booking->save();
         }
         // Normalize booth IDs once so both full and part payment flows can use them
         $boothIds = collect($booking->selected_booth_ids ?? [$booking->booth_id])
@@ -1093,14 +1102,27 @@ class PaymentController extends Controller
             }
         }
 
-        // Store BOTH: coupon_discount_percent = for full display, coupon_discount_percent_part = for part display
-        // Total discount is same: full+member+coupon_full = member+coupon_part (both = max when capped)
-        $totalDiscountPercent = $fullPaymentReserved + $memberDiscountPercent + $couponEffectiveForFull;
-        $totalDiscountFromPart = $memberDiscountPercent + $couponEffectiveForPart;
-        $totalDiscountPercent = max($totalDiscountPercent, $totalDiscountFromPart);
-        $totalDiscountPercent = min($totalDiscountPercent, $maxPercent);
+        // Store BOTH: coupon_discount_percent = for full display, coupon_discount_percent_part = for part display.
+        // IMPORTANT:
+        // - For FULL payment: total discount = full payment + member + coupon (capped by maximum_discount_apply_percent)
+        // - For PART payment: total discount = member + coupon only (NO full payment discount), capped separately
+        $totalDiscountFull = min(
+            $maxPercent,
+            $fullPaymentReserved + $memberDiscountPercent + $couponEffectiveForFull
+        );
+        $totalDiscountPart = min(
+            $maxPercent,
+            $memberDiscountPercent + $couponEffectiveForPart
+        );
+
+        // Always store the PART‑payment discount on the booking itself.
+        // The additional full‑payment discount is ONLY applied at the time of choosing
+        // full payment (PaymentController@store), not baked into booking->total_amount.
+        $totalDiscountPercent = $totalDiscountPart;
+        $appliedCouponPercent = $couponEffectiveForPart;
+
         $newTotalAmount = round($originalBase * (1 - ($totalDiscountPercent / 100)), 2);
-        $couponDiscountAmount = round($originalBase * (($paymentTypeOption === 'part' ? $couponEffectiveForPart : $couponEffectiveForFull) / 100), 2);
+        $couponDiscountAmount = round($originalBase * ($appliedCouponPercent / 100), 2);
 
         $booking->discount_type = $hasMemberDiscount ? 'both' : 'coupon';
         $booking->member_discount_percent = $hasMemberDiscount ? round($memberDiscountPercent, 2) : null;
@@ -1149,10 +1171,9 @@ class PaymentController extends Controller
         }
 
         // Amounts for display (all based on original base; priority: full → member → coupon)
-        $fullPaymentDisplayPercent = min(
-            (float) ($booking->exhibition->full_payment_discount_percent ?? 0),
-            max(0, $booking->discount_percent - ($booking->member_discount_percent ?? 0) - ($booking->coupon_discount_percent ?? 0))
-        );
+        // For display, the "full payment discount" portion is exactly the reserved full-payment percent,
+        // independent of whether the current booking total was calculated for full or part payment.
+        $fullPaymentDisplayPercent = $fullPaymentReserved;
         $memberDiscountAmount = $booking->member_discount_percent > 0
             ? round($originalBase * ($booking->member_discount_percent / 100), 2)
             : 0;

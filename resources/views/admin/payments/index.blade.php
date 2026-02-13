@@ -129,7 +129,13 @@
                                 <span class="text-muted">N/A</span>
                             @endif
                         </td>
-                        <td>₹{{ number_format($payment->amount, 2) }}</td>
+                        <td>
+                            ₹{{ number_format($payment->amount, 2) }}
+                            @php $gw = (float) ($payment->gateway_charge ?? 0); @endphp
+                            @if($gw > 0)
+                                <br><small class="text-muted">+ ₹{{ number_format($gw, 2) }} gateway = ₹{{ number_format($payment->amount + $gw, 2) }}</small>
+                            @endif
+                        </td>
                         <td>{{ ucfirst($payment->payment_method) }}</td>
                         <td>
                             @if($payment->payment_proof_file)
