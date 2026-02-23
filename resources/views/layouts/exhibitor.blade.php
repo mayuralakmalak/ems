@@ -297,11 +297,6 @@
                     <i class="bi bi-person-circle"></i>My Profile
                 </a>
             </li>
-            <li>
-                <a href="#" class="">
-                    <i class="bi bi-gear"></i>Settings
-                </a>
-            </li>
         </ul>
     </div>
 
