@@ -187,6 +187,29 @@ class FloorplanController extends Controller
         $exhibition = Exhibition::findOrFail($exhibitionId);
         $floorId = $request->input('floor_id');
 
+        $hall = $request->input('hall');
+        $booths = $request->input('booths', []);
+
+        // Validate total stall area does not exceed usable area (70% of hall)
+        $hallWidth = (float) ($hall['width'] ?? 0);
+        $hallHeight = (float) ($hall['height'] ?? 0);
+        $totalHallArea = $hallWidth * $hallHeight;
+        $usableArea = $totalHallArea * 0.70;
+        if ($usableArea > 0) {
+            $sumBoothArea = 0;
+            foreach ($booths as $booth) {
+                $w = (float) ($booth['width'] ?? 0);
+                $h = (float) ($booth['height'] ?? 0);
+                $sumBoothArea += $w * $h;
+            }
+            if ($sumBoothArea > $usableArea) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Total stall area cannot exceed usable area (70% of hall).',
+                ], 422);
+            }
+        }
+
         $payload = $request->all();
         $payload['lastUpdated'] = now()->toDateTimeString();
 
@@ -205,7 +228,15 @@ class FloorplanController extends Controller
 
         $this->syncBoothsFromPayload($payload, $exhibitionId, $floorId);
 
-        return response()->json(['success' => true]);
+        $response = ['success' => true];
+        $totalRevenuePct = 0;
+        foreach ($booths as $booth) {
+            $totalRevenuePct += (float) ($booth['revenuePercentage'] ?? $booth['revenue_percentage'] ?? 0);
+        }
+        if ($totalRevenuePct > 100) {
+            $response['warning'] = 'Total revenue coverage exceeds 100%.';
+        }
+        return response()->json($response);
     }
 
     /**

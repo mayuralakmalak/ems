@@ -204,6 +204,7 @@ class AdminFloorplanManager {
         if (!this.currentFloorId) {
             await this.loadConfiguration();
         }
+        if (window.updateGridAreaSummary) window.updateGridAreaSummary();
     }
 
     // Draw hall outline - aligned to grid
@@ -531,7 +532,7 @@ class AdminFloorplanManager {
 
         // Property inputs - update booth on change
         ['boothWidth', 'boothHeight', 'boothX', 'boothY', 'boothStatus', 'boothSize',
-            'boothArea', 'boothSizeSqft', 'boothDiscount', 'boothDiscountUser'
+            'boothArea', 'boothSizeSqft', 'boothRevenuePercentage', 'boothDiscount', 'boothDiscountUser'
         ].forEach(id => {
             const input = document.getElementById(id);
             if (input) {
@@ -853,6 +854,7 @@ class AdminFloorplanManager {
                         area: Math.round((width * height) / (this.gridConfig.size * this.gridConfig.size) * 100), // Approximate sq ft
                         price: 10000,
                         openSides: 1,
+                        revenuePercentage: 0,
                         category: 'Standard',
                         includedItems: ['Table', '2 Chairs', 'Power Outlet']
                     };
@@ -970,6 +972,7 @@ class AdminFloorplanManager {
         this.updateCounts();
         // Auto-save after adding booth
         this.autoSave();
+        if (window.updateGridAreaSummary) window.updateGridAreaSummary();
     }
 
     // Draw booth
@@ -1182,6 +1185,8 @@ class AdminFloorplanManager {
         document.getElementById('boothStatus').value = booth.status;
         document.getElementById('boothSize').value = booth.size;
         document.getElementById('boothArea').value = booth.area;
+        const revenuePctEl = document.getElementById('boothRevenuePercentage');
+        if (revenuePctEl) revenuePctEl.value = typeof booth.revenuePercentage === 'number' ? booth.revenuePercentage : (parseFloat(booth.revenuePercentage) || 0);
         const sidesOpenEl = document.getElementById('boothSidesOpen');
         if (sidesOpenEl) {
             const sides = Math.max(1, parseInt(booth.openSides, 10) || 1);
@@ -1244,6 +1249,11 @@ class AdminFloorplanManager {
             booth.status = document.getElementById('boothStatus').value;
             booth.size = document.getElementById('boothSize').value;
             booth.area = parseInt(document.getElementById('boothArea').value);
+            const revenuePctEl = document.getElementById('boothRevenuePercentage');
+            if (revenuePctEl) {
+                const val = parseFloat(revenuePctEl.value);
+                booth.revenuePercentage = isNaN(val) ? 0 : Math.max(0, Math.min(100, val));
+            }
             const sidesOpenEl = document.getElementById('boothSidesOpen');
             if (sidesOpenEl) {
                 booth.openSides = Math.max(1, Math.min(4, parseInt(sidesOpenEl.value, 10) || 1));
@@ -1308,6 +1318,7 @@ class AdminFloorplanManager {
             // Auto-save after updating booth
             this.autoSave();
         }
+        if (window.updateGridAreaSummary) window.updateGridAreaSummary();
     }
 
     // Save booth from properties
@@ -1384,6 +1395,11 @@ class AdminFloorplanManager {
                     const sidesEl = document.getElementById('boothSidesOpen');
                     return sidesEl ? Math.max(1, Math.min(4, parseInt(sidesEl.value, 10) || 1)) : 1;
                 })(),
+                revenuePercentage: (() => {
+                    const el = document.getElementById('boothRevenuePercentage');
+                    const val = el ? parseFloat(el.value) : NaN;
+                    return isNaN(val) ? 0 : Math.max(0, Math.min(100, val));
+                })(),
                 category: 'Standard',
                 includedItems: []
             };
@@ -1419,6 +1435,7 @@ class AdminFloorplanManager {
         this.updateCounts();
         // Auto-save after deleting booth
         this.autoSave();
+        if (window.updateGridAreaSummary) window.updateGridAreaSummary();
         return true;
     }
 
@@ -1548,6 +1565,7 @@ class AdminFloorplanManager {
             booth.height = this.snapToGridValue(booth.height);
             this.updateBoothElement(booth);
         });
+        if (window.updateGridAreaSummary) window.updateGridAreaSummary();
     }
 
     // Snap selected to grid
@@ -1644,6 +1662,7 @@ class AdminFloorplanManager {
             area: Math.round((mergedWidth * mergedHeight) / (this.gridConfig.size * this.gridConfig.size) * 100),
             price: booth1.price + booth2.price, // Combine prices
             openSides: Math.max(1, Math.min(4, Math.max(booth1.openSides || 1, booth2.openSides || 1))),
+            revenuePercentage: (parseFloat(booth1.revenuePercentage) || 0) + (parseFloat(booth2.revenuePercentage) || 0),
             category: booth1.category === booth2.category ? booth1.category : 'Premium',
             includedItems: [...new Set([...booth1.includedItems, ...booth2.includedItems])] // Combine unique items
         };
@@ -1834,6 +1853,7 @@ class AdminFloorplanManager {
                     area: selectedSizeSqft || area, // Use selected size sqft if available, otherwise calculated
                     price: 5000 + Math.floor(Math.random() * 15000),
                     openSides: 1,
+                    revenuePercentage: 0,
                     category: selectedCategory || 'Standard', // Use selected category if available
                     includedItems: ['Table', '2 Chairs', 'Power Outlet']
                 };
@@ -1850,6 +1870,7 @@ class AdminFloorplanManager {
         }
 
         document.getElementById('generateModal').classList.add('hidden');
+        if (window.updateGridAreaSummary) window.updateGridAreaSummary();
     }
 
     // Clear all booths
@@ -1861,6 +1882,7 @@ class AdminFloorplanManager {
         this.updateBoothsList();
         this.updateCounts();
         document.getElementById('boothProperties').classList.add('hidden');
+        if (window.updateGridAreaSummary) window.updateGridAreaSummary();
     }
 
     // Reset full floorplan: hall/grid defaults + remove all booths
@@ -2018,8 +2040,28 @@ class AdminFloorplanManager {
             });
 
             const result = await response.json();
+            if (response.status === 422) {
+                alert('Validation: ' + (result.error || result.message || 'Assigned booth area cannot exceed 100% of grid area.'));
+                return;
+            }
             if (!result.success) {
                 alert('Error saving: ' + (result.error || 'Unknown error'));
+                return;
+            }
+            if (result.warning) {
+                const card = document.getElementById('hallCapacitySummaryCard');
+                let banner = card ? card.querySelector('.alert-warning.revenue-warning') : null;
+                if (card && !banner) {
+                    banner = document.createElement('div');
+                    banner.className = 'alert alert-warning revenue-warning mt-2 mb-0';
+                    banner.setAttribute('role', 'alert');
+                    card.querySelector('.card-body').insertBefore(banner, card.querySelector('.card-body').firstChild);
+                }
+                if (banner) banner.textContent = result.warning;
+            } else {
+                const card = document.getElementById('hallCapacitySummaryCard');
+                const banner = card ? card.querySelector('.alert-warning.revenue-warning') : null;
+                if (banner) banner.remove();
             }
         } catch (error) {
             console.error('Error saving configuration:', error);
@@ -2056,7 +2098,8 @@ class AdminFloorplanManager {
             }
             this.booths = (config.booths || []).map(b => ({
                 ...b,
-                openSides: Math.max(1, Math.min(4, parseInt(b.openSides, 10) || 1))
+                openSides: Math.max(1, Math.min(4, parseInt(b.openSides, 10) || 1)),
+                revenuePercentage: typeof b.revenuePercentage === 'number' ? b.revenuePercentage : (parseFloat(b.revenuePercentage) || 0)
             }));
 
             // Update UI - preserve floor dimensions if they exist
@@ -2092,6 +2135,7 @@ class AdminFloorplanManager {
 
             this.updateBoothsList();
             this.updateCounts();
+            if (window.updateGridAreaSummary) window.updateGridAreaSummary();
             console.log('Floor plan loaded from server successfully!');
         } catch (error) {
             console.error('Error loading configuration:', error);

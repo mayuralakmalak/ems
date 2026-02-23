@@ -207,6 +207,11 @@
                                 @endforeach
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label>Revenue %:</label>
+                            <input type="number" id="boothRevenuePercentage" name="boothRevenuePercentage" min="0" max="100" step="0.01" value="0" placeholder="0">
+                            <small class="text-muted d-block mt-1">Revenue share for this booth (sum of all booths = Total Revenue Coverage).</small>
+                        </div>
                         <!-- <div class="form-group">
                             <label>Discount (optional):</label>
                             <select id="boothDiscount">
@@ -403,6 +408,46 @@
         </div>
     </div>
     
+    <!-- Hall Capacity Summary -->
+    <div class="card mb-4" id="hallCapacitySummaryCard">
+        <div class="card-header">
+            <h6 class="mb-0">Hall Capacity Summary</h6>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <span class="text-muted">Total Hall Area:</span> <strong id="summaryTotalHallArea">0</strong> sq meter
+            </div>
+            <div class="mb-3">
+                <span class="text-muted">Passage/Common Area (30%):</span> <strong id="summaryPassageArea">0</strong> sq meter
+            </div>
+            <div class="mb-3">
+                <span class="text-muted">Usable Stall Area (70%):</span> <strong id="summaryUsableArea">0</strong> sq meter
+            </div>
+            <div class="mb-3">
+                <label class="form-label mb-1">Usable vs Passage area</label>
+                <div class="progress" style="height: 1.5rem;">
+                    <div class="progress-bar bg-success" id="summaryProgressUsable" role="progressbar" style="width: 70%" aria-valuenow="70" aria-valuemin="0" aria-valuemax="100">70% Usable</div>
+                    <div class="progress-bar bg-secondary" id="summaryProgressPassage" role="progressbar" style="width: 30%" aria-valuenow="30" aria-valuemin="0" aria-valuemax="100">30% Passage</div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <span class="text-muted">Maximum Possible Stalls:</span> <strong id="summaryMaxStalls">—</strong>
+            </div>
+            <div class="mb-3">
+                <span class="text-muted">Total Created Stall Area:</span> <strong id="summaryTotalStallArea">0</strong> sq meter
+            </div>
+            <div class="mb-3">
+                <span class="text-muted">Booked Stall Area:</span> <strong id="summaryBookedStallArea">0</strong> sq meter
+            </div>
+            <div class="mb-0">
+                <label class="form-label mb-1">Occupancy: <span id="summaryOccupancyPct">0</span>%</label>
+                <div class="progress" style="height: 1.5rem;">
+                    <div class="progress-bar bg-primary" id="summaryProgressOccupancy" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Payment Schedule Setup -->
     <div class="card mb-4">
         <div class="card-header">
@@ -504,6 +549,70 @@
 <script>
 // Pass booth sizes to JavaScript
 const boothSizesData = @json($exhibition->boothSizes ?? []);
+
+function updateGridAreaSummary() {
+    var editor = window.floorplanEditor;
+    if (!editor || !editor.hallConfig || !editor.booths) return;
+
+    var gridSize = editor.gridConfig && editor.gridConfig.size ? editor.gridConfig.size : 50;
+    var pxToSqM = 1 / (gridSize * gridSize);
+
+    var totalHallAreaPx = editor.hallConfig.width * editor.hallConfig.height;
+    var totalHallArea = totalHallAreaPx * pxToSqM;
+    var passageArea = totalHallArea * 0.30;
+    var usableArea = totalHallArea * 0.70;
+    var usableAreaPx = totalHallAreaPx * 0.70;
+
+    var totalStallAreaPx = 0;
+    var bookedStallAreaPx = 0;
+    var minStallAreaPx = null;
+    editor.booths.forEach(function(b) {
+        var areaPx = (b.width || 0) * (b.height || 0);
+        totalStallAreaPx += areaPx;
+        if ((b.status || '').toLowerCase() === 'booked') {
+            bookedStallAreaPx += areaPx;
+        }
+        if (areaPx > 0) {
+            minStallAreaPx = minStallAreaPx === null ? areaPx : Math.min(minStallAreaPx, areaPx);
+        }
+    });
+
+    var totalStallArea = totalStallAreaPx * pxToSqM;
+    var bookedStallArea = bookedStallAreaPx * pxToSqM;
+
+    var maxPossibleStalls = 0;
+    if (minStallAreaPx && minStallAreaPx > 0 && usableAreaPx > 0) {
+        maxPossibleStalls = Math.floor(usableAreaPx / minStallAreaPx);
+    }
+
+    var occupancyPct = totalStallAreaPx > 0 ? (bookedStallAreaPx / totalStallAreaPx) * 100 : 0;
+    occupancyPct = Math.min(100, Math.round(occupancyPct * 10) / 10);
+
+    function setEl(id, text) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = text;
+    }
+    function setProgress(id, pct, aria) {
+        var el = document.getElementById(id);
+        if (el) {
+            el.style.width = (pct || 0) + '%';
+            if (aria !== undefined) el.setAttribute('aria-valuenow', aria);
+        }
+    }
+
+    setEl('summaryTotalHallArea', totalHallArea.toFixed(2));
+    setEl('summaryPassageArea', passageArea.toFixed(2));
+    setEl('summaryUsableArea', usableArea.toFixed(2));
+    setEl('summaryMaxStalls', minStallAreaPx ? maxPossibleStalls : '—');
+    setEl('summaryTotalStallArea', totalStallArea.toFixed(2));
+    setEl('summaryBookedStallArea', bookedStallArea.toFixed(2));
+    setEl('summaryOccupancyPct', occupancyPct.toFixed(1));
+
+    setProgress('summaryProgressUsable', 70, 70);
+    setProgress('summaryProgressPassage', 30, 30);
+    setProgress('summaryProgressOccupancy', occupancyPct, occupancyPct);
+}
+window.updateGridAreaSummary = updateGridAreaSummary;
 
 document.addEventListener('DOMContentLoaded', function () {
     const exhibitionId = {{ $exhibition->id }};
