@@ -602,6 +602,21 @@
                 @endif
             </div>
             
+            <!-- Delegates (Free & Paid) -->
+            @if($booking->status === 'confirmed' && $booking->exhibition->end_date >= now())
+            <div class="detail-section">
+                <h5 class="section-header">
+                    <i class="bi bi-people-fill booth-icon"></i>Delegates
+                </h5>
+                <p class="text-muted mb-3">
+                    Manage free and paid delegates for this exhibition based on the configured delegate limits.
+                </p>
+                <a href="{{ route('bookings.delegates.index', $booking->id) }}" class="btn btn-primary">
+                    Manage Delegates
+                </a>
+            </div>
+            @endif
+
             <!-- Additional Services Request -->
             @if($booking->status === 'confirmed' && $booking->approval_status === 'approved')
             <div class="detail-section">

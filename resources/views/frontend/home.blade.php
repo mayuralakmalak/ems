@@ -600,6 +600,7 @@ footer {
 @if(file_exists(public_path('js/main.js')))
 <script src="{{ asset('js/main.js') }}"></script>
 @endif
+@include('partials.whatsapp-float')
 </body>
 </html>
 

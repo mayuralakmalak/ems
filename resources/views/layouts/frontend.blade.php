@@ -575,6 +575,7 @@ footer {
             });
         });
     </script>
+    @include('partials.whatsapp-float')
     @stack('scripts')
 </body>
 </html>

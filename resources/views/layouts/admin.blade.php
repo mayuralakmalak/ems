@@ -10,6 +10,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- Font Awesome (for WhatsApp float icon) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Custom CSS -->
@@ -160,6 +162,31 @@
             margin-left: auto;
             font-size: 0.75rem;
             padding: 0.25rem 0.5rem;
+        }
+        
+        .sidebar-submenu {
+            list-style: none;
+            padding-left: 48px;
+            margin: 0;
+            display: none;
+        }
+        
+        .sidebar-submenu.show {
+            display: block;
+        }
+        
+        .sidebar-submenu a {
+            padding: 8px 20px;
+            font-size: 0.85rem;
+        }
+        
+        .has-submenu > .submenu-toggle .chevron-icon {
+            margin-left: auto;
+            transition: transform 0.2s ease;
+        }
+        
+        .has-submenu.open > .submenu-toggle .chevron-icon {
+            transform: rotate(180deg);
         }
         
         .main-content {
@@ -369,6 +396,31 @@
         .btn-primary[title*="Edit"] {
             padding: 0.25rem 0.5rem !important;
         }
+
+        /* WhatsApp Floating Button */
+        .whatsapp-float {
+            position: fixed;
+            width: 60px;
+            height: 60px;
+            bottom: 25px;
+            right: 25px;
+            background-color: #25D366;
+            color: #FFF;
+            border-radius: 50%;
+            text-align: center;
+            font-size: 30px;
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.3);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.3s ease-in-out;
+        }
+        .whatsapp-float:hover {
+            background-color: #1ebe5d;
+            transform: scale(1.1);
+            color: #FFF;
+        }
     </style>
     @stack('styles')
 </head>
@@ -536,6 +588,42 @@
                 </a>
             </li>
             @endcan
+            {{-- External Attendee Registrations --}}
+            @php
+                $externalActive = request()->routeIs('admin.event-registrations.*');
+            @endphp
+            <li class="has-submenu {{ $externalActive ? 'open' : '' }}">
+                <a href="javascript:void(0);" class="submenu-toggle {{ $externalActive ? 'active' : '' }}" data-target="#submenu-external-attendee">
+                    <i class="bi bi-people"></i>External Attendee
+                    <i class="bi bi-chevron-down chevron-icon"></i>
+                </a>
+                <ul class="sidebar-submenu {{ $externalActive ? 'show' : '' }}" id="submenu-external-attendee">
+                    <li>
+                        <a href="{{ route('admin.event-registrations.index', ['type' => 'visitor']) }}"
+                           class="{{ request()->routeIs('admin.event-registrations.index') && request('type') === 'visitor' ? 'active' : '' }}">
+                            Visitor Registration
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('admin.event-registrations.index', ['type' => 'member']) }}"
+                           class="{{ request()->routeIs('admin.event-registrations.index') && request('type') === 'member' ? 'active' : '' }}">
+                            Member Registration
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('admin.event-registrations.index', ['type' => 'vip']) }}"
+                           class="{{ request()->routeIs('admin.event-registrations.index') && request('type') === 'vip' ? 'active' : '' }}">
+                            VIP Registration
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('admin.event-registrations.index', ['type' => 'delegate']) }}"
+                           class="{{ request()->routeIs('admin.event-registrations.index') && request('type') === 'delegate' ? 'active' : '' }}">
+                            Delegate Registration
+                        </a>
+                    </li>
+                </ul>
+            </li>
             @can('Booth Request Management - View')
             <li>
                 <a href="{{ route('admin.booth-requests.index') }}" class="{{ request()->routeIs('admin.booth-requests.*') ? 'active' : '' }}">
@@ -875,8 +963,44 @@
                     behavior: 'smooth'
                 });
             }
+
+            // Sidebar submenu (accordion-style) for professional admin panel
+            const submenuToggles = document.querySelectorAll('.submenu-toggle');
+            submenuToggles.forEach(function(toggle) {
+                toggle.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const targetSelector = this.getAttribute('data-target');
+                    const submenu = document.querySelector(targetSelector);
+                    if (!submenu) return;
+
+                    const parentLi = this.closest('.has-submenu');
+                    const isOpen = parentLi.classList.contains('open');
+
+                    // Accordion: close all others
+                    document.querySelectorAll('.has-submenu.open').forEach(function(li) {
+                        if (li !== parentLi) {
+                            li.classList.remove('open');
+                        }
+                    });
+                    document.querySelectorAll('.sidebar-submenu.show').forEach(function(ul) {
+                        if (ul !== submenu) {
+                            ul.classList.remove('show');
+                        }
+                    });
+
+                    // Toggle current
+                    if (!isOpen) {
+                        parentLi.classList.add('open');
+                        submenu.classList.add('show');
+                    } else {
+                        parentLi.classList.remove('open');
+                        submenu.classList.remove('show');
+                    }
+                });
+            });
         });
     </script>
+    @include('partials.whatsapp-float')
     @stack('scripts')
 </body>
 </html>

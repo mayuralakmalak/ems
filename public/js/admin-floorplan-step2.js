@@ -543,6 +543,41 @@ class AdminFloorplanManager {
                 });
             }
         });
+
+        // Instant summary update when dimensions or status change (debounced input)
+        let summaryUpdateTimeout = null;
+
+        function scheduleSummaryUpdate() {
+            if (summaryUpdateTimeout) clearTimeout(summaryUpdateTimeout);
+            summaryUpdateTimeout = setTimeout(() => {
+                summaryUpdateTimeout = null;
+                if (window.updateGridAreaSummary) window.updateGridAreaSummary();
+            }, 100);
+        }
+        ['boothWidth', 'boothHeight', 'boothStatus'].forEach(id => {
+            const input = document.getElementById(id);
+            if (input) {
+                input.addEventListener('input', () => {
+                    if (this.selectedBooth) {
+                        const booth = this.booths.find(b => b.id === this.selectedBooth);
+                        if (booth) {
+                            if (id === 'boothWidth' || id === 'boothHeight') {
+                                const val = parseInt(input.value, 10);
+                                if (!isNaN(val)) {
+                                    if (id === 'boothWidth') booth.width = this.snapToGridValue(val);
+                                    else booth.height = this.snapToGridValue(val);
+                                    this.updateBoothElement(booth);
+                                }
+                            } else if (id === 'boothStatus') {
+                                booth.status = input.value;
+                                this.updateBoothVisuals();
+                            }
+                            scheduleSummaryUpdate();
+                        }
+                    }
+                });
+            }
+        });
     }
 
     // Set current tool
@@ -972,7 +1007,11 @@ class AdminFloorplanManager {
         this.updateCounts();
         // Auto-save after adding booth
         this.autoSave();
-        if (window.updateGridAreaSummary) window.updateGridAreaSummary();
+        // Update hall capacity summary immediately (rAF so DOM is ready)
+        const self = this;
+        requestAnimationFrame(function() {
+            if (window.updateGridAreaSummary) window.updateGridAreaSummary();
+        });
     }
 
     // Draw booth

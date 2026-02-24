@@ -311,6 +311,11 @@
                         </a>
                     @endif
                     @if($booking->status === 'confirmed' && $booking->exhibition->end_date >= now())
+                        <a href="{{ route('bookings.delegates.index', $booking->id) }}" class="btn-action" style="background:#0f766e; color:white;">
+                            Delegates
+                        </a>
+                    @endif
+                    @if($booking->status === 'confirmed' && $booking->exhibition->end_date >= now())
                         <a href="{{ route('bookings.show', $booking->id) }}" class="btn-action btn-modify">Modify</a>
                         <a href="{{ route('bookings.cancel.show', $booking->id) }}" class="btn-action btn-cancel">Cancel</a>
                     @elseif($booking->approval_status === 'pending')

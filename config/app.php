@@ -56,6 +56,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | WhatsApp Contact Number
+    |--------------------------------------------------------------------------
+    |
+    | Full number including country code (no +), e.g. 919812345678 for India.
+    | Used for the floating WhatsApp chat button. Leave empty to hide the button.
+    |
+    */
+
+    'whatsapp_number' => env('WHATSAPP_NUMBER', '919876543210'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

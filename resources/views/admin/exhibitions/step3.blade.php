@@ -513,6 +513,106 @@
         </div>
     </div>
 
+    <!-- Registration / Visitor Fees -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h6 class="mb-0"><i class="bi bi-currency-rupee me-2"></i>Registration & Visitor Fees</h6>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-4">Set fee amounts (in ₹) and cut-off dates for visitor tiers, delegate, member, and VIP registration. Leave empty or 0 if not applicable.</p>
+
+            <!-- Visitor Fee (3 tiers) -->
+            <h6 class="text-dark border-bottom pb-2 mb-3">Visitor Fee</h6>
+            <div class="row mb-4">
+                <div class="col-12 col-lg-4 mb-3">
+                    <label class="form-label">Early Bird</label>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <input type="date" name="visitor_early_bird_end_date" class="form-control"
+                                   value="{{ $exhibition->visitor_early_bird_end_date ? $exhibition->visitor_early_bird_end_date->format('Y-m-d') : '' }}" placeholder="End date">
+                            <small class="text-muted">End date</small>
+                        </div>
+                        <div class="col-6">
+                            <input type="number" name="visitor_early_bird_fee" class="form-control" step="0.01" min="0" placeholder="0.00"
+                                   value="{{ $exhibition->visitor_early_bird_fee !== null ? $exhibition->visitor_early_bird_fee : '' }}">
+                            <small class="text-muted">Fee (₹)</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-lg-4 mb-3">
+                    <label class="form-label">Standard Fee</label>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <input type="date" name="visitor_standard_end_date" class="form-control"
+                                   value="{{ $exhibition->visitor_standard_end_date ? $exhibition->visitor_standard_end_date->format('Y-m-d') : '' }}" placeholder="End date">
+                            <small class="text-muted">End date</small>
+                        </div>
+                        <div class="col-6">
+                            <input type="number" name="visitor_standard_fee" class="form-control" step="0.01" min="0" placeholder="0.00"
+                                   value="{{ $exhibition->visitor_standard_fee !== null ? $exhibition->visitor_standard_fee : '' }}">
+                            <small class="text-muted">Fee (₹)</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-lg-4 mb-3">
+                    <label class="form-label">Last Minute Registration</label>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <input type="date" name="visitor_last_minute_end_date" class="form-control"
+                                   value="{{ $exhibition->visitor_last_minute_end_date ? $exhibition->visitor_last_minute_end_date->format('Y-m-d') : '' }}" placeholder="End date">
+                            <small class="text-muted">End date</small>
+                        </div>
+                        <div class="col-6">
+                            <input type="number" name="visitor_last_minute_fee" class="form-control" step="0.01" min="0" placeholder="0.00"
+                                   value="{{ $exhibition->visitor_last_minute_fee !== null ? $exhibition->visitor_last_minute_fee : '' }}">
+                            <small class="text-muted">Fee (₹)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Member Fee -->
+            <h6 class="text-dark border-bottom pb-2 mb-3">Member Fee</h6>
+            <div class="row mb-4">
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <label class="form-label">Member Registration Fee (₹)</label>
+                    <input type="number" name="member_fee" class="form-control" step="0.01" min="0" placeholder="0.00"
+                           value="{{ $exhibition->member_fee !== null ? $exhibition->member_fee : '' }}">
+                    <small class="text-muted d-block mt-1">Registration fee for members</small>
+                </div>
+            </div>
+
+            <!-- Delegate Fee: free count + additional fee -->
+            <h6 class="text-dark border-bottom pb-2 mb-3">Delegate Fee</h6>
+            <p class="text-muted small mb-2">Up to a certain number of delegates are free; additional delegates are charged per person.</p>
+            <div class="row mb-4">
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <label class="form-label">Free delegates (count)</label>
+                    <input type="number" name="delegate_free_count" class="form-control" min="0" step="1" placeholder="e.g. 2"
+                           value="{{ $exhibition->delegate_free_count !== null ? $exhibition->delegate_free_count : '2' }}">
+                    <small class="text-muted d-block mt-1">Number of delegates included free (e.g. 2)</small>
+                </div>
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <label class="form-label">Additional delegate fee (₹ per person)</label>
+                    <input type="number" name="delegate_additional_fee" class="form-control" step="0.01" min="0" placeholder="0.00"
+                           value="{{ $exhibition->delegate_additional_fee !== null ? $exhibition->delegate_additional_fee : '' }}">
+                    <small class="text-muted d-block mt-1">Fee for each delegate beyond the free count</small>
+                </div>
+            </div>
+
+            <!-- VIP Registration Fee -->
+            <h6 class="text-dark border-bottom pb-2 mb-3">VIP Registration Fee</h6>
+            <div class="row">
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <label class="form-label">VIP Registration Fee (₹)</label>
+                    <input type="number" name="vip_registration_fee" class="form-control" step="0.01" min="0" placeholder="0.00"
+                           value="{{ $exhibition->vip_registration_fee !== null ? $exhibition->vip_registration_fee : '' }}">
+                    <small class="text-muted d-block mt-1">Registration fee for VIP attendees</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Cut-off Dates -->
     <div class="card mb-4">
         <div class="card-header">

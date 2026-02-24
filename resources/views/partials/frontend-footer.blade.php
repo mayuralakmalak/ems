@@ -52,6 +52,11 @@
             <div class="col-lg-2 col-6 mb-4">
                 <div class="footer-heading">QUICK LINKS</div>
                 <ul class="footer-list">
+                    <li><a href="{{ route('exhibitions.list') }}">Exhibitions</a></li>
+                    <li><a href="{{ route('register.form', 'visitor') }}">Visitor Registration</a></li>
+                    <li><a href="{{ route('register.form', 'member') }}">Member Registration</a></li>
+                    <li><a href="{{ route('register.form', 'delegate') }}">Delegate Registration</a></li>
+                    <li><a href="{{ route('register.form', 'vip') }}">VIP Registration</a></li>
                     <li><a href="#">Faqs</a></li>
                     <li><a href="#">Help</a></li>
                     <li><a href="#">Message us</a></li>

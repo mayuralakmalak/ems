@@ -32,6 +32,15 @@ Route::get('/exhibitions', [FrontendExhibitionController::class, 'list'])->name(
 Route::get('/exhibitions/{id}', [FrontendExhibitionController::class, 'show'])->name('exhibitions.show');
 Route::get('/exhibitions/{id}/floorplan', [\App\Http\Controllers\Frontend\FloorplanController::class, 'show'])->name('floorplan.show.public');
 
+// Event Registration (Visitor, Member, Delegate, VIP) - public, no auth
+Route::get('/register/fee', [\App\Http\Controllers\Frontend\EventRegistrationController::class, 'getFee'])->name('register.fee');
+Route::get('/register/confirmation', [\App\Http\Controllers\Frontend\EventRegistrationController::class, 'confirmation'])->name('register.confirmation');
+Route::get('/register/payment/confirmation/{token}', [\App\Http\Controllers\Frontend\EventRegistrationController::class, 'paymentConfirmation'])->name('register.payment.confirmation');
+Route::get('/register/{type}', [\App\Http\Controllers\Frontend\EventRegistrationController::class, 'showForm'])->name('register.form')->where('type', 'visitor|member|delegate|vip');
+Route::post('/register/{type}', [\App\Http\Controllers\Frontend\EventRegistrationController::class, 'store'])->name('register.store')->where('type', 'visitor|member|delegate|vip');
+Route::get('/register/payment/{token}', [\App\Http\Controllers\Frontend\EventRegistrationController::class, 'paymentPage'])->name('register.payment');
+Route::post('/register/payment/{token}', [\App\Http\Controllers\Frontend\EventRegistrationController::class, 'storePayment'])->name('register.payment.store');
+
 // API Routes for Country/State
 Route::get('/api/states', [\App\Http\Controllers\Auth\RegisteredUserController::class, 'getStates'])->name('api.states');
 
@@ -181,6 +190,16 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     Route::post('/booth-requests/{id}/approve', [\App\Http\Controllers\Admin\BoothRequestController::class, 'approve'])->name('booth-requests.approve');
     Route::post('/booth-requests/{id}/reject', [\App\Http\Controllers\Admin\BoothRequestController::class, 'reject'])->name('booth-requests.reject');
     
+    // Event Registrations (Visitor / Member / Delegate / VIP)
+    Route::get('/event-registrations', [\App\Http\Controllers\Admin\EventRegistrationController::class, 'index'])->name('event-registrations.index');
+    Route::get('/event-registrations/{id}', [\App\Http\Controllers\Admin\EventRegistrationController::class, 'show'])->name('event-registrations.show');
+    Route::post('/event-registrations/{id}/approve', [\App\Http\Controllers\Admin\EventRegistrationController::class, 'approve'])->name('event-registrations.approve');
+    Route::post('/event-registrations/{id}/reject', [\App\Http\Controllers\Admin\EventRegistrationController::class, 'reject'])->name('event-registrations.reject');
+    Route::post('/event-registration-payments/{paymentId}/approve', [\App\Http\Controllers\Admin\EventRegistrationController::class, 'approvePayment'])->name('event-registrations.approve-payment');
+    Route::post('/event-registration-payments/{paymentId}/reject', [\App\Http\Controllers\Admin\EventRegistrationController::class, 'rejectPayment'])->name('event-registrations.reject-payment');
+    Route::get('/event-registrations/{id}/download-id-proof', [\App\Http\Controllers\Admin\EventRegistrationController::class, 'downloadIdProof'])->name('event-registrations.download-id-proof');
+    Route::get('/event-registration-payments/{paymentId}/download-proof', [\App\Http\Controllers\Admin\EventRegistrationController::class, 'downloadPaymentProof'])->name('event-registrations.download-payment-proof');
+    
     // Discount Management (Wireframe 30)
     // Custom routes must come before resource route to avoid route conflicts
     Route::get('/discounts/import', [\App\Http\Controllers\Admin\DiscountController::class, 'import'])->name('discounts.import');
@@ -264,6 +283,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/bookings/{id}/replace-booth', [BookingController::class, 'showReplaceBooth'])->name('bookings.replace-booth');
     Route::post('/bookings/{id}/replace', [BookingController::class, 'replace'])->name('bookings.replace');
     Route::get('/bookings/{id}/download-possession-letter', [BookingController::class, 'downloadPossessionLetter'])->name('bookings.download-possession-letter');
+    
+    // Delegates per booking (free + paid based on exhibition settings)
+    Route::get('/bookings/{bookingId}/delegates', [\App\Http\Controllers\Frontend\ExhibitorDelegateController::class, 'index'])->name('bookings.delegates.index');
+    Route::post('/bookings/{bookingId}/delegates', [\App\Http\Controllers\Frontend\ExhibitorDelegateController::class, 'store'])->name('bookings.delegates.store');
     
     // Payment
     Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
