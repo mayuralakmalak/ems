@@ -295,14 +295,10 @@
                                         <th>Raw Price</th>
                                         <th>Shell Price</th>
                                         <th>Category</th>
-                                        <th>Included Items</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach($sizes as $size)
-                                        @php
-                                            $items = $size->items ?? collect();
-                                        @endphp
                                         <tr>
                                             <td>{{ $size->size_sqft }}</td>
                                             <td>₹{{ number_format($size->row_price ?? 0, 2) }}</td>
@@ -314,22 +310,6 @@
                                                     @case('3') Economy @break
                                                     @default {{ $size->category ?? '-' }}
                                                 @endswitch
-                                            </td>
-                                            <td>
-                                                @if($items->isEmpty())
-                                                    <span class="text-muted">-</span>
-                                                @else
-                                                    <ul class="mb-0 ps-3 small">
-                                                        @foreach($items as $item)
-                                                            <li>
-                                                                {{ $item->quantity ?? 0 }} × {{ $item->item_name }}
-                                                                @if(!is_null($item->price) && $item->price > 0)
-                                                                    <span class="text-muted">(₹{{ number_format($item->price, 2) }} per extra)</span>
-                                                                @endif
-                                                            </li>
-                                                        @endforeach
-                                                    </ul>
-                                                @endif
                                             </td>
                                         </tr>
                                     @endforeach

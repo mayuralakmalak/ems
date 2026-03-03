@@ -10,9 +10,19 @@ class Floor extends Model
     use HasFactory;
 
     protected $fillable = [
-        'exhibition_id', 'name', 'floor_number', 'description',
-        'width_meters', 'height_meters', 'background_image',
-        'floorplan_image', 'floorplan_images', 'is_active', 'sort_order'
+        'exhibition_id',
+        'name',
+        'floor_number',
+        'description',
+        'width_meters',
+        'height_meters',
+        'usable_area_percentage',
+        'passage_area_percentage',
+        'background_image',
+        'floorplan_image',
+        'floorplan_images',
+        'is_active',
+        'sort_order',
     ];
 
     protected $casts = [
@@ -20,6 +30,8 @@ class Floor extends Model
         'is_active' => 'boolean',
         'sort_order' => 'integer',
         'floorplan_images' => 'array',
+        'usable_area_percentage' => 'float',
+        'passage_area_percentage' => 'float',
     ];
 
     public function exhibition()

@@ -194,7 +194,24 @@ class FloorplanController extends Controller
         $hallWidth = (float) ($hall['width'] ?? 0);
         $hallHeight = (float) ($hall['height'] ?? 0);
         $totalHallArea = $hallWidth * $hallHeight;
-        $usableArea = $totalHallArea * 0.70;
+
+        // Determine usable area percentage based on floor configuration (if available)
+        $usablePercentage = 70.0;
+        if ($floorId) {
+            $floor = Floor::where('id', $floorId)
+                ->where('exhibition_id', $exhibitionId)
+                ->first();
+
+            if ($floor) {
+                if ($floor->usable_area_percentage !== null) {
+                    $usablePercentage = (float) $floor->usable_area_percentage;
+                } elseif ($floor->passage_area_percentage !== null) {
+                    $usablePercentage = max(0, 100 - (float) $floor->passage_area_percentage);
+                }
+            }
+        }
+
+        $usableArea = $totalHallArea * ($usablePercentage / 100);
         if ($usableArea > 0) {
             $sumBoothArea = 0;
             foreach ($booths as $booth) {
@@ -205,7 +222,7 @@ class FloorplanController extends Controller
             if ($sumBoothArea > $usableArea) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'Total stall area cannot exceed usable area (70% of hall).',
+                    'error' => 'Total stall area cannot exceed usable area (' . $usablePercentage . '% of hall).',
                 ], 422);
             }
         }

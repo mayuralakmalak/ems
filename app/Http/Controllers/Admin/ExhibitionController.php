@@ -124,6 +124,8 @@ class ExhibitionController extends Controller
             'floors.*.description' => 'nullable|string',
             'floors.*.width_meters' => 'nullable|numeric|min:0',
             'floors.*.height_meters' => 'nullable|numeric|min:0',
+            'floors.*.usable_area_percentage' => 'nullable|numeric|min:0|max:100',
+            'floors.*.passage_area_percentage' => 'nullable|numeric|min:0|max:100',
             'floors.*.background_image' => 'nullable|image|max:10240',
             'floors.*.remove_background_image' => 'nullable|boolean',
             'floors.*.is_active' => 'nullable|boolean',
@@ -340,6 +342,8 @@ class ExhibitionController extends Controller
                     'description' => $floorData['description'] ?? null,
                     'width_meters' => isset($floorData['width_meters']) && $floorData['width_meters'] !== '' ? $floorData['width_meters'] : null,
                     'height_meters' => isset($floorData['height_meters']) && $floorData['height_meters'] !== '' ? $floorData['height_meters'] : null,
+                    'usable_area_percentage' => isset($floorData['usable_area_percentage']) && $floorData['usable_area_percentage'] !== '' ? $floorData['usable_area_percentage'] : null,
+                    'passage_area_percentage' => isset($floorData['passage_area_percentage']) && $floorData['passage_area_percentage'] !== '' ? $floorData['passage_area_percentage'] : null,
                     'is_active' => isset($floorData['is_active']) ? (bool)$floorData['is_active'] : true,
                 ];
 

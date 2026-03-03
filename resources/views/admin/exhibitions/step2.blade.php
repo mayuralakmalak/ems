@@ -89,6 +89,32 @@
                                     </div>
                                 </div>
                             </div>
+                        <div class="row g-3 mt-2">
+                            <div class="col-md-3">
+                                <label class="form-label">Usable Stall Area (%)</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    max="100"
+                                    name="floors[{{ $floorIndex }}][usable_area_percentage]"
+                                    class="form-control usable-area-percentage-input"
+                                    value="{{ $floor->usable_area_percentage !== null ? $floor->usable_area_percentage : 70 }}"
+                                >
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Passage/Common Area (%)</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    max="100"
+                                    name="floors[{{ $floorIndex }}][passage_area_percentage]"
+                                    class="form-control passage-area-percentage-input"
+                                    value="{{ $floor->passage_area_percentage !== null ? $floor->passage_area_percentage : 30 }}"
+                                >
+                            </div>
+                        </div>
                             <div class="row g-3 mt-2">
                                 <div class="col-md-12">
                                     <label class="form-label">Hall Background Image</label>
@@ -160,6 +186,32 @@
                                     </div>
                                 </div>
                             </div>
+                        <div class="row g-3 mt-2">
+                            <div class="col-md-3">
+                                <label class="form-label">Usable Stall Area (%)</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    max="100"
+                                    name="floors[0][usable_area_percentage]"
+                                    class="form-control usable-area-percentage-input"
+                                    value="70"
+                                >
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Passage/Common Area (%)</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    max="100"
+                                    name="floors[0][passage_area_percentage]"
+                                    class="form-control passage-area-percentage-input"
+                                    value="30"
+                                >
+                            </div>
+                        </div>
                             <div class="row g-3 mt-2">
                                 <div class="col-md-12">
                                     <label class="form-label">Hall Background Image</label>
@@ -619,6 +671,32 @@ document.addEventListener('DOMContentLoaded', () => {
                         <input class="form-check-input" type="checkbox" name="floors[${floorIndex}][is_active]" 
                                value="1" checked>
                     </div>
+                </div>
+            </div>
+            <div class="row g-3 mt-2">
+                <div class="col-md-3">
+                    <label class="form-label">Usable Stall Area (%)</label>
+                    <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        name="floors[${floorIndex}][usable_area_percentage]"
+                        class="form-control usable-area-percentage-input"
+                        value="70"
+                    >
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Passage/Common Area (%)</label>
+                    <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        name="floors[${floorIndex}][passage_area_percentage]"
+                        class="form-control passage-area-percentage-input"
+                        value="30"
+                    >
                 </div>
             </div>
             <div class="row g-3 mt-2">

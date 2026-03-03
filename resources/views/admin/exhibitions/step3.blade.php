@@ -418,23 +418,10 @@
                 <span class="text-muted">Total Hall Area:</span> <strong id="summaryTotalHallArea">0</strong> sq meter
             </div>
             <div class="mb-3">
-                <span class="text-muted">Passage/Common Area (30%):</span> <strong id="summaryPassageArea">0</strong> sq meter
+                <span class="text-muted">Usable stalls are:</span> <strong id="summaryTotalStalls">0</strong>
             </div>
             <div class="mb-3">
-                <span class="text-muted">Usable Stall Area (70%):</span> <strong id="summaryUsableArea">0</strong> sq meter
-            </div>
-            <div class="mb-3">
-                <label class="form-label mb-1">Usable vs Passage area</label>
-                <div class="progress" style="height: 1.5rem;">
-                    <div class="progress-bar bg-success" id="summaryProgressUsable" role="progressbar" style="width: 70%" aria-valuenow="70" aria-valuemin="0" aria-valuemax="100">70% Usable</div>
-                    <div class="progress-bar bg-secondary" id="summaryProgressPassage" role="progressbar" style="width: 30%" aria-valuenow="30" aria-valuemin="0" aria-valuemax="100">30% Passage</div>
-                </div>
-            </div>
-            <div class="mb-3">
-                <span class="text-muted">Maximum Possible Stalls:</span> <strong id="summaryMaxStalls">—</strong>
-            </div>
-            <div class="mb-3">
-                <span class="text-muted">Total Created Stall Area:</span> <strong id="summaryTotalStallArea">0</strong> sq meter
+                <span class="text-muted">Booked stalls:</span> <strong id="summaryBookedStalls">0</strong>
             </div>
             <div class="mb-3">
                 <span class="text-muted">Booked Stall Area:</span> <strong id="summaryBookedStallArea">0</strong> sq meter
@@ -659,18 +646,61 @@ function updateGridAreaSummary() {
 
     var totalHallAreaPx = editor.hallConfig.width * editor.hallConfig.height;
     var totalHallArea = totalHallAreaPx * pxToSqM;
-    var passageArea = totalHallArea * 0.30;
-    var usableArea = totalHallArea * 0.70;
-    var usableAreaPx = totalHallAreaPx * 0.70;
+    var usablePct = 70;
+    var passagePct = 30;
+
+    try {
+        var floors = window.floorsData || [];
+        var currentFloorIdEl = document.getElementById('currentFloorId');
+        var currentFloorIdVal = currentFloorIdEl && currentFloorIdEl.value ? currentFloorIdEl.value : null;
+        var currentFloorId = currentFloorIdVal || (editor.currentFloorId || null);
+
+        if (currentFloorId && Array.isArray(floors)) {
+            var floor = floors.find(function (f) {
+                return String(f.id) === String(currentFloorId);
+            });
+            if (floor) {
+                if (floor.usable_area_percentage !== null && floor.usable_area_percentage !== undefined && floor.usable_area_percentage !== '') {
+                    var parsedUsable = parseFloat(floor.usable_area_percentage);
+                    if (!isNaN(parsedUsable)) {
+                        usablePct = parsedUsable;
+                    }
+                }
+                if (floor.passage_area_percentage !== null && floor.passage_area_percentage !== undefined && floor.passage_area_percentage !== '') {
+                    var parsedPassage = parseFloat(floor.passage_area_percentage);
+                    if (!isNaN(parsedPassage)) {
+                        passagePct = parsedPassage;
+                    }
+                } else {
+                    passagePct = Math.max(0, 100 - usablePct);
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Error determining hall area percentages', e);
+    }
+
+    // Normalize if totals go beyond 100
+    var totalPct = usablePct + passagePct;
+    if (totalPct > 0) {
+        usablePct = (usablePct / totalPct) * 100;
+        passagePct = (passagePct / totalPct) * 100;
+    }
+
+    var passageArea = totalHallArea * (passagePct / 100);
+    var usableArea = totalHallArea * (usablePct / 100);
+    var usableAreaPx = totalHallAreaPx * (usablePct / 100);
 
     var totalStallAreaPx = 0;
     var bookedStallAreaPx = 0;
     var minStallAreaPx = null;
+    var bookedStalls = 0;
     editor.booths.forEach(function(b) {
         var areaPx = (b.width || 0) * (b.height || 0);
         totalStallAreaPx += areaPx;
         if ((b.status || '').toLowerCase() === 'booked') {
             bookedStallAreaPx += areaPx;
+            bookedStalls++;
         }
         if (areaPx > 0) {
             minStallAreaPx = minStallAreaPx === null ? areaPx : Math.min(minStallAreaPx, areaPx);
@@ -680,10 +710,8 @@ function updateGridAreaSummary() {
     var totalStallArea = totalStallAreaPx * pxToSqM;
     var bookedStallArea = bookedStallAreaPx * pxToSqM;
 
-    var maxPossibleStalls = 0;
-    if (minStallAreaPx && minStallAreaPx > 0 && usableAreaPx > 0) {
-        maxPossibleStalls = Math.floor(usableAreaPx / minStallAreaPx);
-    }
+    // Total number of stalls created (all booths)
+    var totalStalls = Array.isArray(editor.booths) ? editor.booths.length : 0;
 
     var occupancyPct = totalStallAreaPx > 0 ? (bookedStallAreaPx / totalStallAreaPx) * 100 : 0;
     occupancyPct = Math.min(100, Math.round(occupancyPct * 10) / 10);
@@ -701,15 +729,11 @@ function updateGridAreaSummary() {
     }
 
     setEl('summaryTotalHallArea', totalHallArea.toFixed(2));
-    setEl('summaryPassageArea', passageArea.toFixed(2));
-    setEl('summaryUsableArea', usableArea.toFixed(2));
-    setEl('summaryMaxStalls', minStallAreaPx ? maxPossibleStalls : '—');
-    setEl('summaryTotalStallArea', totalStallArea.toFixed(2));
+    setEl('summaryTotalStalls', totalStalls);
+    setEl('summaryBookedStalls', bookedStalls);
     setEl('summaryBookedStallArea', bookedStallArea.toFixed(2));
     setEl('summaryOccupancyPct', occupancyPct.toFixed(1));
 
-    setProgress('summaryProgressUsable', 70, 70);
-    setProgress('summaryProgressPassage', 30, 30);
     setProgress('summaryProgressOccupancy', occupancyPct, occupancyPct);
 }
 window.updateGridAreaSummary = updateGridAreaSummary;
@@ -724,7 +748,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const floorplanCard = document.getElementById('floorplanCard');
     
     // Floor data cache
-    const floorsData = @json($exhibition->floors ?? []);
+    const floorsData = window.floorsData = @json($exhibition->floors ?? []);
     
     // Initialize floor selector
     if (floorSelector && floorsData.length > 0) {

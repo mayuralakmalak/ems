@@ -1309,11 +1309,11 @@
         </script>
         @endif
         
-        <!-- Included Items for Selected Size -->
+        <!-- Included Items for Selected Size (Shell booths only) -->
         <div class="panel-card included-items-panel" id="includedItemsPanel" style="display: none;">
-            <div class="included-items-header">Included items for this booth size</div>
+            <div class="included-items-header">Included items (Shell booths only)</div>
             <div class="included-items-subtitle" id="includedItemsSubtitle">
-                Select a booth from the floorplan to see what is included for that size.
+                Included items are available only when you choose the Shell booth type.
             </div>
             <div id="includedItemsText"></div>
             <div class="included-items-images" id="includedItemsImages"></div>
@@ -1908,34 +1908,55 @@ function renderIncludedItemsSection(booth) {
 
     // If no booths are selected, hide the panel
     if (selectedBooths.length === 0) {
+        // Also clear any previously selected extras when there are no booths
+        includedItemsSelection = {};
         panel.style.display = 'none';
         textContainer.innerHTML = '';
         imagesContainer.innerHTML = '';
+        updateTotalAmount();
         return;
     }
 
-    // If multiple booths are selected, collect items from all selected booths
+    // If multiple booths are selected, collect items from all selected Shell booths
     let allItems = [];
     let allSizeImages = [];
+    let shellBoothsCount = 0;
     
-    // Collect items from all selected booths
+    // Collect items from all selected booths, but only when the booth type is Shell
     selectedBooths.forEach(boothId => {
         const selectedBooth = document.querySelector(`[data-booth-id="${boothId}"]`);
-        if (selectedBooth) {
+        const selection = boothSelections[boothId];
+        const boothType = selection?.type || selectedBooth?.getAttribute('data-booth-type') || 'Raw';
+
+        // Included items apply only for Shell booths (type "Orphand")
+        if (selectedBooth && boothType === 'Orphand') {
+            shellBoothsCount++;
+
             const included = getBoothIncluded(
                 selectedBooth.getAttribute('data-booth-size'),
                 selectedBooth.getAttribute('data-booth-size-id')
             );
-            
+
             if (included && included.items) {
                 allItems = allItems.concat(included.items);
             }
-            
+
             if (included && included.images) {
                 allSizeImages = allSizeImages.concat(included.images);
             }
         }
     });
+
+    // If no Shell booths are selected, hide the included items panel entirely
+    if (shellBoothsCount === 0) {
+        // Clear any extras because they only apply to Shell booths
+        includedItemsSelection = {};
+        panel.style.display = 'none';
+        textContainer.innerHTML = '';
+        imagesContainer.innerHTML = '';
+        updateTotalAmount();
+        return;
+    }
     
     // Remove duplicate items (by key) and merge quantities if same item exists
     const itemsMap = new Map();
@@ -2051,11 +2072,11 @@ function renderIncludedItemsSection(booth) {
         imagesContainer.innerHTML = '';
     }
 
-    // Update subtitle based on number of selected booths
-    if (selectedBooths.length > 1) {
-        subtitle.textContent = 'These items and booth previews are associated with all selected booth sizes:';
+    // Update subtitle based on number of selected Shell booths
+    if (shellBoothsCount > 1) {
+        subtitle.textContent = 'These items and booth previews are associated with all selected Shell booth sizes:';
     } else {
-        subtitle.textContent = 'These items and booth previews are associated with the selected booth size:';
+        subtitle.textContent = 'These items and booth previews are associated with the selected Shell booth size:';
     }
 
     // Attach listeners for quantity changes
