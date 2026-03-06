@@ -15,7 +15,7 @@
 <div class="row mb-4">
     <div class="col-12">
         <div class="progress" style="height: 8px;">
-            <div class="progress-bar bg-primary" role="progressbar" style="width: 75%"></div>
+            <div class="progress-bar bg-primary" role="progressbar" style="width: 60%"></div>
         </div>
         <div class="d-flex justify-content-between mt-2">
             @if(isset($exhibition) && $exhibition->id)
@@ -23,11 +23,13 @@
                 <a href="{{ route('admin.exhibitions.step2', $exhibition->id) }}" class="text-muted text-decoration-none" style="padding: 8px 16px;">Step 2: Hall Plan & Pricing</a>
                 <span class="text-primary fw-bold" style="padding: 8px 16px;color: white; border-radius: 4px;">Step 3: Payment Schedule</span>
                 <a href="{{ route('admin.exhibitions.step4', $exhibition->id) }}" class="text-muted text-decoration-none" style="padding: 8px 16px;">Step 4: Badge & Manual</a>
+                <a href="{{ route('admin.exhibitions.step5', $exhibition->id) }}" class="text-muted text-decoration-none" style="padding: 8px 16px;">Step 5: Stall Comments</a>
             @else
                 <small class="text-muted" style="padding: 8px 16px;">Step 1: Exhibition Details</small>
                 <small class="text-muted" style="padding: 8px 16px;">Step 2: Hall Plan & Pricing</small>
                 <small class="text-primary fw-bold" style="padding: 8px 16px;color: white; border-radius: 4px;">Step 3: Payment Schedule</small>
                 <small class="text-muted" style="padding: 8px 16px;">Step 4: Badge & Manual</small>
+                <small class="text-muted" style="padding: 8px 16px;">Step 5: Stall Comments</small>
             @endif
         </div>
     </div>
@@ -500,6 +502,130 @@
         </div>
     </div>
 
+    <!-- Sq Meter Wise Discount -->
+    <div class="card mb-4">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <h6 class="mb-0">Sq Meter Wise Discount</h6>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="addSqmDiscountRow">
+                <i class="bi bi-plus-lg me-1"></i>Add more
+            </button>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">
+                Configure automatic discount rules based on total booked area (in sq meter).<br>
+                Example: If total area is <strong>18</strong> sq meter and rule is <strong>&gt;</strong>, then apply the given % on the booking amount.
+            </p>
+
+            @php
+                $sqmDiscountRules = $exhibition->sqmDiscounts ?? collect();
+                $sqmDiscountDefaults = $sqmDiscountRules->count() > 0
+                    ? $sqmDiscountRules
+                    : collect([(object)['sqm' => '', 'operator' => '>=', 'percentage' => '']]);
+            @endphp
+
+            <div class="table-responsive">
+                <table class="table table-sm align-middle" id="sqmDiscountTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 35%;">Sq meter</th>
+                            <th style="width: 25%;">Option</th>
+                            <th style="width: 30%;">% Percentage</th>
+                            <th style="width: 10%;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="sqmDiscountTbody">
+                        @foreach($sqmDiscountDefaults as $idx => $rule)
+                            <tr class="sqm-discount-row">
+                                <td>
+                                    <input
+                                        type="number"
+                                        name="sqm_discounts[{{ $idx }}][sqm]"
+                                        class="form-control form-control-sm"
+                                        step="0.01"
+                                        min="0.01"
+                                        value="{{ $rule->sqm ?? '' }}"
+                                        placeholder="e.g., 18"
+                                    >
+                                </td>
+                                <td>
+                                    @php $op = $rule->operator ?? '>='; @endphp
+                                    <select name="sqm_discounts[{{ $idx }}][operator]" class="form-select form-select-sm">
+                                        <option value=">" {{ $op === '>' ? 'selected' : '' }}>&gt;</option>
+                                        <option value="<" {{ $op === '<' ? 'selected' : '' }}>&lt;</option>
+                                        <option value="=" {{ $op === '=' ? 'selected' : '' }}>=</option>
+                                        <option value=">=" {{ $op === '>=' ? 'selected' : '' }}>&gt;=</option>
+                                        <option value="<=" {{ $op === '<=' ? 'selected' : '' }}>&lt;=</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <input
+                                        type="number"
+                                        name="sqm_discounts[{{ $idx }}][percentage]"
+                                        class="form-control form-control-sm"
+                                        step="0.01"
+                                        min="0"
+                                        max="100"
+                                        value="{{ $rule->percentage ?? '' }}"
+                                        placeholder="e.g., 5"
+                                    >
+                                </td>
+                                <td class="text-end">
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-danger remove-sqm-row"
+                                        {{ $loop->first && $sqmDiscountRules->count() === 0 ? 'disabled' : '' }}
+                                    >
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+
+            <template id="sqmDiscountRowTemplate">
+                <tr class="sqm-discount-row">
+                    <td>
+                        <input
+                            type="number"
+                            class="form-control form-control-sm"
+                            step="0.01"
+                            min="0.01"
+                            placeholder="e.g., 18"
+                            data-name="sqm"
+                        >
+                    </td>
+                    <td>
+                        <select class="form-select form-select-sm" data-name="operator">
+                            <option value=">">&gt;</option>
+                            <option value="<">&lt;</option>
+                            <option value="=">=</option>
+                            <option value=">=" selected>&gt;=</option>
+                            <option value="<=">&lt;=</option>
+                        </select>
+                    </td>
+                    <td>
+                        <input
+                            type="number"
+                            class="form-control form-control-sm"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            placeholder="e.g., 5"
+                            data-name="percentage"
+                        >
+                    </td>
+                    <td class="text-end">
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-sqm-row">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            </template>
+        </div>
+    </div>
+
     <!-- Registration / Visitor Fees -->
     <div class="card mb-4">
         <div class="card-header">
@@ -923,6 +1049,56 @@ document.addEventListener('DOMContentLoaded', function () {
                 reader.readAsDataURL(file);
             });
         });
+    }
+
+    // Sq meter discount dynamic rows
+    const sqmTbody = document.getElementById('sqmDiscountTbody');
+    const sqmAddBtn = document.getElementById('addSqmDiscountRow');
+    const sqmTemplate = document.getElementById('sqmDiscountRowTemplate');
+
+    function reindexSqmRows() {
+        if (!sqmTbody) return;
+        const rows = Array.from(sqmTbody.querySelectorAll('tr.sqm-discount-row'));
+
+        rows.forEach((row, index) => {
+            const sqmInput = row.querySelector('[data-name="sqm"]') || row.querySelector('input[name*="[sqm]"]');
+            const opSelect = row.querySelector('[data-name="operator"]') || row.querySelector('select[name*="[operator]"]');
+            const pctInput = row.querySelector('[data-name="percentage"]') || row.querySelector('input[name*="[percentage]"]');
+
+            if (sqmInput) sqmInput.name = `sqm_discounts[${index}][sqm]`;
+            if (opSelect) opSelect.name = `sqm_discounts[${index}][operator]`;
+            if (pctInput) pctInput.name = `sqm_discounts[${index}][percentage]`;
+        });
+
+        const removeButtons = Array.from(sqmTbody.querySelectorAll('.remove-sqm-row'));
+        if (rows.length <= 1) {
+            removeButtons.forEach(btn => btn.setAttribute('disabled', 'disabled'));
+        } else {
+            removeButtons.forEach(btn => btn.removeAttribute('disabled'));
+        }
+    }
+
+    function addSqmRow() {
+        if (!sqmTbody || !sqmTemplate) return;
+        const fragment = sqmTemplate.content.cloneNode(true);
+        sqmTbody.appendChild(fragment);
+        reindexSqmRows();
+    }
+
+    if (sqmAddBtn) {
+        sqmAddBtn.addEventListener('click', addSqmRow);
+    }
+
+    if (sqmTbody) {
+        sqmTbody.addEventListener('click', function (event) {
+            const btn = event.target.closest('.remove-sqm-row');
+            if (!btn) return;
+            const row = btn.closest('tr.sqm-discount-row');
+            if (!row) return;
+            row.remove();
+            reindexSqmRows();
+        });
+        reindexSqmRows();
     }
 });
 </script>

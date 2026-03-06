@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Exhibition;
+use App\Models\ExhibitionSqmDiscount;
 use App\Models\Booth;
 use App\Models\Floor;
 use App\Models\PaymentSchedule;
@@ -455,7 +456,7 @@ class ExhibitionController extends Controller
     public function step3($id)
     {
         abort_unless(auth()->user()->can('Exhibition Management - Modify'), 403);
-        $exhibition = Exhibition::with(['paymentSchedules', 'boothSizes', 'floors'])->findOrFail($id);
+        $exhibition = Exhibition::with(['paymentSchedules', 'boothSizes', 'floors', 'sqmDiscounts'])->findOrFail($id);
 
         // Only active discounts are available for selection on floorplan
         $activeDiscounts = \App\Models\Discount::where('status', 'active')
@@ -474,7 +475,23 @@ class ExhibitionController extends Controller
     {
         abort_unless(auth()->user()->can('Exhibition Management - Modify'), 403);
         $exhibition = Exhibition::findOrFail($id);
-        
+
+        // Normalize sq-meter discount rules so validation only sees non-empty rows
+        $sqmDiscounts = $request->input('sqm_discounts', []);
+        if (!is_array($sqmDiscounts)) {
+            $sqmDiscounts = [];
+        }
+        $sqmDiscounts = array_values(array_filter($sqmDiscounts, function ($row) {
+            if (!is_array($row)) {
+                return false;
+            }
+            $sqm = trim((string) ($row['sqm'] ?? ''));
+            $op = trim((string) ($row['operator'] ?? ''));
+            $pct = trim((string) ($row['percentage'] ?? ''));
+            return $sqm !== '' || $op !== '' || $pct !== '';
+        }));
+        $request->merge(['sqm_discounts' => $sqmDiscounts]);
+
         $request->validate([
             'parts' => 'required|array',
             'parts.*.percentage' => 'required|numeric|min:0|max:100',
@@ -499,6 +516,11 @@ class ExhibitionController extends Controller
             'current_floor_id' => 'nullable|exists:floors,id',
             'existing_floorplan_images' => 'nullable|array',
             'remove_floorplan_images' => 'nullable|array',
+
+            'sqm_discounts' => 'nullable|array',
+            'sqm_discounts.*.sqm' => 'required_with:sqm_discounts.*.operator,sqm_discounts.*.percentage|numeric|min:0.01',
+            'sqm_discounts.*.operator' => 'required_with:sqm_discounts.*.sqm,sqm_discounts.*.percentage|in:>,<,=,>=,<=',
+            'sqm_discounts.*.percentage' => 'required_with:sqm_discounts.*.sqm,sqm_discounts.*.operator|numeric|min:0|max:100',
         ]);
 
         // Delete existing schedules
@@ -621,6 +643,18 @@ class ExhibitionController extends Controller
             }
 
             $exhibition->update($updateData);
+        }
+
+        // Persist sq-meter discount rules (replace existing rules for this exhibition)
+        ExhibitionSqmDiscount::where('exhibition_id', $exhibition->id)->delete();
+        foreach (($request->input('sqm_discounts') ?? []) as $index => $row) {
+            ExhibitionSqmDiscount::create([
+                'exhibition_id' => $exhibition->id,
+                'sqm' => (float) $row['sqm'],
+                'operator' => (string) $row['operator'],
+                'percentage' => (float) $row['percentage'],
+                'sort_order' => (int) $index,
+            ]);
         }
 
         return redirect()->route('admin.exhibitions.step4', $exhibition->id);
@@ -761,7 +795,58 @@ class ExhibitionController extends Controller
             ->delete();
 
         $exhibition->update(['status' => 'active']);
-        return redirect()->route('admin.exhibitions.index')->with('success', 'Exhibition created successfully!');
+        return redirect()->route('admin.exhibitions.step5', $exhibition->id)
+            ->with('success', 'Step 4 saved. You can now add stall comments in Step 5.');
+    }
+
+    public function step5($id)
+    {
+        abort_unless(auth()->user()->can('Exhibition Management - Modify'), 403);
+
+        $exhibition = Exhibition::with(['floors.booths', 'booths'])->findOrFail($id);
+
+        return view('admin.exhibitions.step5', compact('exhibition'));
+    }
+
+    public function storeStep5(Request $request, $id)
+    {
+        abort_unless(auth()->user()->can('Exhibition Management - Modify'), 403);
+
+        $exhibition = Exhibition::findOrFail($id);
+        $comments = $request->input('booth_comments', []);
+
+        if (!is_array($comments)) {
+            $comments = [];
+        }
+
+        $ids = collect(array_keys($comments))
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if (!empty($ids)) {
+            $booths = Booth::where('exhibition_id', $exhibition->id)
+                ->whereIn('id', $ids)
+                ->get()
+                ->keyBy('id');
+
+            foreach ($comments as $boothId => $comment) {
+                $boothId = (int) $boothId;
+                if (!isset($booths[$boothId])) {
+                    continue;
+                }
+
+                $value = trim((string) $comment);
+                $booths[$boothId]->comment = $value !== '' ? $value : null;
+                $booths[$boothId]->save();
+            }
+        }
+
+        return redirect()
+            ->route('admin.exhibitions.index')
+            ->with('success', 'Stall comments saved successfully.');
     }
 
     public function show($id)

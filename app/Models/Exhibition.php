@@ -91,6 +91,69 @@ class Exhibition extends Model
         return $this->hasMany(Floor::class)->orderBy('floor_number', 'asc');
     }
 
+    public function sqmDiscounts()
+    {
+        return $this->hasMany(ExhibitionSqmDiscount::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    /**
+     * Resolve sq-meter based discount percentage for a given total area.
+     *
+     * If multiple rules match, we prefer the highest percentage that does NOT
+     * exceed the exhibition-level maximum_discount_apply_percent. This ensures
+     * that sq-meter discount does not on its own consume the entire cap and
+     * still leaves room for full-payment or other discounts.
+     */
+    public function getSqmDiscountPercentForArea(float $sqm): float
+    {
+        if ($sqm <= 0) {
+            return 0.0;
+        }
+
+        $rules = $this->relationLoaded('sqmDiscounts')
+            ? $this->sqmDiscounts
+            : $this->sqmDiscounts()->get();
+
+        if ($rules->isEmpty()) {
+            return 0.0;
+        }
+
+        $matched = $rules->filter(function (ExhibitionSqmDiscount $rule) use ($sqm) {
+            $threshold = (float) $rule->sqm;
+            return match ($rule->operator) {
+                '>' => $sqm > $threshold,
+                '<' => $sqm < $threshold,
+                '=' => abs($sqm - $threshold) < 0.00001,
+                '>=' => $sqm >= $threshold,
+                '<=' => $sqm <= $threshold,
+                default => false,
+            };
+        });
+
+        if ($matched->isEmpty()) {
+            return 0.0;
+        }
+
+        $maxCap = (float) ($this->maximum_discount_apply_percent ?? 100.0);
+
+        // Prefer rules whose percentage is within the global cap
+        $withinCap = $matched->filter(function (ExhibitionSqmDiscount $r) use ($maxCap) {
+            return (float) $r->percentage <= $maxCap;
+        });
+
+        if ($withinCap->isNotEmpty()) {
+            return (float) $withinCap->max(function (ExhibitionSqmDiscount $r) {
+                return (float) $r->percentage;
+            });
+        }
+
+        // If all matching rules are above the cap, pick the smallest one and let
+        // the caller clamp it to the cap.
+        return (float) $matched->min(function (ExhibitionSqmDiscount $r) {
+            return (float) $r->percentage;
+        });
+    }
+
     public function eventRegistrations()
     {
         return $this->hasMany(EventRegistration::class);

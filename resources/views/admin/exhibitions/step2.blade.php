@@ -7,7 +7,7 @@
 <div class="row mb-4">
     <div class="col-12">
         <div class="progress" style="height: 8px;">
-            <div class="progress-bar bg-primary" role="progressbar" style="width: 50%"></div>
+            <div class="progress-bar bg-primary" role="progressbar" style="width: 40%"></div>
         </div>
         <div class="d-flex justify-content-between mt-2">
             @if(isset($exhibition) && $exhibition->id)
@@ -15,11 +15,13 @@
                 <span class="text-primary fw-bold" style="padding: 8px 16px;color: white; border-radius: 4px;">Step 2: Hall Plan & Pricing</span>
                 <a href="{{ route('admin.exhibitions.step3', $exhibition->id) }}" class="text-muted text-decoration-none" style="padding: 8px 16px;">Step 3: Payment Schedule</a>
                 <a href="{{ route('admin.exhibitions.step4', $exhibition->id) }}" class="text-muted text-decoration-none" style="padding: 8px 16px;">Step 4: Badge & Manual</a>
+                <a href="{{ route('admin.exhibitions.step5', $exhibition->id) }}" class="text-muted text-decoration-none" style="padding: 8px 16px;">Step 5: Stall Comments</a>
             @else
                 <small class="text-muted" style="padding: 8px 16px;">Step 1: Exhibition Details</small>
                 <small class="text-primary fw-bold" style="padding: 8px 16px;color: white; border-radius: 4px;">Step 2: Hall Plan & Pricing</small>
                 <small class="text-muted" style="padding: 8px 16px;">Step 3: Payment Schedule</small>
                 <small class="text-muted" style="padding: 8px 16px;">Step 4: Badge & Manual</small>
+                <small class="text-muted" style="padding: 8px 16px;">Step 5: Stall Comments</small>
             @endif
         </div>
     </div>

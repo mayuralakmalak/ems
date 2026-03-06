@@ -1152,6 +1152,7 @@
                      data-booth-status="{{ $status }}"
                      data-booth-merged="{{ $booth->is_merged ? 'true' : 'false' }}"
                      data-merged-originals="{{ $mergedNames }}"
+                     data-booth-comment="{{ $booth->comment ?? '' }}"
                      data-booth-size-images='@json($sizeImages)'
                      style="left: {{ $booth->position_x ?? ($loop->index % 5) * 120 }}px; 
                             top: {{ $booth->position_y ?? floor($loop->index / 5) * 100 }}px; 
@@ -1566,6 +1567,20 @@ function setupBoothSelection() {
             if (status === 'booked' || status === 'reserved') {
                 alert('This booth is already ' + status + ' and cannot be selected');
                 return;
+            }
+
+            const alreadySelected = selectedBooths.includes(boothId);
+
+            // Only ask for confirmation when the booth is being newly selected
+            if (!alreadySelected) {
+                const comment = (this.getAttribute('data-booth-comment') || '').trim();
+                if (comment !== '') {
+                    const boothName = this.getAttribute('data-booth-name') || '';
+                    const message = `Are you sure you want to book ${boothName ? boothName + ' - ' : ''}${comment}?`;
+                    if (!window.confirm(message)) {
+                        return;
+                    }
+                }
             }
 
             ensureBoothSelection(boothId);
@@ -2445,6 +2460,25 @@ function removeBooth(boothId) {
 // Select Booth Button
 document.getElementById('selectBoothBtn').addEventListener('click', function() {
     if (selectedBoothId) {
+        const booth = document.querySelector(`[data-booth-id="${selectedBoothId}"]`);
+        if (!booth) {
+            return;
+        }
+
+        const alreadySelected = selectedBooths.includes(selectedBoothId);
+
+        // Only ask for confirmation when selecting from the details panel
+        if (!alreadySelected) {
+            const comment = (booth.getAttribute('data-booth-comment') || '').trim();
+            if (comment !== '') {
+                const boothName = booth.getAttribute('data-booth-name') || '';
+                const message = `Are you sure you want to book ${boothName ? boothName + ' - ' : ''}${comment}?`;
+                if (!window.confirm(message)) {
+                    return;
+                }
+            }
+        }
+
         toggleBoothSelection(selectedBoothId);
         if (selectedBooths.length > 0) {
             const toShow = selectedBooths.includes(selectedBoothId) ? selectedBoothId : selectedBooths[0];

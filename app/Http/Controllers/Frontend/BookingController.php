@@ -735,17 +735,40 @@ class BookingController extends Controller
 
             $totalAmount += $servicesTotal + $extrasTotal;
 
-            // Apply member discount automatically if exhibitor is a member
-            $discountPercent = 0;
-            if ($user->is_member && $exhibition->member_discount_percent > 0) {
-                $memberPercent = (float) $exhibition->member_discount_percent;
-                $maxPercent = $exhibition->maximum_discount_apply_percent !== null
-                    ? (float) $exhibition->maximum_discount_apply_percent
-                    : 100;
-                $effectivePercent = min($memberPercent, $maxPercent);
-                $discountAmount = ($totalAmount * $effectivePercent) / 100;
-                $totalAmount = round($totalAmount - $discountAmount, 2);
-                $discountPercent = round($effectivePercent, 2);
+            // Apply sq-meter based discount + member discount, capped by maximum_discount_apply_percent
+            $originalBase = (float) $totalAmount;
+            $maxPercent = $exhibition->maximum_discount_apply_percent !== null
+                ? (float) $exhibition->maximum_discount_apply_percent
+                : 100.0;
+
+            // Total booked area (sq meter) from booth selections
+            $totalSqm = collect($boothSelections)->sum(function ($row) {
+                return (float) ($row['size_sqft'] ?? 0);
+            });
+
+            $sqmPercentRaw = (float) $exhibition->getSqmDiscountPercentForArea((float) $totalSqm);
+            $effectiveSqmPercent = $sqmPercentRaw > 0 ? min($sqmPercentRaw, $maxPercent) : 0.0;
+
+            $memberPercentRaw = ($user->is_member && (float) ($exhibition->member_discount_percent ?? 0) > 0)
+                ? (float) $exhibition->member_discount_percent
+                : 0.0;
+            $effectiveMemberPercent = $memberPercentRaw > 0
+                ? min($memberPercentRaw, max(0.0, $maxPercent - $effectiveSqmPercent))
+                : 0.0;
+
+            $discountPercent = round(min($maxPercent, $effectiveSqmPercent + $effectiveMemberPercent), 2);
+            if ($discountPercent > 0) {
+                $totalAmount = round($originalBase * (1 - ($discountPercent / 100)), 2);
+            }
+
+            // Classify discount type for reference / backward compatibility
+            $discountType = null;
+            if ($effectiveSqmPercent > 0 && $effectiveMemberPercent > 0) {
+                $discountType = 'sqm_member';
+            } elseif ($effectiveSqmPercent > 0) {
+                $discountType = 'sqm';
+            } elseif ($effectiveMemberPercent > 0) {
+                $discountType = 'member';
             }
 
             // Handle logo upload
@@ -782,8 +805,9 @@ class BookingController extends Controller
                 'total_amount' => $totalAmount,
                 'paid_amount' => 0,
                 'discount_percent' => $discountPercent,
-                'discount_type' => $discountPercent > 0 ? 'member' : null,
-                'member_discount_percent' => $discountPercent > 0 ? $discountPercent : null,
+                'discount_type' => $discountType,
+                'member_discount_percent' => $effectiveMemberPercent > 0 ? round($effectiveMemberPercent, 2) : null,
+                'sqm_discount_percent' => $effectiveSqmPercent > 0 ? round($effectiveSqmPercent, 2) : null,
                 'coupon_discount_percent' => null,
                 'contact_emails' => array_values($contactEmails),
                 'contact_numbers' => array_values($contactNumbers),

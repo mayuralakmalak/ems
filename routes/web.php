@@ -56,6 +56,8 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     Route::post('/exhibitions/{id}/step3', [ExhibitionController::class, 'storeStep3'])->name('exhibitions.step3.store');
     Route::get('/exhibitions/{id}/step4', [ExhibitionController::class, 'step4'])->name('exhibitions.step4');
     Route::post('/exhibitions/{id}/step4', [ExhibitionController::class, 'storeStep4'])->name('exhibitions.step4.store');
+    Route::get('/exhibitions/{id}/step5', [ExhibitionController::class, 'step5'])->name('exhibitions.step5');
+    Route::post('/exhibitions/{id}/step5', [ExhibitionController::class, 'storeStep5'])->name('exhibitions.step5.store');
     
     // Floor Management
     Route::post('/exhibitions/{id}/floors', [ExhibitionController::class, 'storeFloors'])->name('exhibitions.floors.store');

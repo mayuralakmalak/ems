@@ -14,7 +14,7 @@ class Booth extends Model
         'sides_open', 'price', 'is_free', 'is_available', 'is_booked',
         'logo', 'coordinates', 'merged_booths', 'is_merged', 'is_split', 'parent_booth_id',
         'exhibition_booth_size_id', 'discount_id', 'discount_user_id',
-        'position_x', 'position_y', 'width', 'height'
+        'position_x', 'position_y', 'width', 'height', 'comment'
     ];
 
     protected $casts = [

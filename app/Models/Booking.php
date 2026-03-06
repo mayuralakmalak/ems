@@ -22,6 +22,7 @@ class Booking extends Model
         'discount_percent',
         'discount_type',
         'member_discount_percent',
+        'sqm_discount_percent',
         'coupon_discount_percent',
         'coupon_discount_percent_part',
         'contact_emails',

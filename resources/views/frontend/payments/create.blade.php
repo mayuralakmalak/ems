@@ -427,6 +427,7 @@
                         $baseTotal = $booking->discount_percent > 0 ? $booking->total_amount : $baseTotalRaw;
                         // Use actual raw total (booth + services + extras) for discount breakdown; avoid back-calculated value
                         $originalBase = $baseTotalRaw;
+                        $sqmDiscountPercent = (float) ($booking->sqm_discount_percent ?? 0);
                         $discountType = $booking->discount_type ?? ($booking->discount_percent > 0 ? 'member' : null);
                         $memberDiscountPercent = (float) ($booking->member_discount_percent ?? ($discountType === 'member' || $discountType === 'both' ? $booking->discount_percent : 0));
                         $couponDiscountPercent = (float) ($booking->coupon_discount_percent ?? 0);
@@ -438,6 +439,7 @@
                             ? min($fullPaymentDiscountPercentRaw, max(0, $booking->discount_percent - $memberDiscountPercent - $couponDiscountPercent))
                             : 0;
                         $fullPaymentDiscountAmount = $fullPaymentDisplayPercent > 0 ? $baseTotalRaw * ($fullPaymentDisplayPercent / 100) : 0;
+                        $sqmDiscountAmount = $sqmDiscountPercent > 0 ? $baseTotalRaw * ($sqmDiscountPercent / 100) : 0;
                         $memberDiscountAmount = $memberDiscountPercent > 0 ? $baseTotalRaw * ($memberDiscountPercent / 100) : 0;
                         $couponDiscountAmount = $couponDiscountPercent > 0 ? $baseTotalRaw * ($couponDiscountPercent / 100) : 0;
                         $couponDiscountAmountPart = $couponDiscountPercentPart > 0 ? $baseTotalRaw * ($couponDiscountPercentPart / 100) : 0;
@@ -458,10 +460,19 @@
                     </div>
                     @endif
                     
-                    {{-- Priority order: 1) Full Payment Discount, 2) Member, 3) Coupon --}}
+                    {{-- Priority order: 1) Full Payment Discount, 2) Area-based, 3) Member, 4) Coupon --}}
                     <div class="breakdown-item" id="fullPaymentDiscountItem" @if($fullPaymentDiscountAmount <= 0) style="display:none;" @endif>
                         <span class="breakdown-label">Full Payment Discount (<span id="fullPaymentDiscountPctBreakdown">{{ number_format($fullPaymentDiscountPercent, 2) }}</span>%)</span>
                         <span class="breakdown-value" style="color: #10b981;" id="fullPaymentDiscountAmount">-₹<span id="fullPaymentDiscountAmountValue">{{ number_format($fullPaymentDiscountAmount, 2) }}</span></span>
+                    </div>
+                    <div class="breakdown-item" id="discountRowSqm" @if($sqmDiscountAmount <= 0) style="display:none;" @endif>
+                        <span class="breakdown-label">
+                            Area-based Discount
+                            (<span id="sqmDiscountPercentLabel">{{ number_format($sqmDiscountPercent, 2) }}</span>%)
+                        </span>
+                        <span class="breakdown-value" style="color: #10b981;">
+                            -₹<span id="sqmDiscountAmountValue">{{ number_format($sqmDiscountAmount, 2) }}</span>
+                        </span>
                     </div>
                     <div class="breakdown-item" id="discountRowMember" @if($memberDiscountAmount <= 0) style="display:none;" @endif>
                         <span class="breakdown-label">
@@ -1043,13 +1054,14 @@ let gatewayCharge = {{ number_format($gatewayCharge ?? 0, 2, '.', '') }}; // Gat
 let totalGatewayFee = {{ number_format($totalGatewayFee ?? 0, 2, '.', '') }}; // Total gateway fee for all payments
 // Maximum discount cap from exhibition (member + coupon + full payment <= this)
 let maximumDiscountApplyPercent = {{ ($booking->exhibition->maximum_discount_apply_percent ?? null) !== null ? (float)($booking->exhibition->maximum_discount_apply_percent) : 100 }};
+let sqmDiscountPercentCurrent = {{ $sqmDiscountPercent ?? 0 }};
 let memberDiscountPercentCurrent = {{ $memberDiscountPercent ?? 0 }};
 let couponDiscountPercentCurrent = {{ $couponDiscountPercent ?? 0 }};
 let couponDiscountPercentPartCurrent = {{ $couponDiscountPercentPart ?? $couponDiscountPercent ?? 0 }};
 let fullPaymentDiscountPercentRaw = {{ $booking->exhibition->full_payment_discount_percent ?? 0 }};
-// Priority: Full Payment → Member → Coupon. Use actual raw total for discount display (not back-calculated).
+// Priority: Full Payment → Sqm → Member → Coupon. Use actual raw total for discount display (not back-calculated).
 function getEffectiveFullPaymentPercent() {
-    const maxForFull = Math.max(0, maximumDiscountApplyPercent - memberDiscountPercentCurrent - couponDiscountPercentCurrent);
+    const maxForFull = Math.max(0, maximumDiscountApplyPercent - sqmDiscountPercentCurrent - memberDiscountPercentCurrent - couponDiscountPercentCurrent);
     return Math.min(fullPaymentDiscountPercentRaw, maxForFull);
 }
 let fullPaymentDiscountPercent = getEffectiveFullPaymentPercent();
@@ -1454,12 +1466,13 @@ function selectPaymentType(type) {
         document.getElementById('partPaymentSection').style.display = 'none';
         
         // Compute FULL‑payment scenario directly from original base, mirroring backend rules:
-        // total_full = member + coupon_full + full_payment_effective, capped by maximumDiscountApplyPercent
+        // total_full = sqm + member + coupon_full + full_payment_effective, capped by maximumDiscountApplyPercent
+        const sqmPercentForCalc = sqmDiscountPercentCurrent || 0;
         const memberPercentForCalc = memberDiscountPercentCurrent || 0;
         const couponPercentFull = couponDiscountPercentCurrent || 0;
         const availableForFullJS = Math.max(
             0,
-            maximumDiscountApplyPercent - memberPercentForCalc - couponPercentFull
+            maximumDiscountApplyPercent - sqmPercentForCalc - memberPercentForCalc - couponPercentFull
         );
         const fullEffectivePercent = Math.min(fullPaymentDiscountPercentRaw, availableForFullJS);
 
@@ -1468,7 +1481,7 @@ function selectPaymentType(type) {
 
         const totalFullPercent = Math.min(
             maximumDiscountApplyPercent,
-            memberPercentForCalc + couponPercentFull + fullPaymentDiscountPercent
+            sqmPercentForCalc + memberPercentForCalc + couponPercentFull + fullPaymentDiscountPercent
         );
 
         // FULL‑payment amount = original base after member + coupon_full + full_payment discounts
@@ -1676,14 +1689,17 @@ function applyDiscountCode() {
             baseTotalBeforeFull = baseTotal;
         }
         const fullPct = typeof data.full_payment_discount_percent === 'number' ? data.full_payment_discount_percent : (data.full_payment_discount_percent != null ? parseFloat(data.full_payment_discount_percent) : 0);
+        const sqmPct = typeof data.sqm_discount_percent === 'number' ? data.sqm_discount_percent : (data.sqm_discount_percent != null ? parseFloat(data.sqm_discount_percent) : 0);
         const memberPct = typeof data.member_discount_percent === 'number' ? data.member_discount_percent : (data.member_discount_percent != null ? parseFloat(data.member_discount_percent) : 0);
         const couponPct = typeof data.coupon_discount_percent === 'number' ? data.coupon_discount_percent : (data.coupon_discount_percent != null ? parseFloat(data.coupon_discount_percent) : 0);
         const couponPctPart = typeof data.coupon_discount_percent_part === 'number' ? data.coupon_discount_percent_part : (data.coupon_discount_percent_part != null ? parseFloat(data.coupon_discount_percent_part) : couponPct);
         const fullAmt = fullPct > 0 ? baseTotalRaw * (fullPct / 100) : 0;
+        const sqmAmt = sqmPct > 0 ? baseTotalRaw * (sqmPct / 100) : 0;
         const memberAmt = memberPct > 0 ? baseTotalRaw * (memberPct / 100) : 0;
         const couponAmt = couponPct > 0 ? baseTotalRaw * (couponPct / 100) : 0;
         const couponAmtPart = couponPctPart > 0 ? baseTotalRaw * (couponPctPart / 100) : 0;
 
+        sqmDiscountPercentCurrent = sqmPct;
         memberDiscountPercentCurrent = memberPct;
         couponDiscountPercentCurrent = couponPct;
         couponDiscountPercentPartCurrent = couponPctPart;
@@ -1691,19 +1707,25 @@ function applyDiscountCode() {
         originalBase = baseTotalRaw;
         fullPaymentDiscountAmount = fullAmt;
 
-        // Update main Payment Breakdown (priority: Full Payment → Member → Coupon)
+        // Update main Payment Breakdown (priority: Full Payment → Sqm → Member → Coupon)
         const fullPaymentDiscountItem = document.getElementById('fullPaymentDiscountItem');
         const fullPaymentDiscountPctBreakdown = document.getElementById('fullPaymentDiscountPctBreakdown');
         const fullPaymentDiscountAmountValue = document.getElementById('fullPaymentDiscountAmountValue');
         if (fullPaymentDiscountItem) fullPaymentDiscountItem.style.display = fullPct > 0 ? 'flex' : 'none';
         if (fullPaymentDiscountPctBreakdown) fullPaymentDiscountPctBreakdown.textContent = fullPct.toFixed(2);
         if (fullPaymentDiscountAmountValue) fullPaymentDiscountAmountValue.textContent = fullAmt.toFixed(2);
+        const discountRowSqm = document.getElementById('discountRowSqm');
         const discountRowMember = document.getElementById('discountRowMember');
         const discountRowCoupon = document.getElementById('discountRowCoupon');
+        const sqmDiscountPercentLabel = document.getElementById('sqmDiscountPercentLabel');
+        const sqmDiscountAmountValue = document.getElementById('sqmDiscountAmountValue');
         const memberDiscountPercentLabel = document.getElementById('memberDiscountPercentLabel');
         const memberDiscountAmountValue = document.getElementById('memberDiscountAmountValue');
         const couponDiscountPercentLabel = document.getElementById('couponDiscountPercentLabel');
         const couponDiscountAmountValue = document.getElementById('couponDiscountAmountValue');
+        if (discountRowSqm) discountRowSqm.style.display = sqmPct > 0 ? 'flex' : 'none';
+        if (sqmDiscountPercentLabel) sqmDiscountPercentLabel.textContent = sqmPct.toFixed(2);
+        if (sqmDiscountAmountValue) sqmDiscountAmountValue.textContent = sqmAmt.toFixed(2);
         if (discountRowMember) discountRowMember.style.display = memberPct > 0 ? 'flex' : 'none';
         if (discountRowCoupon) discountRowCoupon.style.display = (paymentTypeForDiscount === 'part' ? couponPctPart : couponPct) > 0 ? 'flex' : 'none';
         if (memberDiscountPercentLabel) memberDiscountPercentLabel.textContent = memberPct.toFixed(2);

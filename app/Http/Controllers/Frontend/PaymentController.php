@@ -446,18 +446,21 @@ class PaymentController extends Controller
         $paymentTypeOption = $request->payment_type_option ?? 'part'; // Default to part payment
 
         // If user chooses full payment, apply the exhibition full payment discount
-        // on top of any member and coupon discount, respecting the maximum discount cap.
+        // on top of any sqm, member and coupon discount, respecting the maximum discount cap.
         // IMPORTANT:
         // - booking->total_amount always stores the PART‑payment scenario
         //   (member + coupon only, no full‑payment discount)
         // - Here, for FULL payment, we derive the original base and then apply:
-        //   member + coupon (full context) + full‑payment discount, capped by maximum_discount_apply_percent
+        //   sqm + member + coupon (full context) + full‑payment discount, capped by maximum_discount_apply_percent
         if ($paymentTypeOption === 'full') {
-            $discountType = $booking->discount_type ?? ($booking->discount_percent > 0 ? 'member' : null);
+            // Sqm and member discounts (if any)
+            $sqmDiscountPercent = (float) ($booking->sqm_discount_percent ?? 0);
+            $memberDiscountPercent = (float) ($booking->member_discount_percent ?? 0);
 
-            // Member discount (if any)
-            $memberDiscountPercent = (float) ($booking->member_discount_percent
-                ?? ($discountType === 'member' || $discountType === 'both' ? $booking->discount_percent : 0));
+            // Backward compatibility: older bookings may only have discount_percent (member only)
+            if ($sqmDiscountPercent <= 0 && $memberDiscountPercent <= 0 && (float) ($booking->coupon_discount_percent ?? 0) === 0 && (float) ($booking->discount_percent ?? 0) > 0) {
+                $memberDiscountPercent = (float) $booking->discount_percent;
+            }
 
             // Coupon discount for FULL context (stored in coupon_discount_percent)
             $couponPercentBookingFull = (float) ($booking->coupon_discount_percent ?? 0);
@@ -470,7 +473,7 @@ class PaymentController extends Controller
             $fullPaymentDiscountPercentRaw = (float) ($booking->exhibition->full_payment_discount_percent ?? 0);
 
             // Reconstruct original base (before member + coupon PART discounts) from stored PART‑payment total
-            // booking->discount_percent always represents the PART‑payment total discount (member + coupon_part)
+            // booking->discount_percent always represents the PART‑payment total discount (sqm + member + coupon_part)
             $currentPartTotal = (float) $booking->total_amount;
             $partDiscountPercent = (float) ($booking->discount_percent ?? 0);
             $originalBase = $partDiscountPercent > 0
@@ -478,18 +481,17 @@ class PaymentController extends Controller
                 : $currentPartTotal;
 
             // Determine how much full‑payment discount we can still apply without exceeding the cap
-            $availableForFull = max(0.0, $maxPercent - $memberDiscountPercent - $couponPercentBookingFull);
+            $availableForFull = max(0.0, $maxPercent - $sqmDiscountPercent - $memberDiscountPercent - $couponPercentBookingFull);
             $fullPaymentEffectivePercent = min($fullPaymentDiscountPercentRaw, $availableForFull);
 
             $newTotalDiscountPercent = min(
-                $memberDiscountPercent + $couponPercentBookingFull + $fullPaymentEffectivePercent,
+                $sqmDiscountPercent + $memberDiscountPercent + $couponPercentBookingFull + $fullPaymentEffectivePercent,
                 $maxPercent
             );
 
             $newTotalAmount = round($originalBase * (1 - ($newTotalDiscountPercent / 100)), 2);
 
             // Persist the FULL‑payment scenario on the booking for this flow
-            $booking->discount_type = $discountType ?: ($newTotalDiscountPercent > 0 ? 'coupon' : null);
             $booking->discount_percent = $newTotalDiscountPercent;
             $booking->member_discount_percent = $memberDiscountPercent > 0 ? $memberDiscountPercent : null;
             // Keep coupon_discount_percent and coupon_discount_percent_part as already calculated by applyDiscount
@@ -974,9 +976,10 @@ class PaymentController extends Controller
             return back()->with('error', $message);
         }
 
-        // Prevent applying a second coupon (member discount can have one coupon stacked)
-        $discountType = $booking->discount_type ?? ($booking->discount_percent > 0 ? 'member' : null);
-        if ($discountType === 'coupon' || $discountType === 'both') {
+        // Prevent applying a second coupon (based on existing stored coupon fields)
+        $existingCouponPart = (float) ($booking->coupon_discount_percent_part ?? 0);
+        $existingCouponFull = (float) ($booking->coupon_discount_percent ?? 0);
+        if ($existingCouponPart > 0 || $existingCouponFull > 0) {
             $message = 'A coupon is already applied to this booking.';
             if ($request->expectsJson()) {
                 return response()->json(['status' => 'error', 'message' => $message], 400);
@@ -1019,12 +1022,14 @@ class PaymentController extends Controller
             return back()->with('error', $message);
         }
 
-        // Original base (before any discount) for priority allocation
-        $memberDiscountPercent = (float) ($booking->member_discount_percent ?? ($booking->discount_percent > 0 ? $booking->discount_percent : 0));
-        $hasMemberDiscount = $discountType === 'member' || ($discountType === null && $booking->discount_percent > 0);
-        $originalBase = $hasMemberDiscount && $memberDiscountPercent > 0
-            ? $baseTotal / (1 - ($memberDiscountPercent / 100))
+        // Original base (before existing PART‑payment discounts) for priority allocation
+        $existingPartPercent = (float) ($booking->discount_percent ?? 0);
+        $originalBase = $existingPartPercent > 0
+            ? $baseTotal / (1 - ($existingPartPercent / 100))
             : $baseTotal;
+
+        $memberDiscountPercent = (float) ($booking->member_discount_percent ?? 0);
+        $sqmDiscountPercent = (float) ($booking->sqm_discount_percent ?? 0);
 
         // Calculate coupon discount from code (percentage or fixed on original base)
         $couponDiscountPercentFromCode = 0;
@@ -1059,9 +1064,9 @@ class PaymentController extends Controller
             $maxPercent
         );
 
-        // Coupon effective in full context (remaining after full + member) and in part context (remaining after member only)
-        $remainingForCouponFull = max(0, $maxPercent - $fullPaymentReserved - $memberDiscountPercent);
-        $remainingForCouponPart = max(0, $maxPercent - $memberDiscountPercent);
+        // Coupon effective in full context (remaining after full + sqm + member) and in part context (remaining after sqm + member only)
+        $remainingForCouponFull = max(0, $maxPercent - $fullPaymentReserved - $sqmDiscountPercent - $memberDiscountPercent);
+        $remainingForCouponPart = max(0, $maxPercent - $sqmDiscountPercent - $memberDiscountPercent);
         $couponEffectiveForFull = min($couponDiscountPercentFromCode, $remainingForCouponFull);
         $couponEffectiveForPart = min($couponDiscountPercentFromCode, $remainingForCouponPart);
 
@@ -1104,15 +1109,15 @@ class PaymentController extends Controller
 
         // Store BOTH: coupon_discount_percent = for full display, coupon_discount_percent_part = for part display.
         // IMPORTANT:
-        // - For FULL payment: total discount = full payment + member + coupon (capped by maximum_discount_apply_percent)
-        // - For PART payment: total discount = member + coupon only (NO full payment discount), capped separately
+        // - For FULL payment: total discount = full payment + sqm + member + coupon (capped by maximum_discount_apply_percent)
+        // - For PART payment: total discount = sqm + member + coupon only (NO full payment discount), capped separately
         $totalDiscountFull = min(
             $maxPercent,
-            $fullPaymentReserved + $memberDiscountPercent + $couponEffectiveForFull
+            $fullPaymentReserved + $sqmDiscountPercent + $memberDiscountPercent + $couponEffectiveForFull
         );
         $totalDiscountPart = min(
             $maxPercent,
-            $memberDiscountPercent + $couponEffectiveForPart
+            $sqmDiscountPercent + $memberDiscountPercent + $couponEffectiveForPart
         );
 
         // Always store the PART‑payment discount on the booking itself.
@@ -1124,12 +1129,19 @@ class PaymentController extends Controller
         $newTotalAmount = round($originalBase * (1 - ($totalDiscountPercent / 100)), 2);
         $couponDiscountAmount = round($originalBase * ($appliedCouponPercent / 100), 2);
 
-        $booking->discount_type = $hasMemberDiscount ? 'both' : 'coupon';
-        $booking->member_discount_percent = $hasMemberDiscount ? round($memberDiscountPercent, 2) : null;
+        $booking->member_discount_percent = $memberDiscountPercent > 0 ? round($memberDiscountPercent, 2) : null;
         $booking->coupon_discount_percent = round($couponEffectiveForFull, 2);
         $booking->coupon_discount_percent_part = round($couponEffectiveForPart, 2);
         $booking->discount_percent = round($totalDiscountPercent, 2);
         $booking->total_amount = $newTotalAmount;
+        // discount_type is now mainly informational; set based on whether member and/or sqm discounts also exist
+        if ($booking->coupon_discount_percent_part > 0 || $booking->coupon_discount_percent > 0) {
+            if ($sqmDiscountPercent > 0 || $memberDiscountPercent > 0) {
+                $booking->discount_type = 'both';
+            } else {
+                $booking->discount_type = 'coupon';
+            }
+        }
         $booking->save();
 
         $paymentSchedules = $booking->exhibition->paymentSchedules()
@@ -1195,6 +1207,7 @@ class PaymentController extends Controller
                 'discount_type' => $booking->discount_type,
                 'discount_percent' => $booking->discount_percent,
                 'member_discount_percent' => $booking->member_discount_percent,
+                'sqm_discount_percent' => $booking->sqm_discount_percent,
                 'coupon_discount_percent' => $booking->coupon_discount_percent,
                 'coupon_discount_percent_part' => $booking->coupon_discount_percent_part,
                 'full_payment_discount_percent' => round($fullPaymentDisplayPercent, 2),
@@ -1241,18 +1254,20 @@ class PaymentController extends Controller
             return back()->with('error', $message);
         }
 
-        $discountType = $booking->discount_type ?? ($booking->discount_percent > 0 ? 'member' : null);
+        $existingCouponPart = (float) ($booking->coupon_discount_percent_part ?? 0);
+        $existingCouponFull = (float) ($booking->coupon_discount_percent ?? 0);
 
-        // If only member discount (no coupon), nothing to remove
-        if ($discountType === 'member' || ($discountType === null && $booking->discount_percent > 0)) {
+        // If there is no coupon component, nothing to remove
+        if ($existingCouponPart <= 0 && $existingCouponFull <= 0) {
             $message = 'No coupon applied to remove.';
             if ($request->expectsJson()) {
                 return response()->json([
                     'status' => 'success',
                     'message' => $message,
-                    'discount_type' => $booking->discount_type ?? 'member',
+                    'discount_type' => $booking->discount_type ?? null,
                     'discount_percent' => $booking->discount_percent,
-                    'member_discount_percent' => $booking->member_discount_percent ?? $booking->discount_percent,
+                    'member_discount_percent' => $booking->member_discount_percent,
+                    'sqm_discount_percent' => $booking->sqm_discount_percent,
                     'coupon_discount_percent' => $booking->coupon_discount_percent ?? 0,
                     'total_amount' => $booking->total_amount,
                     'payments' => $booking->payments()
@@ -1301,106 +1316,62 @@ class PaymentController extends Controller
             return back()->with('error', $message);
         }
 
-        if ($discountType === 'both') {
-            // Remove only coupon; keep member discount
-            $memberDiscountPercent = (float) $booking->member_discount_percent;
-            $originalTotal = $currentTotal / (1 - ($booking->discount_percent / 100));
-            $memberTotal = $originalTotal * (1 - ($memberDiscountPercent / 100));
-
-            $booking->discount_type = 'member';
-            $booking->coupon_discount_percent = null;
-            $booking->coupon_discount_percent_part = null;
-            $booking->discount_percent = round($memberDiscountPercent, 2);
-            $booking->total_amount = round($memberTotal, 2);
-            $booking->save();
-
-            $newTotalAmount = $booking->total_amount;
-            $paymentIndex = 0;
-            foreach ($payments as $payment) {
-                if (isset($paymentSchedules[$paymentIndex])) {
-                    $schedule = $paymentSchedules[$paymentIndex];
-                    $newPaymentAmount = round(($newTotalAmount * $schedule->percentage) / 100, 2);
-                    $payment->amount = $newPaymentAmount;
-                    $payment->save();
-                }
-                $paymentIndex++;
-            }
-
-            $removedAmount = round($currentTotal - $newTotalAmount, 2);
-
-            $origBase = $booking->total_amount / (1 - ($booking->discount_percent / 100));
-            $fullPaymentDisplayPct = min(
-                (float) ($booking->exhibition->full_payment_discount_percent ?? 0),
-                max(0, $booking->discount_percent - ($booking->member_discount_percent ?? 0) - 0)
-            );
-            $memberDiscountAmount = $booking->member_discount_percent > 0 ? round($origBase * ($booking->member_discount_percent / 100), 2) : 0;
-
-            if ($request->expectsJson()) {
-                return response()->json([
-                    'status' => 'success',
-                    'message' => 'Coupon discount removed successfully.',
-                    'discount_type' => 'member',
-                    'discount_percent' => $booking->discount_percent,
-                    'member_discount_percent' => $booking->member_discount_percent,
-                    'coupon_discount_percent' => 0,
-                    'coupon_discount_percent_part' => 0,
-                    'full_payment_discount_percent' => round($fullPaymentDisplayPct, 2),
-                    'member_discount_amount' => $memberDiscountAmount,
-                    'full_payment_discount_amount' => round($origBase * ($fullPaymentDisplayPct / 100), 2),
-                    'original_base' => round($origBase, 2),
-                    'discount_amount' => $removedAmount,
-                    'total_amount' => $booking->total_amount,
-                    'payments' => $payments->map(function ($payment) {
-                        return [
-                            'id' => $payment->id,
-                            'amount' => $payment->amount,
-                        ];
-                    })->values(),
-                ]);
-            }
-            return back()->with('success', 'Coupon discount removed successfully.');
-        }
-
-        // discount_type === 'coupon': remove entire discount
-        $discountPercent = (float) $booking->discount_percent;
-        if ($discountPercent >= 100) {
+        // Remove coupon component; keep sqm + member discounts intact
+        $discountPercentCurrent = (float) $booking->discount_percent;
+        if ($discountPercentCurrent >= 100) {
             return back()->with('error', 'Cannot remove a 100% discount safely.');
         }
-        $originalTotal = $currentTotal / (1 - ($discountPercent / 100));
 
-        $booking->discount_type = null;
-        $booking->member_discount_percent = null;
+        $originalTotal = $discountPercentCurrent > 0
+            ? $currentTotal / (1 - ($discountPercentCurrent / 100))
+            : $currentTotal;
+
+        $sqmPercent = (float) ($booking->sqm_discount_percent ?? 0);
+        $memberPercent = (float) ($booking->member_discount_percent ?? 0);
+        $maxPercent = $booking->exhibition->maximum_discount_apply_percent !== null
+            ? (float) $booking->exhibition->maximum_discount_apply_percent
+            : 100.0;
+
+        $newDiscountPercent = min($maxPercent, $sqmPercent + $memberPercent);
+        $newTotalAmount = round($originalTotal * (1 - ($newDiscountPercent / 100)), 2);
+
         $booking->coupon_discount_percent = null;
         $booking->coupon_discount_percent_part = null;
-        $booking->discount_percent = 0;
-        $booking->total_amount = round($originalTotal, 2);
+        $booking->discount_percent = $newDiscountPercent;
+        $booking->total_amount = $newTotalAmount;
+        $booking->discount_type = ($sqmPercent > 0 && $memberPercent > 0)
+            ? 'sqm_member'
+            : ($sqmPercent > 0 ? 'sqm' : ($memberPercent > 0 ? 'member' : null));
         $booking->save();
 
         $paymentIndex = 0;
         foreach ($payments as $payment) {
             if (isset($paymentSchedules[$paymentIndex])) {
                 $schedule = $paymentSchedules[$paymentIndex];
-                $originalPaymentAmount = round(($originalTotal * $schedule->percentage) / 100, 2);
-                $payment->amount = $originalPaymentAmount;
+                $adjustedPaymentAmount = round(($newTotalAmount * $schedule->percentage) / 100, 2);
+                $payment->amount = $adjustedPaymentAmount;
                 $payment->save();
             }
             $paymentIndex++;
         }
 
+        $removedAmount = round($currentTotal - $newTotalAmount, 2);
+
         if ($request->expectsJson()) {
             return response()->json([
                 'status' => 'success',
-                'message' => 'Discount removed successfully.',
-                'discount_type' => null,
-                'discount_percent' => 0,
-                'member_discount_percent' => null,
-                'coupon_discount_percent' => null,
-                'coupon_discount_percent_part' => null,
-                'full_payment_discount_percent' => 0,
-                'member_discount_amount' => 0,
+                'message' => 'Coupon discount removed successfully.',
+                'discount_type' => $booking->discount_type,
+                'discount_percent' => $booking->discount_percent,
+                'member_discount_percent' => $booking->member_discount_percent,
+                'sqm_discount_percent' => $booking->sqm_discount_percent,
+                'coupon_discount_percent' => 0,
+                'coupon_discount_percent_part' => 0,
+                'full_payment_discount_percent' => (float) ($booking->exhibition->full_payment_discount_percent ?? 0),
+                'member_discount_amount' => $booking->member_discount_percent > 0 ? round($originalTotal * ($booking->member_discount_percent / 100), 2) : 0,
                 'full_payment_discount_amount' => 0,
                 'original_base' => round($originalTotal, 2),
-                'discount_amount' => round($originalTotal - $currentTotal, 2),
+                'discount_amount' => $removedAmount,
                 'total_amount' => $booking->total_amount,
                 'payments' => $payments->map(function ($payment) {
                     return [
@@ -1411,6 +1382,6 @@ class PaymentController extends Controller
             ]);
         }
 
-        return back()->with('success', 'Discount removed successfully.');
+        return back()->with('success', 'Coupon discount removed successfully.');
     }
 }
