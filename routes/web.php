@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\FinancialController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\BookingController as AdminBookingController;
+use App\Http\Controllers\Admin\WalletRefundController;
 use App\Http\Controllers\Frontend\ExhibitionController as FrontendExhibitionController;
 use App\Http\Controllers\Frontend\HomeController;
 use App\Http\Controllers\Frontend\BookingController;
@@ -269,6 +270,12 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     Route::get('/additional-service-requests', [\App\Http\Controllers\Admin\AdditionalServiceRequestController::class, 'index'])->name('additional-service-requests.index');
     Route::post('/additional-service-requests/{id}/approve', [\App\Http\Controllers\Admin\AdditionalServiceRequestController::class, 'approve'])->name('additional-service-requests.approve');
     Route::post('/additional-service-requests/{id}/reject', [\App\Http\Controllers\Admin\AdditionalServiceRequestController::class, 'reject'])->name('additional-service-requests.reject');
+
+    // Wallet refund requests (special discount refunds)
+    Route::get('/wallet-refunds', [WalletRefundController::class, 'index'])->name('wallet-refunds.index');
+    Route::get('/wallet-refunds/{id}', [WalletRefundController::class, 'show'])->name('wallet-refunds.show');
+    Route::post('/wallet-refunds/{id}/approve', [WalletRefundController::class, 'approve'])->name('wallet-refunds.approve');
+    Route::post('/wallet-refunds/{id}/reject', [WalletRefundController::class, 'reject'])->name('wallet-refunds.reject');
 });
 
 // Frontend Exhibitor Routes
@@ -335,6 +342,8 @@ Route::middleware('auth')->group(function () {
     
     // Wallet
     Route::get('/wallet', [WalletController::class, 'index'])->name('wallet.index');
+    Route::get('/wallet/refund/{wallet}', [WalletController::class, 'showRefundRequest'])->name('wallet.refund.show');
+    Route::post('/wallet/refund/{wallet}', [WalletController::class, 'submitRefundRequest'])->name('wallet.refund.submit');
     
     // Additional Services
     Route::get('/services', [\App\Http\Controllers\Frontend\ServiceController::class, 'index'])->name('services.index');

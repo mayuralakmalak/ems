@@ -97,6 +97,20 @@
                                 @else
                                 <span class="text-muted">-</span>
                                 @endif
+                                @php
+                                    $hasRefundRequest = isset($existingRefundRequests[$transaction->id]) && $existingRefundRequests[$transaction->id]->whereIn('status', ['pending', 'approved'])->isNotEmpty();
+                                @endphp
+                                @if($transaction->transaction_type === 'credit' && $transaction->reference_type === 'booking_special_discount')
+                                    <div class="mt-2">
+                                        @if($hasRefundRequest)
+                                            <span class="badge bg-secondary">Refund in progress / completed</span>
+                                        @else
+                                            <a href="{{ route('wallet.refund.show', $transaction->id) }}" class="btn btn-sm btn-outline-primary">
+                                                Request Refund
+                                            </a>
+                                        @endif
+                                    </div>
+                                @endif
                             </td>
                         </tr>
                         @endforeach

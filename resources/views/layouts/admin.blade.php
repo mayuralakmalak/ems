@@ -588,6 +588,13 @@
                 </a>
             </li>
             @endcan
+            @can('Wallet Management')
+            <li>
+                <a href="{{ route('admin.wallet-refunds.index') }}" class="{{ request()->routeIs('admin.wallet-refunds.*') ? 'active' : '' }}">
+                    <i class="bi bi-wallet2"></i>Wallet Refund Requests
+                </a>
+            </li>
+            @endcan
             {{-- External Attendee Registrations --}}
             @php
                 $externalActive = request()->routeIs('admin.event-registrations.*');
