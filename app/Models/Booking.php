@@ -12,6 +12,8 @@ class Booking extends Model
     protected $fillable = [
         'exhibition_id',
         'user_id',
+        'channel',
+        'created_by_admin_id',
         'booth_id',
         'selected_booth_ids',
         'included_item_extras',
@@ -28,6 +30,10 @@ class Booking extends Model
         'contact_emails',
         'contact_numbers',
         'logo',
+        'special_discount_type',
+        'special_discount_value',
+        'special_discount_amount',
+        'special_discount_note',
         'possession_letter_issued',
         'cancellation_reason',
         'cancellation_type',
@@ -55,6 +61,11 @@ class Booking extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function createdByAdmin()
+    {
+        return $this->belongsTo(User::class, 'created_by_admin_id');
     }
 
     public function booth()

@@ -9,7 +9,7 @@
         <h5 class="mb-0"><i class="bi bi-person-badge me-2"></i>Create New Badge</h5>
     </div>
     <div class="card-body">
-        <form action="{{ route('badges.store') }}" method="POST" enctype="multipart/form-data">
+        <form id="badgeForm" action="{{ route('badges.store') }}" method="POST" enctype="multipart/form-data">
             @csrf
             
             <div class="mb-3">
@@ -62,6 +62,21 @@
             </div>
 
             <div class="mb-3">
+                <label class="form-label">Valid For Date Range(s)</label>
+                <div id="validDateRangesContainer">
+                    <div class="row g-2 mb-2 valid-date-range-row">
+                        <div class="col-md-12">
+                            <input type="text" class="form-control valid-date-range-input" placeholder="Select date range">
+                        </div>
+                    </div>
+                </div>
+                <div id="expandedValidDatesContainer"></div>
+                <small class="text-muted d-block mt-1">
+                    Select one or more date ranges when this badge is valid. Each range will be expanded into individual dates for daily check-in/check-out.
+                </small>
+            </div>
+
+            <div class="mb-3">
                 <label class="form-label">Name *</label>
                 <input type="text" name="name" class="form-control" required>
             </div>
@@ -79,24 +94,6 @@
             <div class="mb-3">
                 <label class="form-label">Photo</label>
                 <input type="file" name="photo" class="form-control" accept="image/*">
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label">Valid For Date(s)</label>
-                <div id="validDatesContainer">
-                    <div class="input-group mb-2 valid-date-row">
-                        <input type="date" name="valid_for_dates[]" class="form-control">
-                        <button type="button" class="btn btn-outline-danger remove-date d-none">
-                            <i class="bi bi-x"></i>
-                        </button>
-                    </div>
-                </div>
-                <button type="button" class="btn btn-sm btn-outline-primary" id="addValidDateBtn">
-                    <i class="bi bi-plus-circle me-1"></i>Add Another Date
-                </button>
-                <small class="text-muted d-block mt-1">
-                    Select one or more dates when this badge is valid. For multi-day exhibitions, you can choose multiple days for daily check-in/check-out.
-                </small>
             </div>
 
             <div class="mb-3">
@@ -130,10 +127,14 @@
         const badgeLimitsBox = document.getElementById('badgeLimitsBox');
         const badgeLimitsList = document.getElementById('badgeLimitsList');
         const badgeLimitsEmpty = document.getElementById('badgeLimitsEmpty');
-        const validDatesContainer = document.getElementById('validDatesContainer');
-        const addValidDateBtn = document.getElementById('addValidDateBtn');
+        const validDateRangesContainer = document.getElementById('validDateRangesContainer');
+        const addValidDateRangeBtn = document.getElementById('addValidDateRangeBtn');
+        const expandedValidDatesContainer = document.getElementById('expandedValidDatesContainer');
         const badgePriceInfo = document.getElementById('badgePriceInfo');
+        const badgeForm = document.getElementById('badgeForm');
         let lastLimits = [];
+        let currentStartDate = null;
+        let currentEndDate = null;
 
         if (!bookingSelect) {
             return;
@@ -217,39 +218,63 @@
                 });
         }
 
+        function initDateRangePicker(input) {
+            if (!window.jQuery || !$.fn || !$.fn.daterangepicker || !input) {
+                return;
+            }
+
+            const $input = $(input);
+            const existing = $input.data('daterangepicker');
+            const existingValue = $input.val();
+
+            if (existing) {
+                existing.remove();
+            }
+
+            $input.daterangepicker({
+                autoUpdateInput: true,
+                autoApply: true,
+                showDropdowns: true,
+                locale: {
+                    format: 'YYYY-MM-DD'
+                },
+                minDate: currentStartDate || false,
+                maxDate: currentEndDate || false
+            });
+
+            if (existingValue) {
+                $input.val(existingValue);
+            }
+
+            $input.on('cancel.daterangepicker', function () {
+                $(this).val('');
+            });
+        }
+
+        function refreshAllDateRangePickers() {
+            if (!validDateRangesContainer) {
+                return;
+            }
+            const inputs = validDateRangesContainer.querySelectorAll('.valid-date-range-input');
+            inputs.forEach(input => initDateRangePicker(input));
+        }
+
         function updateValidDateConstraints() {
-            if (!bookingSelect || !validDatesContainer) {
+            if (!bookingSelect || !validDateRangesContainer) {
                 return;
             }
 
             const selectedOption = bookingSelect.options[bookingSelect.selectedIndex];
             if (!selectedOption || !selectedOption.value) {
-                // Clear constraints when no booking selected
-                validDatesContainer.querySelectorAll('input[type=\"date\"][name=\"valid_for_dates[]\"]').forEach(input => {
-                    input.removeAttribute('min');
-                    input.removeAttribute('max');
-                });
+                currentStartDate = null;
+                currentEndDate = null;
+                refreshAllDateRangePickers();
                 return;
             }
 
-            const startDate = selectedOption.getAttribute('data-start-date');
-            const endDate = selectedOption.getAttribute('data-end-date');
-
-            validDatesContainer.querySelectorAll('input[type=\"date\"][name=\"valid_for_dates[]\"]').forEach(input => {
-                if (startDate) {
-                    input.setAttribute('min', startDate);
-                }
-                if (endDate) {
-                    input.setAttribute('max', endDate);
-                }
-
-                // If current value is outside range, clear it
-                if (input.value) {
-                    if ((startDate && input.value < startDate) || (endDate && input.value > endDate)) {
-                        input.value = '';
-                    }
-                }
-            });
+            currentStartDate = selectedOption.getAttribute('data-start-date') || null;
+            currentEndDate = selectedOption.getAttribute('data-end-date') || null;
+            refreshAllDateRangePickers();
         }
 
         function updateBadgeTypeOptions(limits) {
@@ -464,42 +489,134 @@
             badgeTypeSelect.addEventListener('change', updateBadgePriceInfo);
         }
 
-        // Dynamic valid date rows
-        if (addValidDateBtn && validDatesContainer) {
-            addValidDateBtn.addEventListener('click', function () {
-                const firstRow = validDatesContainer.querySelector('.valid-date-row');
+        // Dynamic valid date range rows
+        if (addValidDateRangeBtn && validDateRangesContainer) {
+            addValidDateRangeBtn.addEventListener('click', function () {
+                const firstRow = validDateRangesContainer.querySelector('.valid-date-range-row');
                 if (!firstRow) {
                     return;
                 }
 
                 const newRow = firstRow.cloneNode(true);
-                const input = newRow.querySelector('input[type="date"]');
-                const removeBtn = newRow.querySelector('.remove-date');
+                const rangeInput = newRow.querySelector('.valid-date-range-input');
+                const removeBtn = newRow.querySelector('.remove-date-range');
 
-                if (input) {
-                    input.value = '';
+                if (rangeInput) {
+                    rangeInput.value = '';
                 }
 
                 if (removeBtn) {
                     removeBtn.classList.remove('d-none');
-                    removeBtn.addEventListener('click', function () {
-                        newRow.remove();
-                    });
                 }
 
-                validDatesContainer.appendChild(newRow);
-                // Apply current booking date constraints to the new row
-                updateValidDateConstraints();
+                validDateRangesContainer.appendChild(newRow);
+                refreshAllDateRangePickers();
             });
 
             // Enable removal for dynamically added rows
-            validDatesContainer.addEventListener('click', function (e) {
-                if (e.target.closest('.remove-date')) {
-                    const row = e.target.closest('.valid-date-row');
-                    if (row && validDatesContainer.querySelectorAll('.valid-date-row').length > 1) {
+            validDateRangesContainer.addEventListener('click', function (e) {
+                const removeBtn = e.target.closest('.remove-date-range');
+                if (removeBtn) {
+                    const row = removeBtn.closest('.valid-date-range-row');
+                    if (row && validDateRangesContainer.querySelectorAll('.valid-date-range-row').length > 1) {
                         row.remove();
                     }
                 }
+            });
+        }
+
+        // Initialise picker for the initial row
+        refreshAllDateRangePickers();
+
+        // On submit, expand date ranges into individual valid_for_dates[]
+        if (badgeForm && expandedValidDatesContainer && validDateRangesContainer) {
+            badgeForm.addEventListener('submit', function (e) {
+                expandedValidDatesContainer.innerHTML = '';
+
+                const rows = validDateRangesContainer.querySelectorAll('.valid-date-range-row');
+                const allDates = [];
+                let hasError = false;
+
+                rows.forEach(row => {
+                    row.classList.remove('border', 'border-danger');
+
+                    const rangeInput = row.querySelector('.valid-date-range-input');
+                    const value = rangeInput ? rangeInput.value.trim() : '';
+
+                    if (!value) {
+                        return;
+                    }
+
+                    let fromVal = '';
+                    let toVal = '';
+
+                    const parts = value.split(' - ');
+                    if (parts.length === 2) {
+                        fromVal = parts[0];
+                        toVal = parts[1];
+                    } else {
+                        fromVal = value;
+                    }
+
+                    if (fromVal && !toVal) {
+                        allDates.push(fromVal);
+                        return;
+                    }
+                    if (!fromVal && toVal) {
+                        allDates.push(toVal);
+                        return;
+                    }
+
+                    if (toVal < fromVal) {
+                        hasError = true;
+                        row.classList.add('border', 'border-danger');
+                        return;
+                    }
+
+                    // Safely expand date range without timezone issues
+                    const startParts = fromVal.split('-').map(Number);
+                    const endParts = toVal.split('-').map(Number);
+
+                    if (startParts.length !== 3 || endParts.length !== 3) {
+                        hasError = true;
+                        row.classList.add('border', 'border-danger');
+                        return;
+                    }
+
+                    let current = new Date(startParts[0], startParts[1] - 1, startParts[2]);
+                    const end = new Date(endParts[0], endParts[1] - 1, endParts[2]);
+
+                    if (isNaN(current.getTime()) || isNaN(end.getTime())) {
+                        hasError = true;
+                        row.classList.add('border', 'border-danger');
+                        return;
+                    }
+
+                    while (current <= end) {
+                        const y = current.getFullYear();
+                        const m = String(current.getMonth() + 1).padStart(2, '0');
+                        const d = String(current.getDate()).padStart(2, '0');
+                        const iso = `${y}-${m}-${d}`;
+                        allDates.push(iso);
+                        current.setDate(current.getDate() + 1);
+                    }
+                });
+
+                if (hasError) {
+                    e.preventDefault();
+                    alert('Please ensure each selected date range is valid.');
+                    return;
+                }
+
+                const uniqueDates = Array.from(new Set(allDates));
+
+                uniqueDates.forEach(dateStr => {
+                    const hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.name = 'valid_for_dates[]';
+                    hidden.value = dateStr;
+                    expandedValidDatesContainer.appendChild(hidden);
+                });
             });
         }
     });

@@ -5,9 +5,14 @@
 
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <a href="{{ route('admin.exhibitions.show', $exhibition->id) }}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left me-2"></i>Back to Exhibition
-    </a>
+    <div>
+        <a href="{{ route('admin.exhibitions.show', $exhibition->id) }}" class="btn btn-outline-secondary me-2">
+            <i class="bi bi-arrow-left me-2"></i>Back to Exhibition
+        </a>
+        <a href="{{ route('admin.exhibitions.bookings.create', ['exhibition' => $exhibition->id]) }}" class="btn btn-success">
+            <i class="bi bi-bookmark-plus me-1"></i>Book Booth for Exhibitor
+        </a>
+    </div>
     <a href="{{ route('admin.booths.create', $exhibition->id) }}" class="btn btn-primary">
         <i class="bi bi-plus-circle me-1"></i>Add
     </a>
@@ -66,6 +71,11 @@
                                 <a href="{{ route('admin.booths.edit', [$exhibition->id, $booth->id]) }}" class="btn btn-sm btn-primary me-1" title="Edit">
                                     <i class="bi bi-pencil"></i>
                                 </a>
+                                @if($booth->is_available)
+                                    <a href="{{ route('admin.exhibitions.bookings.create', ['exhibition' => $exhibition->id, 'booth_id' => $booth->id]) }}" class="btn btn-sm btn-success me-1" title="Book for Exhibitor">
+                                        <i class="bi bi-cart-plus"></i>
+                                    </a>
+                                @endif
                                 @if(!$booth->is_booked)
                                 <form action="{{ route('admin.booths.destroy', [$exhibition->id, $booth->id]) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this booth?');">
                                     @csrf

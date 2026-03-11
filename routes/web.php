@@ -91,7 +91,12 @@ Route::middleware(['auth', 'role:Admin|Sub Admin'])->prefix('admin')->name('admi
     Route::post('/bookings/{id}/process-cancellation', [AdminBookingController::class, 'processCancellation'])->name('bookings.process-cancellation');
     Route::post('/bookings/{id}/approve-cancellation', [AdminBookingController::class, 'approveCancellation'])->name('bookings.approve-cancellation');
     Route::post('/bookings/{id}/reject-cancellation', [AdminBookingController::class, 'rejectCancellation'])->name('bookings.reject-cancellation');
+    Route::post('/bookings/{id}/special-discount', [AdminBookingController::class, 'applySpecialDiscount'])->name('bookings.apply-special-discount');
     Route::get('/exhibitions/{exhibitionId}/bookings', [AdminBookingController::class, 'bookedByExhibition'])->name('exhibitions.bookings');
+    // Admin booking on behalf of exhibitor
+    Route::get('/exhibitions/{exhibition}/bookings/create', [AdminBookingController::class, 'createForExhibition'])->name('exhibitions.bookings.create');
+    Route::post('/exhibitions/{exhibition}/bookings', [AdminBookingController::class, 'storeForExhibition'])->name('exhibitions.bookings.store');
+    Route::post('/exhibitions/{exhibition}/bookings/quote', [AdminBookingController::class, 'quoteForExhibition'])->name('exhibitions.bookings.quote');
     Route::delete('/bookings/{id}', [AdminBookingController::class, 'destroy'])->name('bookings.destroy');
     Route::post('/documents/{documentId}/approve', [AdminBookingController::class, 'approveDocument'])->name('bookings.documents.approve');
     Route::post('/documents/{documentId}/reject', [AdminBookingController::class, 'rejectDocument'])->name('bookings.documents.reject');

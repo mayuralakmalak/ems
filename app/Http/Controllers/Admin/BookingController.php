@@ -4,9 +4,13 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\BookingService;
 use App\Models\Document;
 use App\Models\Exhibition;
 use App\Models\Booth;
+use App\Models\BoothRequest;
+use App\Models\User;
+use App\Models\Service;
 use App\Models\Wallet;
 use App\Models\Notification;
 use App\Models\Badge;
@@ -25,6 +29,171 @@ use Mpdf\Config\FontVariables;
 
 class BookingController extends Controller
 {
+    private function computeBookingQuote(Exhibition $exhibition, Booth $booth, User $user, string $boothType, int $sidesOpen, array $servicesPayload, array $includedItemExtrasPayload, bool $applyFullPaymentDiscount): array
+    {
+        // Base booth price (includes per-booth discount + side-open surcharge) from frontend logic
+        $frontendController = app(\App\Http\Controllers\Frontend\BookingController::class);
+        $type = $boothType;
+        $sides = max(1, min(4, $sidesOpen));
+        $reflection = new \ReflectionClass($frontendController);
+        $method = $reflection->getMethod('calculateBoothPrice');
+        $method->setAccessible(true);
+        $boothPrice = (float) $method->invoke($frontendController, $booth, $exhibition, $type, $sides, $user->id);
+
+        $servicesTotal = 0.0;
+        $postedServices = [];
+        foreach ($servicesPayload as $serviceData) {
+            $serviceId = (int) ($serviceData['service_id'] ?? 0);
+            $quantity = max(0, (int) ($serviceData['quantity'] ?? 0));
+            $unitPrice = (float) ($serviceData['unit_price'] ?? 0);
+            $name = (string) ($serviceData['name'] ?? '');
+
+            if ($serviceId && $quantity > 0 && $unitPrice > 0) {
+                $lineTotal = $unitPrice * $quantity;
+                $servicesTotal += $lineTotal;
+                $postedServices[] = [
+                    'service_id' => $serviceId,
+                    'quantity' => $quantity,
+                    'unit_price' => $unitPrice,
+                    'total_price' => $lineTotal,
+                    'name' => $name,
+                ];
+            }
+        }
+
+        $extrasTotal = 0.0;
+        $includedItemExtras = [];
+        foreach ($includedItemExtrasPayload as $extraData) {
+            $itemId = (int) ($extraData['item_id'] ?? 0);
+            $qty = max(0, (int) ($extraData['quantity'] ?? 0));
+            $unitPrice = (float) ($extraData['unit_price'] ?? 0);
+
+            if ($itemId && $qty > 0 && $unitPrice > 0) {
+                $lineTotal = $qty * $unitPrice;
+                $extrasTotal += $lineTotal;
+                $includedItemExtras[] = [
+                    'item_id' => $itemId,
+                    'quantity' => $qty,
+                    'unit_price' => $unitPrice,
+                    'total_price' => $lineTotal,
+                ];
+            }
+        }
+
+        $baseTotal = round($boothPrice + $servicesTotal + $extrasTotal, 2);
+
+        // Sqm + member discounts (same cap logic as frontend booking)
+        $maxPercent = $exhibition->maximum_discount_apply_percent !== null
+            ? (float) $exhibition->maximum_discount_apply_percent
+            : 100.0;
+
+        $totalSqm = (float) ($booth->size_sqft ?? 0);
+        $sqmPercentRaw = (float) $exhibition->getSqmDiscountPercentForArea($totalSqm);
+        $sqmPercent = $sqmPercentRaw > 0 ? min($sqmPercentRaw, $maxPercent) : 0.0;
+
+        $memberRaw = ($user->is_member && (float) ($exhibition->member_discount_percent ?? 0) > 0)
+            ? (float) $exhibition->member_discount_percent
+            : 0.0;
+        $memberPercent = $memberRaw > 0
+            ? min($memberRaw, max(0.0, $maxPercent - $sqmPercent))
+            : 0.0;
+
+        $partDiscountPercent = round(min($maxPercent, $sqmPercent + $memberPercent), 2);
+        $partTotal = $partDiscountPercent > 0
+            ? round($baseTotal * (1 - ($partDiscountPercent / 100)), 2)
+            : $baseTotal;
+
+        $fullPaymentPercentRaw = (float) ($exhibition->full_payment_discount_percent ?? 0);
+        $fullPaymentEffective = 0.0;
+        $fullDiscountPercent = $partDiscountPercent;
+        $fullTotal = $partTotal;
+
+        if ($applyFullPaymentDiscount && $fullPaymentPercentRaw > 0) {
+            $availableForFull = max(0.0, $maxPercent - $sqmPercent - $memberPercent);
+            $fullPaymentEffective = min($fullPaymentPercentRaw, $availableForFull);
+            $fullDiscountPercent = round(min($maxPercent, $sqmPercent + $memberPercent + $fullPaymentEffective), 2);
+            $fullTotal = round($baseTotal * (1 - ($fullDiscountPercent / 100)), 2);
+        }
+
+        return [
+            'booth_price' => round($boothPrice, 2),
+            'services_total' => round($servicesTotal, 2),
+            'extras_total' => round($extrasTotal, 2),
+            'base_total' => $baseTotal,
+            'sqm_discount_percent' => round($sqmPercent, 2),
+            'member_discount_percent' => round($memberPercent, 2),
+            'full_payment_discount_percent' => round($fullPaymentEffective, 2),
+            'discount_percent_part' => $partDiscountPercent,
+            'total_part' => $partTotal,
+            'discount_percent_full' => $fullDiscountPercent,
+            'total_full' => $fullTotal,
+            'posted_services' => $postedServices,
+            'included_item_extras' => $includedItemExtras,
+        ];
+    }
+
+    public function quoteForExhibition(Request $request, Exhibition $exhibition)
+    {
+        abort_unless(auth()->user()->can('Booking Management - Modify'), 403);
+
+        $request->validate([
+            'exhibitor_mode' => 'required|in:existing,new',
+            'user_id' => 'required_if:exhibitor_mode,existing|nullable|exists:users,id',
+            'new_exhibitor_email' => 'required_if:exhibitor_mode,new|nullable|email',
+            'booth_id' => 'required|exists:booths,id',
+            'booth_type' => 'required|in:Raw,Orphand',
+            'sides_open' => 'nullable|integer|min:1|max:4',
+            'payment_coverage' => 'required|in:none,initial,full',
+            'payment_mode' => 'nullable|string|max:50',
+            'services' => 'nullable|array',
+            'included_item_extras' => 'nullable|array',
+        ]);
+
+        $booth = Booth::where('id', $request->booth_id)
+            ->where('exhibition_id', $exhibition->id)
+            ->firstOrFail();
+
+        // For quote, we need a real user to know is_member and booth-user discount eligibility.
+        // If exhibitor_mode=new, we approximate is_member=false and ignore booth-user specific discount.
+        if ($request->input('exhibitor_mode') === 'existing') {
+            $user = User::findOrFail($request->user_id);
+        } else {
+            $user = new User([
+                'id' => 0,
+                'is_member' => false,
+            ]);
+        }
+
+        $sidesOpen = (int) $request->input('sides_open', $booth->sides_open ?? 1);
+        $sidesOpen = max(1, min(4, $sidesOpen));
+
+        $applyFull = $request->input('payment_coverage') === 'full';
+        $paymentMode = (string) $request->input('payment_mode', '');
+        $isOnline = in_array($paymentMode, ['online', 'upi', 'credit_card', 'net_banking'], true);
+        $quote = $this->computeBookingQuote(
+            $exhibition,
+            $booth,
+            $user,
+            $request->input('booth_type'),
+            $sidesOpen,
+            (array) ($request->input('services', [])),
+            (array) ($request->input('included_item_extras', [])),
+            $applyFull
+        );
+
+        // Discounted total corresponding to the current payment selection
+        $discountedTotal = $applyFull
+            ? (float) $quote['total_full']
+            : (float) $quote['total_part'];
+
+        $gateway = $isOnline ? round($discountedTotal * 2.5 / 100, 2) : 0.0;
+        $payableNow = round($discountedTotal + $gateway, 2);
+
+        $quote['gateway_charge'] = $gateway;
+        $quote['payable_now'] = $payableNow;
+
+        return response()->json(['ok' => true, 'quote' => $quote]);
+    }
     public function index(Request $request)
     {
         abort_unless(auth()->user()->can('Booking Management - View'), 403);
@@ -88,6 +257,364 @@ class BookingController extends Controller
         $bookings = $query->latest()->paginate(20)->appends($request->query());
 
         return view('admin.bookings.index', compact('bookings', 'exhibitions', 'availableStatuses'));
+    }
+
+    /**
+     * Show admin booking form to book a booth on behalf of an exhibitor for a specific exhibition.
+     */
+    public function createForExhibition(Exhibition $exhibition, Request $request)
+    {
+        abort_unless(auth()->user()->can('Booking Management - Modify'), 403);
+
+        $exhibition->load(['addonServices', 'boothSizes.items']);
+
+        // Load all booths for this exhibition that are currently available (not booked/cancelled)
+        $booths = Booth::where('exhibition_id', $exhibition->id)
+            ->where('is_available', true)
+            ->orderBy('name')
+            ->get();
+
+        // Basic list of exhibitor users (you can refine this by role if needed)
+        $users = User::orderBy('name')->get();
+
+        $preselectedBoothId = $request->query('booth_id');
+
+        // Build add-on services options: global services + exhibition-specific price (matched by name)
+        $services = Service::where('is_active', true)->orderBy('name')->get();
+        $addonPriceByName = $exhibition->addonServices
+            ->keyBy(function ($row) {
+                return mb_strtolower(trim((string) $row->item_name));
+            });
+
+        $addonServiceOptions = $services->map(function (Service $service) use ($addonPriceByName) {
+            $key = mb_strtolower(trim((string) $service->name));
+            $addon = $addonPriceByName->get($key);
+            $unitPrice = $addon ? (float) ($addon->price_per_quantity ?? 0) : 0.0;
+            return [
+                'service' => $service,
+                'unit_price' => $unitPrice,
+            ];
+        })->filter(function ($row) {
+            // Only show services that have an exhibition-specific price configured (>0)
+            return (float) ($row['unit_price'] ?? 0) > 0;
+        })->values();
+
+        // Included items per booth size for the create view JS
+        $boothSizeItems = [];
+        foreach ($exhibition->boothSizes as $size) {
+            $boothSizeItems[(string) $size->id] = collect($size->items ?? [])->map(function ($it) {
+                return [
+                    'id' => $it->id,
+                    'name' => $it->item_name,
+                    'price' => (float) ($it->price ?? 0),
+                ];
+            })->values()->all();
+        }
+
+        return view('admin.bookings.create', [
+            'exhibition' => $exhibition,
+            'booths' => $booths,
+            'users' => $users,
+            'preselectedBoothId' => $preselectedBoothId,
+            'boothSizes' => $exhibition->boothSizes,
+            'addonServiceOptions' => $addonServiceOptions,
+            'boothSizeItems' => $boothSizeItems,
+        ]);
+    }
+
+    /**
+     * Store a new booking created by admin on behalf of an exhibitor.
+     */
+    public function storeForExhibition(Request $request, Exhibition $exhibition)
+    {
+        abort_unless(auth()->user()->can('Booking Management - Modify'), 403);
+
+        $request->validate([
+            'exhibitor_mode' => 'required|in:existing,new',
+            'user_id' => 'required_if:exhibitor_mode,existing|nullable|exists:users,id',
+            'new_exhibitor_name' => 'required_if:exhibitor_mode,new|nullable|string|max:255',
+            'new_exhibitor_email' => 'required_if:exhibitor_mode,new|nullable|email|unique:users,email',
+            'new_exhibitor_phone' => 'nullable|string|max:50',
+            'new_exhibitor_company' => 'nullable|string|max:255',
+            'new_exhibitor_password' => 'required_if:exhibitor_mode,new|nullable|string|min:6',
+            'booth_id' => 'required|exists:booths,id',
+            'booth_type' => 'required|in:Raw,Orphand',
+            'sides_open' => 'nullable|integer|min:1|max:4',
+            'contact_email' => 'nullable|email',
+            'contact_number' => 'nullable|string|max:50',
+            'services' => 'nullable|array',
+            'services.*.service_id' => 'nullable|exists:services,id',
+            'services.*.quantity' => 'nullable|integer|min:0',
+            'services.*.unit_price' => 'nullable|numeric|min:0',
+            'services.*.name' => 'nullable|string|max:255',
+            'included_item_extras' => 'nullable|array',
+            'included_item_extras.*.item_id' => 'required_with:included_item_extras|exists:exhibition_booth_size_items,id',
+            'included_item_extras.*.quantity' => 'required_with:included_item_extras|integer|min:0',
+            'included_item_extras.*.unit_price' => 'required_with:included_item_extras|numeric|min:0',
+            'logo' => 'nullable|image|max:5120',
+            'payment_coverage' => 'required|in:none,initial,full',
+            'payment_mode' => 'required_if:payment_coverage,initial,full|nullable|string|max:50',
+        ]);
+
+        // Resolve exhibitor (existing or new)
+        if ($request->input('exhibitor_mode') === 'new') {
+            $user = User::create([
+                'name' => $request->new_exhibitor_name,
+                'email' => $request->new_exhibitor_email,
+                'phone' => $request->new_exhibitor_phone,
+                'company_name' => $request->new_exhibitor_company,
+                'is_active' => true,
+                'password' => $request->new_exhibitor_password,
+            ]);
+            // Assign exhibitor role if you have one configured
+            if (method_exists($user, 'assignRole')) {
+                try {
+                    $user->assignRole('Exhibitor');
+                } catch (\Throwable $e) {
+                    // ignore if role does not exist
+                }
+            }
+        } else {
+            $user = User::findOrFail($request->user_id);
+        }
+
+        DB::beginTransaction();
+        try {
+            $booth = Booth::where('id', $request->booth_id)
+                ->where('exhibition_id', $exhibition->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if (!$booth->is_available) {
+                DB::rollBack();
+                return back()->withInput()->with('error', 'Selected booth is no longer available. Please choose another booth.');
+            }
+
+            $sidesOpen = (int) $request->input('sides_open', $booth->sides_open ?? 1);
+            $sidesOpen = max(1, min(4, $sidesOpen));
+
+            $applyFull = $request->input('payment_coverage') === 'full';
+            $quote = $this->computeBookingQuote(
+                $exhibition,
+                $booth,
+                $user,
+                $request->input('booth_type', $booth->booth_type ?? 'Raw'),
+                $sidesOpen,
+                (array) ($request->input('services', [])),
+                (array) ($request->input('included_item_extras', [])),
+                $applyFull
+            );
+
+            $totalAmount = $applyFull ? (float) $quote['total_full'] : (float) $quote['total_part'];
+            $discountPercent = $applyFull ? (float) $quote['discount_percent_full'] : (float) $quote['discount_percent_part'];
+            $effectiveSqmPercent = (float) $quote['sqm_discount_percent'];
+            $effectiveMemberPercent = (float) $quote['member_discount_percent'];
+            $includedItemExtras = $quote['included_item_extras'] ?? [];
+            $postedServices = $quote['posted_services'] ?? [];
+
+            $discountType = null;
+            if ($applyFull && (float) ($quote['full_payment_discount_percent'] ?? 0) > 0) {
+                $discountType = 'full_payment';
+            }
+            if ($effectiveSqmPercent > 0 && $effectiveMemberPercent > 0) {
+                $discountType = $applyFull ? 'sqm_member_full' : 'sqm_member';
+            } elseif ($effectiveSqmPercent > 0) {
+                $discountType = $applyFull ? 'sqm_full' : 'sqm';
+            } elseif ($effectiveMemberPercent > 0) {
+                $discountType = $applyFull ? 'member_full' : 'member';
+            } elseif ($applyFull) {
+                $discountType = 'full_payment';
+            }
+
+            // Handle logo upload
+            $logoPath = null;
+            if ($request->hasFile('logo')) {
+                $logoPath = $request->file('logo')->store('bookings/logos', 'public');
+            }
+
+            $contactEmail = $request->input('contact_email') ?: $user->email;
+            $contactNumber = $request->input('contact_number') ?: ($user->phone ?? '');
+
+            $booking = Booking::create([
+                'exhibition_id' => $exhibition->id,
+                'user_id' => $user->id,
+                'channel' => 'admin',
+                'created_by_admin_id' => auth()->id(),
+                'booth_id' => $booth->id,
+                'selected_booth_ids' => [$booth->id],
+                'booking_number' => 'BK' . now()->format('YmdHis') . rand(100, 999),
+                'status' => 'confirmed',
+                'approval_status' => 'approved',
+                'total_amount' => $totalAmount,
+                'paid_amount' => 0,
+                'discount_percent' => $discountPercent,
+                'discount_type' => $discountType,
+                'member_discount_percent' => $effectiveMemberPercent > 0 ? round($effectiveMemberPercent, 2) : null,
+                'sqm_discount_percent' => $effectiveSqmPercent > 0 ? round($effectiveSqmPercent, 2) : null,
+                'coupon_discount_percent' => null,
+                'contact_emails' => $contactEmail ? [$contactEmail] : [],
+                'contact_numbers' => $contactNumber ? [$contactNumber] : [],
+                'included_item_extras' => !empty($includedItemExtras) ? $includedItemExtras : null,
+                'logo' => $logoPath,
+            ]);
+
+            // Persist add-on services (booking_services)
+            if (!empty($postedServices)) {
+                foreach ($postedServices as $serviceRow) {
+                    $serviceId = $serviceRow['service_id'] ?? null;
+                    if (!$serviceId) {
+                        continue;
+                    }
+                    BookingService::create([
+                        'booking_id' => $booking->id,
+                        'service_id' => $serviceId,
+                        'quantity' => $serviceRow['quantity'],
+                        'unit_price' => $serviceRow['unit_price'],
+                        'total_price' => $serviceRow['total_price'],
+                    ]);
+                }
+            }
+
+            // Reserve booth immediately
+            $booth->update([
+                'is_available' => false,
+            ]);
+
+            // Create a matching booth request entry for tracking
+            BoothRequest::create([
+                'exhibition_id' => $exhibition->id,
+                'user_id' => $user->id,
+                'request_type' => 'booking',
+                'booth_ids' => [$booth->id],
+                'description' => 'Admin booking created for booth #' . ($booth->name ?? $booth->id),
+                'status' => 'approved',
+                'approved_by' => auth()->id(),
+                'approved_at' => now(),
+                'request_data' => [
+                    'booking_id' => $booking->id,
+                    'channel' => 'admin',
+                ],
+            ]);
+
+            // Create payments
+            $paymentCoverage = $request->input('payment_coverage', 'none');
+            $paymentMode = $request->input('payment_mode') ?: 'online';
+            // Map UI payment mode options to DB enum values
+            if (in_array($paymentMode, ['online', 'upi', 'credit_card', 'net_banking'], true)) {
+                $paymentMethodEnum = 'online';
+            } elseif (in_array($paymentMode, ['cash', 'cheque', 'bank_transfer', 'other'], true)) {
+                $paymentMethodEnum = 'offline';
+            } else {
+                $paymentMethodEnum = 'online';
+            }
+            $isGatewayOnline = in_array($paymentMode, ['online', 'upi', 'credit_card', 'net_banking'], true);
+
+            if ($paymentCoverage === 'full') {
+                // Single completed payment for full amount received
+                $gatewayCharge = $isGatewayOnline ? round(((float) $totalAmount * 2.5) / 100, 2) : 0.0;
+                \App\Models\Payment::create([
+                    'booking_id' => $booking->id,
+                    'user_id' => $user->id,
+                    'payment_number' => 'PM' . now()->format('YmdHis') . str_pad($booking->id, 6, '0', STR_PAD_LEFT) . str_pad(1, 2, '0', STR_PAD_LEFT) . rand(10, 99),
+                    'payment_type' => 'full',
+                    'payment_method' => $paymentMethodEnum,
+                    'status' => 'completed',
+                    'approval_status' => 'approved',
+                    'amount' => round($totalAmount, 2),
+                    'gateway_charge' => $gatewayCharge,
+                    'due_date' => now(),
+                ]);
+                $booking->update(['paid_amount' => round($totalAmount, 2)]);
+            } else {
+                // Part payments schedule (same logic as frontend store)
+                $paymentSchedules = $exhibition->paymentSchedules()->orderBy('part_number', 'asc')->get();
+
+                $gatewayFeePercent = 2.5;
+                $totalGatewayFee = ($totalAmount * $gatewayFeePercent) / 100;
+
+                $paymentRecords = [];
+
+                if ($paymentSchedules->isEmpty()) {
+                    $initialPercent = $exhibition->initial_payment_percent ?? 10;
+                    $initialAmount = ($totalAmount * $initialPercent) / 100;
+
+                    $paymentRecords[] = [
+                        'payment_type' => 'initial',
+                        'amount' => round($initialAmount, 2),
+                        'due_date' => now()->addDays(7),
+                    ];
+                } else {
+                    foreach ($paymentSchedules as $schedule) {
+                        $paymentAmount = ($totalAmount * $schedule->percentage) / 100;
+                        $paymentType = $schedule->part_number == 1 ? 'initial' : 'installment';
+
+                        $paymentRecords[] = [
+                            'payment_type' => $paymentType,
+                            'amount' => round($paymentAmount, 2),
+                            'due_date' => $schedule->due_date,
+                        ];
+                    }
+                }
+
+                $paymentCount = count($paymentRecords);
+                if ($paymentCount > 0 && $totalGatewayFee > 0) {
+                    $baseFeePerPayment = floor($totalGatewayFee * 100 / $paymentCount) / 100;
+                    $remainingFee = $totalGatewayFee - ($baseFeePerPayment * $paymentCount);
+                    $remainingFeeCents = round($remainingFee * 100);
+
+                    foreach ($paymentRecords as $index => &$record) {
+                        $gatewayCharge = $baseFeePerPayment;
+                        if ($remainingFeeCents > 0) {
+                            $gatewayCharge += 0.01;
+                            $remainingFeeCents--;
+                        }
+                        $record['gateway_charge'] = round($gatewayCharge, 2);
+                    }
+                    unset($record);
+                } else {
+                    foreach ($paymentRecords as &$record) {
+                        $record['gateway_charge'] = 0;
+                    }
+                    unset($record);
+                }
+
+                foreach ($paymentRecords as $index => $record) {
+                    $paymentType = $record['payment_type'];
+                    $partNumber = $paymentSchedules->isEmpty() ? 1 : ($index + 1);
+
+                    $payment = \App\Models\Payment::create([
+                        'booking_id' => $booking->id,
+                        'user_id' => $user->id,
+                        'payment_number' => 'PM' . now()->format('YmdHis') . str_pad($booking->id, 6, '0', STR_PAD_LEFT) . str_pad($partNumber, 2, '0', STR_PAD_LEFT) . rand(10, 99),
+                        'payment_type' => $paymentType,
+                            'payment_method' => $paymentMethodEnum,
+                        'status' => 'pending',
+                        'approval_status' => 'pending',
+                        'amount' => $record['amount'],
+                        'gateway_charge' => $record['gateway_charge'],
+                        'due_date' => $record['due_date'],
+                    ]);
+
+                    if ($paymentCoverage === 'initial' && $index === 0) {
+                        $payment->update([
+                            'status' => 'completed',
+                            'approval_status' => 'approved',
+                            'payment_method' => $paymentMethodEnum,
+                            'gateway_charge' => $isGatewayOnline ? (float) $payment->gateway_charge : 0.0,
+                        ]);
+                        $booking->update(['paid_amount' => (float) $payment->amount]);
+                    }
+                }
+            }
+
+            DB::commit();
+
+            return redirect()->route('admin.bookings.show', $booking->id)
+                ->with('success', 'Booking created successfully on behalf of the exhibitor.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withInput()->with('error', 'Failed to create booking: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -303,6 +830,21 @@ class BookingController extends Controller
                     'reference_id' => $booking->id,
                     'description' => 'Cancellation credit for booking #' . $booking->booking_number,
                 ]);
+            } elseif ($request->cancellation_type === 'refund') {
+                // If refunding less than paid, record the retained (discounted) portion as a wallet debit for traceability
+                $paidAmount = (float) $booking->paid_amount;
+                $discountedPortion = max(0.0, $paidAmount - (float) $refundAmount);
+                if ($discountedPortion > 0) {
+                    Wallet::create([
+                        'user_id' => $booking->user_id,
+                        'balance' => ($booking->user->wallet_balance ?? 0) - $discountedPortion,
+                        'transaction_type' => 'debit',
+                        'amount' => $discountedPortion,
+                        'reference_type' => 'booking_cancellation_discount',
+                        'reference_id' => $booking->id,
+                        'description' => 'Retained discount on refund for booking #' . $booking->booking_number,
+                    ]);
+                }
             }
             
             // Free up the booth
@@ -340,6 +882,87 @@ class BookingController extends Controller
         
         return redirect()->route('admin.bookings.cancellations')
             ->with('success', 'Cancellation rejected.');
+    }
+
+    /**
+     * Apply a special admin discount on an existing booking.
+     *
+     * - If booking is not fully paid: reduce outstanding amount logically (admin will reconcile payments).
+     * - If booking is fully paid: record a wallet credit so that the discounted portion can be tracked for future refunds.
+     */
+    public function applySpecialDiscount(Request $request, $id)
+    {
+        abort_unless(auth()->user()->can('Booking Management - Modify'), 403);
+
+        $booking = Booking::with('user')->findOrFail($id);
+
+        $request->validate([
+            'special_discount_type' => 'required|in:fixed,percent',
+            'special_discount_value' => 'required|numeric|min:0.01',
+            'special_discount_note' => 'nullable|string|max:1000',
+        ]);
+
+        $type = $request->input('special_discount_type');
+        $value = (float) $request->input('special_discount_value');
+
+        $baseAmount = (float) $booking->total_amount;
+        if ($baseAmount <= 0) {
+            return back()->with('error', 'Cannot apply special discount on zero amount booking.');
+        }
+
+        $discountAmount = $type === 'percent'
+            ? round($baseAmount * ($value / 100), 2)
+            : round(min($value, $baseAmount), 2);
+
+        if ($discountAmount <= 0) {
+            return back()->with('error', 'Calculated special discount amount is zero. Please adjust the value.');
+        }
+
+        DB::beginTransaction();
+        try {
+            $booking->special_discount_type = $type;
+            $booking->special_discount_value = $value;
+            $booking->special_discount_note = $request->input('special_discount_note');
+
+            // If not fully paid, reduce total_amount but never below paid_amount
+            if (!$booking->isFullyPaid()) {
+                $currentTotal = (float) $booking->total_amount;
+                $currentPaid = (float) $booking->paid_amount;
+                $maxReducible = max(0.0, $currentTotal - $currentPaid);
+                $effectiveDiscount = min($discountAmount, $maxReducible);
+
+                if ($effectiveDiscount <= 0) {
+                    DB::rollBack();
+                    return back()->with('error', 'Special discount cannot be applied because it would make paid amount exceed total.');
+                }
+
+                $booking->special_discount_amount = $effectiveDiscount;
+                $booking->total_amount = round($currentTotal - $effectiveDiscount, 2);
+            } else {
+                $booking->special_discount_amount = $discountAmount;
+                // Fully paid: record wallet credit for this special discount so it can be consumed against future refunds.
+                if ($booking->user) {
+                    Wallet::create([
+                        'user_id' => $booking->user_id,
+                        'balance' => ($booking->user->wallet_balance ?? 0) + $discountAmount,
+                        'transaction_type' => 'credit',
+                        'amount' => $discountAmount,
+                        'reference_type' => 'booking_special_discount',
+                        'reference_id' => $booking->id,
+                        'description' => 'Special discount credited for booking #' . $booking->booking_number,
+                    ]);
+                }
+            }
+
+            $booking->save();
+
+            DB::commit();
+
+            return back()->with('success', 'Special discount applied successfully.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return back()->with('error', 'Failed to apply special discount: ' . $e->getMessage());
+        }
     }
 
     public function show($id)

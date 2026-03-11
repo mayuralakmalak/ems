@@ -130,7 +130,13 @@
                         <strong>Total Amount:</strong><br>
                         ₹{{ number_format($booking->total_amount, 0) }}
                         @if($discountAmount > 0)
-                            <br><small class="text-success">Special Discount ({{ number_format($booking->discount_percent, 2) }}%): -₹{{ number_format($discountAmount, 0) }}</small>
+                            <br><small class="text-success">Discounts ({{ number_format($booking->discount_percent, 2) }}%): -₹{{ number_format($discountAmount, 0) }}</small>
+                        @endif
+                        @if($booking->special_discount_amount)
+                            <br><small class="text-primary">
+                                Special Discount ({{ $booking->special_discount_type === 'percent' ? number_format($booking->special_discount_value, 2) . '%' : 'Fixed' }}):
+                                -₹{{ number_format($booking->special_discount_amount, 0) }}
+                            </small>
                         @endif
                     </div>
                     <div class="col-md-6 mb-3">
@@ -276,6 +282,60 @@
                         </div>
                     @endif
                 @endif
+            </div>
+        </div>
+
+        {{-- Special Discount (Admin) --}}
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="bi bi-percent me-2"></i>Special Discount</h5>
+            </div>
+            <div class="card-body">
+                @if($booking->special_discount_amount)
+                    <div class="mb-3">
+                        <strong>Applied Special Discount:</strong><br>
+                        Type:
+                        @if($booking->special_discount_type === 'percent')
+                            {{ number_format($booking->special_discount_value, 2) }}%
+                        @else
+                            Fixed
+                        @endif
+                        <br>
+                        Amount: ₹{{ number_format($booking->special_discount_amount, 2) }}<br>
+                        @if($booking->special_discount_note)
+                            <small class="text-muted">Note: {{ $booking->special_discount_note }}</small>
+                        @endif
+                    </div>
+                    <hr>
+                @endif
+
+                <form action="{{ route('admin.bookings.apply-special-discount', $booking->id) }}" method="POST" class="row g-3">
+                    @csrf
+                    <div class="col-md-4">
+                        <label class="form-label">Discount Type</label>
+                        <select name="special_discount_type" class="form-select form-select-sm" required>
+                            <option value="">Select</option>
+                            <option value="fixed">Fixed Amount</option>
+                            <option value="percent">Percentage</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Value</label>
+                        <input type="number" name="special_discount_value" step="0.01" min="0.01" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label">Admin Note (optional)</label>
+                        <textarea name="special_discount_note" rows="2" class="form-control form-control-sm" placeholder="Reason or internal note for this special discount"></textarea>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-sm btn-info">
+                            <i class="bi bi-check-circle me-1"></i>Apply Special Discount
+                        </button>
+                        <small class="text-muted ms-2 d-block">
+                            If booking is fully paid, the discount will be added to exhibitor wallet for tracking. If not fully paid, it reduces outstanding amount.
+                        </small>
+                    </div>
+                </form>
             </div>
         </div>
 
