@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\WalletRefundApprovedMail;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletRefundRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class WalletRefundController extends Controller
 {
@@ -76,6 +79,23 @@ class WalletRefundController extends Controller
             $refundRequest->save();
 
             DB::commit();
+
+            // Email exhibitor
+            try {
+                Mail::to($refundRequest->user->email)->send(new WalletRefundApprovedMail($refundRequest, false));
+            } catch (\Throwable $e) {
+                Log::error('Failed to send wallet refund approved email to user: ' . $e->getMessage());
+            }
+
+            // Email all admins
+            $admins = User::role('Admin')->orWhere('id', 1)->get();
+            foreach ($admins as $admin) {
+                try {
+                    Mail::to($admin->email)->send(new WalletRefundApprovedMail($refundRequest, true));
+                } catch (\Throwable $e) {
+                    Log::error('Failed to send wallet refund approved email to admin: ' . $e->getMessage());
+                }
+            }
 
             return redirect()->route('admin.wallet-refunds.index')->with('success', 'Refund request approved and wallet updated.');
         } catch (\Throwable $e) {

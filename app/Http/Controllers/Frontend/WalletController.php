@@ -3,9 +3,13 @@
 namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
+use App\Mail\WalletRefundRequestSubmittedMail;
+use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletRefundRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class WalletController extends Controller
 {
@@ -67,13 +71,23 @@ class WalletController extends Controller
             return redirect()->route('wallet.index')->with('error', 'Refund has already been requested or processed for this discount.');
         }
 
-        WalletRefundRequest::create([
+        $refundRequest = WalletRefundRequest::create([
             'user_id' => auth()->id(),
             'wallet_id' => $wallet->id,
             'amount' => $wallet->amount,
             'status' => 'pending',
             'reason' => $request->input('reason'),
         ]);
+
+        // Notify all admins by email
+        $admins = User::role('Admin')->orWhere('id', 1)->get();
+        foreach ($admins as $admin) {
+            try {
+                Mail::to($admin->email)->send(new WalletRefundRequestSubmittedMail($refundRequest));
+            } catch (\Throwable $e) {
+                Log::error('Failed to send wallet refund request email to admin: ' . $e->getMessage());
+            }
+        }
 
         return redirect()->route('wallet.index')->with('success', 'Your refund request has been submitted. Admin will review it shortly.');
     }
